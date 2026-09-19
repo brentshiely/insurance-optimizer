@@ -37,6 +37,10 @@ body{background:var(--ground);color:var(--ink);font:16px/1.5 "Avenir Next","Sego
 .bar i{display:block;height:100%;background:var(--accent);transition:width .25s ease}
 .pad{padding:28px;display:flex;flex-direction:column;gap:20px;min-height:380px}
 @media (max-width:480px){.pad{padding:20px}}
+.caco{display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;padding:6px 4px 2px;color:var(--muted)}
+.caco svg{width:34px;height:34px;display:block;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.caco span{display:block}
+@media (max-width:480px){.caco{gap:10px 16px}.caco svg{width:28px;height:28px}}
 h1{font-size:clamp(24px,4vw,32px);line-height:1.15;margin:0;text-wrap:balance;font-weight:700}
 h2{font-size:20px;line-height:1.25;margin:0;text-wrap:balance}
 h3.pt{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -151,6 +155,21 @@ var GRID=[{"x":0,"y":0,"key":"AK"},{"x":11,"y":0,"key":"ME"},{"x":9,"y":1,"key":
 function usMap(){
   return '<div class="usmap" role="group" aria-label="Choose your state">'+GRID.map(function(t){
     return '<button style="grid-column:'+(t.x+1)+';grid-row:'+(t.y+1)+'" class="'+(t.key===S.state?'sel':'')+'" data-state="'+t.key+'" title="'+t.key+'" aria-label="'+t.key+'">'+t.key+'</button>';
+  }).join("")+'</div>';
+}
+var ICONS={
+  car:'<path d="M5 16.5V12l2.4-5h9.2L19 12v4.5"/><path d="M5 12h14"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/><path d="M9.1 17h5.8"/>',
+  home:'<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/>',
+  key:'<circle cx="8" cy="15" r="3.6"/><path d="M10.6 12.4 20 3M17.2 5.8l2.4 2.4M14.4 8.6l2 2"/>',
+  boat:'<path d="M3 15h18l-3 4.5H6z"/><path d="M12 15V3.5"/><path d="M12 5.5 18.5 13H12"/>',
+  heart:'<path d="M12 20s-7.5-4.6-7.5-10.2A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7.5 2.2C19.5 15.4 12 20 12 20z"/>',
+  umbrella:'<path d="M3 12.5a9 9 0 0 1 18 0H3z"/><path d="M12 12.5v5.5a2 2 0 0 0 4 0M12 3.5v1"/>'
+};
+// The "cacophony": a household's policies, drawn as they usually live, scattered and never lined up.
+var CACO=[["car",-11,2],["home",7,-5],["key",-6,6],["boat",12,-2],["heart",-9,4],["umbrella",5,-6]];
+function cacophony(){
+  return '<div class="caco" aria-hidden="true">'+CACO.map(function(c){
+    return '<span style="transform:rotate('+c[1]+'deg) translateY('+c[2]+'px)"><svg viewBox="0 0 24 24">'+ICONS[c[0]]+'</svg></span>';
   }).join("")+'</div>';
 }
 var BASE=["home","tenure","dep","veh","toys","qualify","insight"];
@@ -377,8 +396,9 @@ function render(){
   var id=order()[S.i],h="";
   bar.style.width=(S.i/(order().length-1)*100)+"%";
   if(id==="home"){
-    h='<h1>See where you are overspending, underprotected, or paying twice.</h1>'+
-      '<p class="sub">A few taps to a first look. We never ask who you are.</p>'+
+    h=cacophony()+
+      '<h1>Your insurance has never been looked at as a whole. We built the thing that does.</h1>'+
+      '<p class="sub">No name, no email, no sales call. Just your own numbers, put together for once.</p>'+
       '<h2>Which state are you in?</h2>'+
       usMap()+
       '<p><label class="link" for="st">Or pick from a list</label> <select id="st" aria-label="State"><option value=""'+(S.state===""?' selected':'')+'>Choose a state…</option>'+STATES.map(function(s){return '<option'+(s===S.state?' selected':'')+'>'+s+'</option>'}).join("")+'</select></p>'+

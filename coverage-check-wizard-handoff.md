@@ -57,6 +57,13 @@ Whatever gets extracted should pre-fill the relevant policy's fields (dwelling c
 - **Single-file architecture** should probably be split into a proper multi-file project once PDF.js/Tesseract.js get added, for maintainability.
 - **Mobile testing** — the map and sticky footer were designed with mobile tap-targets in mind, but this has not been tested on real devices, only reasoned about.
 
+## Immediate open item: entry-screen copy + iconography
+
+The entry screen's headline is being reworked and was mid-edit at hand-off time. Two concrete pieces to finish:
+
+1. **Copy must be accurate.** A draft headline — "Your insurance has never been looked at as a whole. We built the thing that does." with subline "No forms. No agent. No name required." — was flagged as false: the tool absolutely has forms (the per-policy field-entry screens). The honest claim is about identity, not form-filling: no name, no email, no address, no sales call. Replace the subline with something like "No name, no email, no sales call — just your own numbers, put together for once." (or equivalent), and don't reintroduce "no forms" language anywhere else in the copy pass.
+2. **Iconography for the "cacophony" of insurance types.** The idea, from Brent directly: use simple icons to visually communicate the scattered, never-looked-at-together nature of a household's separate policies (auto, home, renters, boat, life, umbrella), probably as a loosely scattered/rotated cluster near the entry headline, not a tidy aligned row. A starting scaffold already exists in `coverage-check-wizard.html`: a `var ICONS={...}` object with simple inline-SVG line-icon paths (car, home, key/renters, boat, heart/life, umbrella) and a `function cacophony(){...}` that renders them as a scattered cluster with slight per-icon rotation. This scaffold is not yet wired into the `id==="home"` render branch — it needs to be called and inserted into that screen's markup (near the headline, above or around the state picker), and the icon set/rotation values are a first pass, not final — feel free to refine for visual balance. Keep icons theme-aware (`currentColor`/`var(--muted)` or similar so they adapt to light/dark) and keep them simple line icons consistent with the rest of the UI's restrained visual style, not literal/detailed illustrations.
+
 ## Deployment target
 
 Cloudflare Pages/Workers on Brent's own account. No specific project/zone has been set up yet — that's part of this handoff's scope, not already done.
