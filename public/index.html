@@ -150,7 +150,77 @@ td:last-child{text-align:right}
 <script>
 (function(){
 var STATES="AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ").sort();
+var STATE_NAMES={AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",DC:"District of Columbia",FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"};
+var STATES_BY_NAME=STATES.slice().sort(function(a,b){return STATE_NAMES[a]<STATE_NAMES[b]?-1:1});
+function stateName(c){return STATE_NAMES[c]||c}
 var NOFAULT=["FL","HI","KS","KY","MA","MI","MN","NJ","NY","ND","PA","UT"];
+// State data tables. Each has a source in SRC; do not add a table without one.
+var WINDSTATES=["AL","CT","DE","FL","GA","HI","LA","ME","MD","MA","MS","NJ","NY","NC","PA","RI","SC","TX","VA","DC"];
+var LASTRESORT_STATES=["AL","CA","CT","DE","DC","FL","GA","HI","IL","IN","IA","KS","KY","LA","MD","MA","MI","MN","MS","MO","NJ","NM","NY","OH","OR","PA","RI","SC","TX","VA","WA","WV","WI"];
+var EQ_STATES=["AK","AR","CA","HI","ID","IL","KY","MO","MT","NV","OR","SC","TN","UT","WA","WY"];
+var NEWMADRID_STATES=["AR","IL","KY","MO","TN"];
+var UM_MANDATORY_STATES=["CT","DC","IL","ME","MD","MN","MO","NE","NJ","NY","NC","ND","OR","SC","SD","VT","VA","WV","WI"];
+var PIP_MIN={FL:["$10,000","flPip"],NY:["$50,000","nyPip"],MN:["$40,000","mnPip"]};
+var BOAT_MANDATE_STATES={AR:{min:50000,text:"at least $50,000 of liability coverage for any jet ski or a motorboat over 50 horsepower",src:"arBoat"},UT:{min:50000,text:"liability coverage of at least $25,000 per person and $50,000 per accident for any jet ski or a motorboat over 50 horsepower",src:"utBoat"}};
+// State paid-disability and paid-medical-leave programs, as of Sept 2026. Maryland's starts paying in 2028 and is left out on purpose.
+var STATE_DI={
+  CA:{name:"State Disability Insurance",dur:"up to 52 weeks",amt:"70% to 90% of your wages, up to $1,765 a week",src:"caSdi"},
+  NY:{name:"disability benefits coverage",dur:"up to 26 weeks",amt:"half your wages, capped at $170 a week",src:"nyDbl"},
+  NJ:{name:"Temporary Disability Insurance",dur:"up to 26 weeks",amt:"85% of your wages, up to $1,119 a week",src:"njTdi"},
+  HI:{name:"Temporary Disability Insurance",dur:"up to 26 weeks",amt:"58% of your wages, up to $871 a week",src:"hiTdi"},
+  RI:{name:"Temporary Disability Insurance",dur:"up to 30 weeks",amt:"up to $1,150 a week",src:"riTdi"},
+  MN:{name:"Paid Leave",dur:"up to 12 weeks",amt:"up to $1,423 a week",src:"mnPl"},
+  DE:{name:"Paid Leave",dur:"up to 6 weeks in any two years",amt:"80% of your wages, up to $900 a week",src:"dePl"},
+  ME:{name:"Paid Family and Medical Leave",dur:"up to 12 weeks",amt:"most of your wages, capped at the state average wage",src:"mePl"},
+  CO:{name:"FAMLI leave",dur:"up to 12 weeks",amt:"",src:"stdGuide"},
+  CT:{name:"Paid Leave",dur:"up to 12 weeks",amt:"up to $1,016 a week",src:"stdGuide"},
+  DC:{name:"Paid Family Leave",dur:"up to 12 weeks",amt:"up to $1,190 a week",src:"stdGuide"},
+  MA:{name:"Paid Family and Medical Leave",dur:"up to 20 weeks",amt:"up to $1,230 a week",src:"stdGuide"},
+  OR:{name:"Paid Leave Oregon",dur:"up to 12 weeks",amt:"",src:"stdGuide"},
+  WA:{name:"Paid Family and Medical Leave",dur:"up to 12 weeks",amt:"up to $1,647 a week",src:"stdGuide"}
+};
+var SRC={
+  caSdi:{src:"California EDD",url:"https://edd.ca.gov/en/disability/disability_insurance/"},
+  nyDbl:{src:"NY Workers' Compensation Board",url:"https://www.wcb.ny.gov/content/main/DisabilityBenefits/what-are-disability-benefits.jsp"},
+  njTdi:{src:"NJ Dept. of Labor",url:"https://www.nj.gov/labor/myleavebenefits/worker/tdi/"},
+  hiTdi:{src:"Hawaii Dept. of Labor",url:"https://labor.hawaii.gov/dcd/home/about-tdi/"},
+  riTdi:{src:"RI Dept. of Labor and Training",url:"https://dlt.ri.gov/press-releases/maximum-weekly-benefit-amounts-unemployment-and-temporary-disability-insurance-4"},
+  mnPl:{src:"The Standard, Minnesota Paid Leave",url:"https://www.standard.com/businesses-organizations/workplace-benefits/paid-family-medical-leave/states-paid-family-medical/minnesota"},
+  dePl:{src:"Delaware Dept. of Labor",url:"https://labor.delaware.gov/delaware-paid-leave-is-coming/"},
+  mePl:{src:"Maine Dept. of Labor",url:"https://www.maine.gov/labor/news_events/article.shtml?id=13340124"},
+  stdGuide:{src:"The Standard, 2026 state leave guide",url:"https://www.standard.com/eforms/19866.pdf"},
+  ltdGap:{src:"Guardian",url:"https://www.guardianlife.com/paid-family-medical-leave/how-short-term-disability-complements-pfml"},
+  arBoat:{src:"Ark. Code \u00a727-101-207",url:"https://law.onecle.com/arkansas/title-27/27-101-207.html"},
+  utBoat:{src:"Utah Code \u00a731A-22-1503",url:"https://le.utah.gov/xcode/Title31A/Chapter22/C31A-22-S1503_1800010118000101.pdf"},
+  boatHome:{src:"ValuePenguin",url:"https://www.valuepenguin.com/does-homeowners-insurance-cover-boats-and-watercraft"},
+  boatIII:{src:"Insurance Information Institute",url:"https://www.iii.org/article/boat-insurance-and-safety"},
+  moto:{src:"ValuePenguin",url:"https://www.valuepenguin.com/do-you-need-motorcycle-insurance"},
+  rv:{src:"Progressive",url:"https://www.progressive.com/answers/state-rv-insurance-requirements/"},
+  ebike:{src:"Progressive",url:"https://www.progressive.com/answers/do-i-need-ebike-insurance/"},
+  eqExcluded:{src:"Insurance Information Institute",url:"https://www.iii.org/article/earthquake-insurance-for-homeowners"},
+  eqStates:{src:"USGS via Insurance Journal",url:"https://www.insurancejournal.com/news/national/2014/07/20/335281.htm"},
+  newMadrid:{src:"Illinois Emergency Management Agency",url:"https://iemaohs.illinois.gov/preparedness/earthquake-newmadrid.html"},
+  moTakeup:{src:"Missouri Dept. of Commerce and Insurance",url:"https://dci.mo.gov/node/2486"},
+  ceaDed:{src:"California Earthquake Authority",url:"https://www.earthquakeauthority.com/california-earthquake-insurance-policies/homeowners/coverages-and-deductibles"},
+  ceaDedTip:{src:"California Earthquake Authority",url:"https://portal.earthquakeauthority.com/sales-tip-ceas-deductible"},
+  caOffer:{src:"Cal. Ins. Code \u00a710081",url:"https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=INS&sectionNum=10081."},
+  um:{src:"Insurance Information Institute",url:"https://www.iii.org/article/background-on-compulsory-auto-uninsured-motorists"},
+  uninsured:{src:"Insurance Research Council via III",url:"https://www.iii.org/fact-statistic/facts-statistics-uninsured-motorists"},
+  nofault:{src:"Insurance Information Institute",url:"https://www.iii.org/article/background-on-no-fault-auto-insurance"},
+  flPip:{src:"Fla. Stat. 627.736",url:"http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0600-0699/0627/Sections/0627.736.html"},
+  nyPip:{src:"NY Dept. of Financial Services",url:"https://www.dfs.ny.gov/faqs/consumer-auto/how-much-auto-insurance-must-i-carry"},
+  mnPip:{src:"Minn. Stat. 65B.44",url:"https://www.revisor.mn.gov/statutes/cite/65B.44"},
+  miPip:{src:"Michigan Dept. of Insurance and Financial Services",url:"https://www.michigan.gov/autoinsurance/choosing-coverage/choosing-pip-med-coverage"},
+  medpay:{src:"Insurance Journal",url:"https://www.insurancejournal.com/news/east/2026/09/15/885119.htm"},
+  wind:{src:"Insurance Information Institute",url:"https://www.iii.org/article/background-on-hurricane-and-windstorm-deductibles"},
+  windFL:{src:"Florida Dept. of Financial Services",url:"https://www.myfloridacfo.com/division/consumers/consumerprotections/floridashurricanedeductible"},
+  lastResort:{src:"Insurance Information Institute",url:"https://www.iii.org/article/what-if-i-cant-get-coverage"},
+  caFair:{src:"California FAIR Plan",url:"https://www.cfpnet.com/difference-in-conditions-dic/"},
+  flCitizens:{src:"Citizens Property Insurance",url:"https://www.citizensfla.com/-/20211005-inflation-factor-adjustments-pl"},
+  laCitizens:{src:"Louisiana Citizens",url:"https://www.lacitizens.com/claims-center/frequently-asked-questions"},
+  twia:{src:"Texas Windstorm Insurance Association",url:"https://www.twia.org/inside-a-policy/"}
+};
+function cite(f,key){ f.src=SRC[key].src; f.url=SRC[key].url; return f }
 var GRID=[{"x":0,"y":0,"key":"AK"},{"x":11,"y":0,"key":"ME"},{"x":9,"y":1,"key":"VT"},{"x":10,"y":1,"key":"NH"},{"x":11,"y":1,"key":"MA"},{"x":1,"y":2,"key":"WA"},{"x":2,"y":2,"key":"MT"},{"x":3,"y":2,"key":"ND"},{"x":4,"y":2,"key":"SD"},{"x":5,"y":2,"key":"MN"},{"x":6,"y":2,"key":"WI"},{"x":7,"y":2,"key":"MI"},{"x":9,"y":2,"key":"NY"},{"x":10,"y":2,"key":"CT"},{"x":11,"y":2,"key":"RI"},{"x":1,"y":3,"key":"OR"},{"x":2,"y":3,"key":"ID"},{"x":3,"y":3,"key":"WY"},{"x":4,"y":3,"key":"NE"},{"x":5,"y":3,"key":"IA"},{"x":6,"y":3,"key":"IL"},{"x":7,"y":3,"key":"IN"},{"x":8,"y":3,"key":"OH"},{"x":9,"y":3,"key":"PA"},{"x":10,"y":3,"key":"NJ"},{"x":0,"y":4,"key":"CA"},{"x":1,"y":4,"key":"NV"},{"x":2,"y":4,"key":"UT"},{"x":3,"y":4,"key":"CO"},{"x":4,"y":4,"key":"KS"},{"x":5,"y":4,"key":"MO"},{"x":6,"y":4,"key":"KY"},{"x":7,"y":4,"key":"WV"},{"x":8,"y":4,"key":"DC"},{"x":9,"y":4,"key":"MD"},{"x":10,"y":4,"key":"DE"},{"x":2,"y":5,"key":"AZ"},{"x":3,"y":5,"key":"NM"},{"x":4,"y":5,"key":"OK"},{"x":5,"y":5,"key":"AR"},{"x":6,"y":5,"key":"TN"},{"x":7,"y":5,"key":"VA"},{"x":8,"y":5,"key":"NC"},{"x":3,"y":6,"key":"TX"},{"x":4,"y":6,"key":"LA"},{"x":5,"y":6,"key":"MS"},{"x":6,"y":6,"key":"AL"},{"x":7,"y":6,"key":"GA"},{"x":8,"y":6,"key":"SC"},{"x":0,"y":7,"key":"HI"},{"x":7,"y":7,"key":"FL"}];
 function usMap(){
   return '<div class="usmap" role="group" aria-label="Choose your state">'+GRID.map(function(t){
@@ -174,6 +244,7 @@ function cacophony(){
 }
 var BASE=["home","tenure","dep","veh","toys","qualify","insight"];
 var EXTRAS=["Boat","Jet ski","RV","Motorcycle","ATV","E-bike"];
+var WATERCRAFT=["Boat","Jet ski"];
 var TAGNAME={over:"Overspending",under:"Underprotected",twice:"Paying twice",ok:"Looks right",info:"Worth knowing"};
 var LIAB_OPTS=[[25,"25/50/25"],[50,"50/100/50"],[100,"100/300/100"],[250,"250/500/250"]];
 var HOMELIAB_OPTS=[[100,"$100,000"],[300,"$300,000"],[500,"$500,000"],[1000,"$1,000,000"]];
@@ -202,10 +273,16 @@ var POLICY={
   findings:function(v,q){
    var out=[];
    if(v.roadside==="Yes"&&q.roadsideAlt==="Yes") out.push({t:"twice",msg:"Roadside help is covered twice: on this policy and through your club or card. Dropping it here typically saves $25-$40 a year."});
+   var st=S.state,sn=stateName(st);
    if(v.medpay>0&&q.health==="Yes"){
-     out.push(NOFAULT.indexOf(S.state)>-1
-      ?{t:"info",msg:S.state+" requires injury coverage on auto policies, so this cannot be dropped. Ask your insurer about coordinating it with your health plan so it pays second, which usually lowers the price."}
-      :{t:"twice",msg:"Your health plan already pays for injuries from a crash. This $"+v.medpay.toLocaleString()+" limit largely repeats it."});
+     if(NOFAULT.indexOf(st)>-1){
+       var pm=PIP_MIN[st];
+       out.push(cite({t:"info",msg:sn+" is a no-fault state, so injury coverage on your auto policy is required and can't be dropped."+(pm?" The required minimum is "+pm[0]+".":st==="MI"?" Michigan lets you choose a level; unlimited is the default if you never chose.":"")+" Ask your insurer about coordinating it with your health plan so it pays second, which usually lowers the price."},pm?pm[1]:st==="MI"?"miPip":"nofault"));
+     } else out.push(cite({t:"twice",msg:"Your health plan already pays for injuries from a crash. This "+money(v.medpay)+" limit largely repeats it."},"medpay"));
+   }
+   if(v.umuim<v.liability){
+     var lab=function(n){return LIAB_OPTS.find(function(o){return o[0]===n})[1]};
+     out.push(cite({t:"under",msg:"Your uninsured motorist limit ("+lab(v.umuim)+") is lower than the liability you carry for others ("+lab(v.liability)+"). This is the coverage that pays for your own injuries when the other driver has no insurance, and in 2023 more than one in seven drivers didn't."+(UM_MANDATORY_STATES.indexOf(st)>-1?" "+sn+" requires the coverage but lets you pick the amount.":"")+" Matching it to your liability limit is usually inexpensive."},"uninsured"));
    }
    if(v.collDed<=500&&q.cushion==="Yes") out.push({t:"over",msg:"A $"+v.collDed.toLocaleString()+" deductible is low given the savings you have on hand. Raising it to $1,000 typically saves $80-$100 a year."});
    if(v.liability<=50&&q.assets300==="Yes") out.push({t:"under",msg:"Your "+LIAB_OPTS.find(function(o){return o[0]===v.liability})[1]+" limits leave what you own above that exposed in a serious crash."});
@@ -218,6 +295,10 @@ var POLICY={
    {key:"liability",label:"Liability limit",type:"select",opts:HOMELIAB_OPTS,def:300},
    {key:"deductible",label:"Deductible",type:"select",opts:[[500,"$500"],[1000,"$1,000"],[2500,"$2,500"],[5000,"$5,000"]],def:2500},
    {key:"waterBackup",label:"Water / sewer backup endorsement",type:"yesno",def:"No"},
+   {key:"windDed",label:"Hurricane or windstorm deductible (percent of dwelling coverage)",type:"percent",def:2,show:function(){return WINDSTATES.indexOf(S.state)>-1}},
+   {key:"lastResort",label:"Is this through your state's last-resort plan (FAIR Plan, Citizens, or TWIA)?",type:"yesno",def:"No",show:function(){return LASTRESORT_STATES.indexOf(S.state)>-1}},
+   {key:"eq",label:"Earthquake coverage (separate policy or added on)",type:"yesno",def:"No",show:function(){return EQ_STATES.indexOf(S.state)>-1}},
+   {key:"eqDed",label:"Earthquake deductible (percent of dwelling coverage)",type:"percent",def:15,show:function(){return EQ_STATES.indexOf(S.state)>-1&&S.p.home&&S.p.home.eq==="Yes"}},
    {key:"premium",label:"Annual premium",type:"money",def:1850}
   ],
   findings:function(v,q){
@@ -225,6 +306,33 @@ var POLICY={
    if(v.deductible<=1000&&q.cushion==="Yes") out.push({t:"over",msg:"Your $"+v.deductible.toLocaleString()+" home deductible is low relative to your savings. A higher deductible usually lowers the premium more than the risk costs you."});
    if(v.liability<=300&&q.assets300==="Yes") out.push({t:"under",msg:"Your home liability limit is on the low end for what you have to protect."});
    if(v.waterBackup==="No") out.push({t:"under",msg:"Water and sewer backup is excluded from most standard home policies and is one of the most common claims."});
+   var st=S.state,sn=stateName(st);
+   if(WINDSTATES.indexOf(st)>-1&&v.windDed>0&&v.dwelling>0){
+     var wd=v.dwelling*v.windDed/100;
+     var base="In "+sn+", hurricane and windstorm deductibles are a percentage of your dwelling coverage, not a flat amount. Your "+v.windDed+"% on "+money(v.dwelling)+" means the first "+money(wd)+" of a storm claim comes out of your pocket.";
+     if(q.cushion==="No"&&wd>2500) out.push(cite({t:"under",msg:base+" You said $2,500 isn't sitting in savings right now, so that's a real gap on the day it matters."},st==="FL"?"windFL":"wind"));
+     else out.push(cite({t:"info",msg:base+(st==="FL"?" Florida insurers must offer 2%, 5%, and 10% options, so you can choose the trade-off.":"")},st==="FL"?"windFL":"wind"));
+   }
+   if(EQ_STATES.indexOf(st)>-1&&v.dwelling>0){
+     if(v.eq==="Yes"&&v.eqDed>0){
+       var ed=v.dwelling*v.eqDed/100;
+       out.push(cite({t:"info",msg:"Your "+v.eqDed+"% earthquake deductible on "+money(v.dwelling)+" of dwelling coverage is "+money(ed)+"."+(st==="CA"?" With a CEA policy that amount is subtracted from the claim payment; you don't have to pay it up front.":"")},st==="CA"?"ceaDedTip":"eqExcluded"));
+     } else if(st==="CA"){
+       out.push(cite({t:"under",msg:"Earthquake damage is excluded from your home policy, and California law requires your insurer to offer it. A CEA policy on your "+money(v.dwelling)+" of dwelling coverage would carry a deductible of 5% to 25%, that's "+money(v.dwelling*0.05)+" to "+money(v.dwelling*0.25)+" subtracted from a claim. Without it, the full rebuild is on you."},"ceaDed"));
+     } else if(NEWMADRID_STATES.indexOf(st)>-1){
+       out.push(cite({t:"info",msg:"Earthquake damage is excluded from a standard home policy, and "+sn+" sits on the New Madrid seismic zone. Without separate coverage, rebuilding your "+money(v.dwelling)+" home after a quake would be entirely out of pocket."+(st==="MO"?" In Missouri's most exposed counties, only about 1 home in 10 is now covered.":"")+" Whether it's worth it depends on where in the state you are."},st==="MO"?"moTakeup":"newMadrid"));
+     } else {
+       out.push(cite({t:"info",msg:"Earthquake damage is excluded from a standard home policy, and "+sn+" is one of 16 states USGS rates as having a relatively high chance of damaging shaking. This says nothing about your specific home; it's just worth knowing that your "+money(v.dwelling)+" of dwelling coverage doesn't apply to a quake."},"eqStates"));
+     }
+   }
+   if(v.lastResort==="Yes"){
+     if(st==="CA") out.push(cite({t:"under",msg:"The California FAIR Plan covers fire only. Unless you also carry a separate 'difference in conditions' policy, you have no liability, theft, or water-damage coverage on this home, whatever the liability limit above says."},"caFair"));
+     else if(st==="FL"&&v.dwelling>=700000) out.push(cite({t:"under",msg:"Citizens won't insure homes with a replacement cost of $700,000 or more outside Miami-Dade and Monroe, and yours is listed at "+money(v.dwelling)+". Expect a non-renewal and plan for the private market now."},"flCitizens"));
+     else if(st==="FL") out.push(cite({t:"info",msg:"Citizens drops homes whose replacement cost reaches $700,000 (outside Miami-Dade and Monroe). Yours is at "+money(v.dwelling)+", so watch the inflation adjustment at each renewal."},"flCitizens"));
+     else if(st==="TX") out.push(cite({t:"under",msg:"TWIA covers wind and hail only, by law. Fire, theft, and everything else need a separate policy, and flood needs its own. If this is your only home policy, most of your dwelling coverage isn't there."},"twia"));
+     else if(st==="LA") out.push(cite({t:"info",msg:"Louisiana Citizens doesn't cover flood, and won't pay living expenses if a flood makes your home unlivable. Flood coverage is a separate policy."},"laCitizens"));
+     else out.push(cite({t:"info",msg:sn+"'s last-resort plan usually costs more and covers less than a standard policy. It's worth re-shopping the private market each year to see if you can get out."},"lastResort"));
+   }
    return out;
   }},
  renters:{name:"Renters",premiumDefault:180,
@@ -240,6 +348,35 @@ var POLICY={
    if(v.namedInsured==="other") out.push({t:"under",msg:"When the policy is in someone else's name but you pay for it, it often lives under a separate account. A cancelled predecessor can look like a lapse from your side."});
    if(v.belongings<15000) out.push({t:"under",msg:"This limit may be set to a generic renter's baseline rather than what would actually need replacing."});
    if(v.liability<=50&&q.assets300==="Yes") out.push({t:"under",msg:"This is the lowest liability limit typically available. Worth a look given what else you own."});
+   return out;
+  }},
+ powersports:{name:"Boat and powersports",premiumDefault:0,
+  fields:[
+   {key:"covered",label:"Do these have their own policy, separate from your auto and home?",type:"yesno",def:"No"},
+   {key:"value",label:"What they would cost to replace today, all together",type:"money",def:15000},
+   {key:"liability",label:"Liability limit on that policy",type:"money",def:100000,show:function(){return S.p.powersports&&S.p.powersports.covered==="Yes"}},
+   {key:"hullType",label:"How the boat or jet ski is valued",type:"select",opts:[["acv","Actual cash value"],["agreed","Agreed value"],["unsure","Not sure"]],def:"unsure",show:function(){return S.p.powersports&&S.p.powersports.covered==="Yes"&&S.extras.some(function(x){return WATERCRAFT.indexOf(x)>-1})}},
+   {key:"premium",label:"Annual premium",type:"money",def:0,show:function(){return S.p.powersports&&S.p.powersports.covered==="Yes"}}
+  ],
+  findings:function(v,q){
+   var out=[],st=S.state,sn=stateName(st),x=S.extras;
+   var water=x.some(function(t){return WATERCRAFT.indexOf(t)>-1}),moto=x.indexOf("Motorcycle")>-1,rv=x.indexOf("RV")>-1,ebike=x.indexOf("E-bike")>-1;
+   var mandate=BOAT_MANDATE_STATES[st];
+   if(water&&v.covered==="No"){
+     if(mandate) out.push(cite({t:"under",msg:sn+" requires "+mandate.text+", and you said yours isn't separately insured."},mandate.src));
+     if(v.value>1000) out.push(cite({t:"under",msg:"A home policy typically pays only about $1,000 for damage to a boat, and gives no liability coverage for a jet ski or a motor above about 25 horsepower. You said yours would cost "+money(v.value)+" to replace, so roughly "+money(v.value-1000)+" of that is uninsured."},"boatHome"));
+   }
+   if(water&&v.covered==="Yes"){
+     if(mandate&&v.liability<mandate.min) out.push(cite({t:"under",msg:"Your "+money(v.liability)+" liability limit is below what "+sn+" requires: "+mandate.text+"."},mandate.src));
+     if(v.hullType==="acv") out.push(cite({t:"info",msg:"Actual cash value pays replacement cost minus depreciation; agreed value pays the amount you and the insurer set in advance. On a total loss of a "+money(v.value)+" boat, that difference is the depreciation."},"boatIII"));
+     if(v.hullType==="unsure") out.push(cite({t:"info",msg:"Check whether the policy pays actual cash value or agreed value. Actual cash value subtracts depreciation from a total-loss payout; agreed value doesn't."},"boatIII"));
+   }
+   if(moto&&v.covered==="No"){
+     if(st==="FL") out.push(cite({t:"info",msg:"Florida is the one state that doesn't require liability insurance on a motorcycle. Nothing on an auto or home policy pays if you hurt someone while riding, though, so it's a real choice rather than a default."},"moto"));
+     else out.push(cite({t:"under",msg:"Every state except Florida requires liability insurance on a motorcycle, and you said yours isn't separately insured. An auto or home policy doesn't cover it on the road."},"moto"));
+   }
+   if(rv&&v.covered==="No") out.push(cite({t:"info",msg:"A motorhome needs its own liability policy that meets "+sn+"'s auto minimums. A towable trailer is usually covered for damage it causes by your tow vehicle's policy, but not for damage to the trailer itself."},"rv"));
+   if(ebike&&v.covered==="No") out.push(cite({t:"info",msg:"A home or renters policy may cover an e-bike while it's at home, but often not while you're riding it, and usually with a low cap. Whether a separate policy makes sense depends on what yours is worth."},"ebike"));
    return out;
   }},
  life:{name:"Life",premiumDefault:0,
@@ -264,8 +401,11 @@ var POLICY={
   ],
   findings:function(v,q){
    var out=[];
-   if(v.hasLTD==="No") out.push({t:"under",msg:"You said someone relies on your income, and there's no long-term disability coverage on file. If you couldn't work for a year, nothing here replaces that income."});
-   else if(v.percent<60) out.push({t:"under",msg:"You said someone relies on your income. This replaces less than the typical 60% most long-term disability plans target."});
+   var di=STATE_DI[S.state],sn=stateName(S.state);
+   if(v.hasLTD==="No"&&di) out.push(cite({t:"under",msg:"You said someone relies on your income, and there's no long-term disability coverage. "+sn+"'s "+di.name+" would pay "+(di.amt?di.amt+" for ":"for ")+di.dur+", and then stop. A disability that lasts longer than that is exactly what long-term coverage is for."},di.src));
+   else if(v.hasLTD==="No") out.push({t:"under",msg:"You said someone relies on your income, and there's no long-term disability coverage on file. If you couldn't work for a year, nothing here replaces that income."});
+   else if(di) out.push(cite({t:"info",msg:sn+"'s "+di.name+" covers the first stretch of a disability ("+di.dur+"). Check that your long-term policy's waiting period isn't longer than that, or there's a gap in the middle where neither pays."},"ltdGap"));
+   if(v.hasLTD==="Yes"&&v.percent<60) out.push({t:"under",msg:"You said someone relies on your income. This replaces less than the typical 60% most long-term disability plans target."});
    return out;
   }},
  lifecheck:{name:"Life insurance",premiumDefault:0,
@@ -289,6 +429,7 @@ function buildQueue(){
   if(a.veh&&a.veh!=="0") q.push("auto");
   if(a.home==="Own"||a.home==="Both") q.push("home");
   if(a.home==="Rent"||a.home==="Both") q.push("renters");
+  if(S.extras.length) q.push("powersports");
   if(a.dep==="Yes"){iq.push("life");iq.push("disability")}
   else if(a.dep==="No"){iq.push("lifecheck")}
   S.queue=q; S.incomeQueue=iq;
@@ -303,8 +444,9 @@ function screenLabel(id){
   return {home:"Welcome",tenure:"Own or rent",dep:"Income",veh:"Vehicles",toys:"Anything else with a motor",insight:"First look",qualify:"A few quick checks",umbrella:"Umbrella",summary:"Summary"}[id];
 }
 function fieldVal(pid,f){ if(S.p[pid]===undefined) S.p[pid]={}; if(S.p[pid][f.key]===undefined) S.p[pid][f.key]=f.def; return S.p[pid][f.key]; }
+function visibleFields(pid){ return POLICY[pid].fields.filter(function(f){return !f.show||f.show()}) }
 function pValues(pid){
-  var out={}; POLICY[pid].fields.forEach(function(f){out[f.key]=fieldVal(pid,f)}); return out;
+  var out={}; visibleFields(pid).forEach(function(f){out[f.key]=fieldVal(pid,f)}); return out;
 }
 
 function go(n){ S.times.push({s:screenLabel(order()[S.i]),t:(Date.now()-S.t0)/1000}); S.t0=Date.now(); S.i=n; render(); }
@@ -316,7 +458,6 @@ function opts(key,list,hint){
 }
 function back(){return S.i>0?'<button class="link" data-act="back">Back</button>':'<span></span>'}
 
-var WATERCRAFT=["Boat","Jet ski"];
 function insightsList(){
   var a=S.a,out=[];
   if(a.home==="Own"||a.home==="Both"){
@@ -335,13 +476,13 @@ function insightsList(){
     out.push({t:"info",msg:"51% of American adults hold some form of life insurance, and ownership is closely tied to having dependents who rely on your income. This is general context, not a claim about what you currently hold.",src:"LIMRA 2025 Insurance Barometer Study",url:"https://www.limra.com/siteassets/newsroom/liam/2025/2025_facts_about_life_insurance.pdf"});
   }
   if(a.veh&&a.veh!=="0"){
-    if(S.q.health==="Yes"&&NOFAULT.indexOf(S.state)>-1) out.push({t:"info",msg:"You have health insurance, and "+S.state+" requires injury coverage on every auto policy, so you can't drop it. What you can do is ask your insurer to coordinate it with your health plan so it pays second, which usually lowers the price. We'll check that in a minute."});
+    if(S.q.health==="Yes"&&NOFAULT.indexOf(S.state)>-1) out.push({t:"info",msg:"You have health insurance, and "+stateName(S.state)+" requires injury coverage on every auto policy, so you can't drop it. What you can do is ask your insurer to coordinate it with your health plan so it pays second, which usually lowers the price. We'll check that in a minute."});
     else if(S.q.health==="Yes") out.push({t:"twice",msg:"You have health insurance, so this likely applies to you: auto medical payments coverage can pay for the same injury your health plan already covers. A September 2026 Massachusetts appeals court case addressed insurers preventing exactly that kind of duplicate payment.",src:"Insurance Journal",url:"https://www.insurancejournal.com/news/east/2026/09/15/885119.htm"});
     else out.push({t:"ok",msg:"Auto medical payments coverage can duplicate a health plan for drivers who have one. Since you said you don't, yours is likely doing real work rather than overlapping anything.",src:"Insurance Journal",url:"https://www.insurancejournal.com/news/east/2026/09/15/885119.htm"});
     if(S.q.roadsideAlt==="Yes") out.push({t:"twice",msg:"You already have roadside help through a club or card. If your auto policy also covers it, you're paying for the same tow twice. We'll help you check that in a minute."});
   }
   if(S.extras.some(function(x){return WATERCRAFT.indexOf(x)>-1})){
-    out.push({t:"info",msg:"You told us you have a boat or jet ski. Unlike auto insurance, which every state requires, only three states require boat insurance (Arkansas, Hawaii, and Utah), and a homeowners policy typically caps watercraft coverage at $1,000-$2,000. Whether that leaves a real gap depends on what you're actually carrying.",src:"ValuePenguin",url:"https://www.valuepenguin.com/boat-insurance/is-boat-insurance-required"});
+    out.push(cite({t:"info",msg:"You told us you have a boat or jet ski. Most states don't require boat insurance the way they require auto insurance (Arkansas and Utah do, for jet skis and larger motorboats), and a homeowners policy typically pays only about $1,000 for a boat with no liability coverage for a jet ski. Whether that leaves a real gap depends on what you're actually carrying."},"boatHome"));
   }
   if(S.extras.indexOf("E-bike")>-1){
     out.push({t:"info",msg:"You told us you have an e-bike. Some states classify a higher-powered one as a moped or motorcycle, which can require its own policy, and even where that doesn't apply, homeowners and renters coverage for e-bike theft or damage is inconsistent and often capped low.",src:"Policygenius",url:"https://www.policygenius.com/homeowners-insurance/does-homeowners-insurance-cover-bikes/"});
@@ -351,6 +492,10 @@ function insightsList(){
   return out;
 }
 
+function findingRow(x){
+  return '<div class="item"><span><span class="tag '+x.t+'">'+TAGNAME[x.t]+'</span></span><span>'+esc(x.msg)+(x.src?' <a class="src" href="'+x.url+'" target="_blank" rel="noopener">'+esc(x.src)+'</a>':'')+'</span></div>';
+}
+function money(n){return "$"+Math.round(n).toLocaleString()}
 function fieldRow(pid,f){
   var v=fieldVal(pid,f),id="f_"+pid+"_"+f.key;
   if(f.type==="select"){
@@ -363,12 +508,14 @@ function fieldRow(pid,f){
   var pct=f.type==="percent";
   return '<div class="field"><label for="'+id+'">'+f.label+'</label><div class="amt'+(pct?' pct':'')+'"><span>'+(pct?'%':'$')+'</span><input id="'+id+'" type="number" inputmode="numeric" min="0" '+(pct?'max="100" ':'')+'step="1" value="'+v+'" data-p="'+pid+'" data-k="'+f.key+'"></div></div>';
 }
+function listWords(a){ return a.length<2?a.join(""):a.slice(0,-1).join(", ")+(a.length>2?",":"")+" and "+a[a.length-1] }
 function policyReason(pid){
   var n=S.a.veh==="1"?"1 vehicle":S.a.veh+" vehicles";
   return {
     auto:"You told us you have "+n+", so here's what we need for your auto policy.",
     home:"You told us you own your home, so here's what we need for your home policy.",
     renters:"You told us you rent, so here's what we need for your renters policy.",
+    powersports:"You told us you have "+listWords(S.extras.map(function(x){var w=x.toLowerCase();return (/^[aeiou]/.test(w)||w==="rv"?"an ":"a ")+w}))+", so here's what we need to check how "+(S.extras.length===1?"it's":"they're")+" covered.",
     life:"You told us someone relies on your income, so here's what we need for your life insurance.",
     disability:"You told us someone relies on your income, so here's what we need for your disability coverage.",
     lifecheck:"You told us no one relies on your income, so we're just checking whether you're still paying for life insurance you may not need."
@@ -379,14 +526,14 @@ function policyScreen(pid){
   var ap=allPolicies();
   var h='<h3 class="pt">Policy '+((ap.indexOf(pid))+1)+' of '+ap.length+'</h3>'+
     '<h2>'+pol.name+' policy</h2><p class="sub">'+esc(policyReason(pid))+'</p>'+
-    '<div class="policy-grid"><div class="fields">'+pol.fields.map(function(f){return fieldRow(pid,f)}).join("")+'</div>'+
+    '<div class="policy-grid"><div class="fields">'+visibleFields(pid).map(function(f){return fieldRow(pid,f)}).join("")+'</div>'+
     '<div class="scanbox">'+
       '<label class="ghost" for="cam_'+pid+'" tabindex="0">Take a photo</label><input id="cam_'+pid+'" class="scanfile" type="file" accept="image/*" capture="environment" data-p="'+pid+'" hidden>'+
       '<label class="ghost" for="doc_'+pid+'" tabindex="0">Choose a file</label><input id="doc_'+pid+'" class="scanfile" type="file" accept="image/*,.pdf" data-p="'+pid+'" hidden>'+
       (S.scanned[pid]?'<p class="scanned">"'+esc(S.scanned[pid])+'" added.</p><p class="small">This prototype does not read it yet, so the fields stay as you left them. Nothing is uploaded either way, reading would happen right here on the page.</p>'
         :'<p class="small">Nothing is uploaded either way. Reading would happen right here on the page.</p>')+
     '</div></div>'+
-    (finds.length?'<div><h3 class="pt">Worth a look</h3><div class="list">'+finds.map(function(x){return '<div class="item"><span><span class="tag '+x.t+'">'+TAGNAME[x.t]+'</span></span><span>'+esc(x.msg)+'</span></div>'}).join("")+'</div></div>'
+    (finds.length?'<div><h3 class="pt">Worth a look</h3><div class="list">'+finds.map(findingRow).join("")+'</div></div>'
       :'<div class="item" style="border:none;padding:0"><span><span class="tag ok">Looks right</span></span><span>Nothing stands out on this policy given what you have told us.</span></div>')+
     '<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Continue</button></div>';
   return h;
@@ -401,7 +548,7 @@ function render(){
       '<p class="sub">No name, no email, no sales call. Just your own numbers, put together for once.</p>'+
       '<h2>Which state are you in?</h2>'+
       usMap()+
-      '<p><label class="link" for="st">Or pick from a list</label> <select id="st" aria-label="State"><option value=""'+(S.state===""?' selected':'')+'>Choose a state…</option>'+STATES.map(function(s){return '<option'+(s===S.state?' selected':'')+'>'+s+'</option>'}).join("")+'</select></p>'+
+      '<p><label class="link" for="st">Or pick from a list</label> <select id="st" aria-label="State"><option value=""'+(S.state===""?' selected':'')+'>Choose a state…</option>'+STATES_BY_NAME.map(function(s){return '<option value="'+s+'"'+(s===S.state?' selected':'')+'>'+STATE_NAMES[s]+'</option>'}).join("")+'</select></p>'+
       '<div class="row spread foot">'+back()+'<button class="primary" data-act="next"'+(S.state?'':' disabled')+'>Get started</button></div>';
   }
   if(id==="tenure"){
@@ -427,7 +574,7 @@ function render(){
   if(id==="insight"){
     var ins=insightsList();
     h='<h2>Based on what you told us</h2>'+
-      '<div class="list">'+ins.map(function(x){return '<div class="item"><span><span class="tag '+x.t+'">'+TAGNAME[x.t]+'</span></span><span>'+esc(x.msg)+(x.src?' <a class="src" href="'+x.url+'" target="_blank" rel="noopener">'+esc(x.src)+'</a>':'')+'</span></div>'}).join("")+'</div>'+
+      '<div class="list">'+ins.map(findingRow).join("")+'</div>'+
       '<p class="sub">One page turns any of these into an exact dollar amount.</p>'+
       '<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Check my '+POLICY[allPolicies()[0]].name+' policy</button></div>';
   }
@@ -456,7 +603,7 @@ function render(){
       if(uv.hasUmbrella==="No"&&S.q.assets300==="No") uf.push({t:"ok",msg:"You said your savings and home wouldn't clear $300,000. An umbrella usually isn't the priority at that level."});
       if(uv.hasUmbrella==="Yes"&&!floorGap) uf.push({t:"ok",msg:"Your underlying auto and home limits look consistent with a typical umbrella requirement."});
     }
-    h+=(uf.length?'<div class="list">'+uf.map(function(x){return '<div class="item"><span><span class="tag '+x.t+'">'+TAGNAME[x.t]+'</span></span><span>'+esc(x.msg)+'</span></div>'}).join("")+'</div>':'');
+    h+=(uf.length?'<div class="list">'+uf.map(findingRow).join("")+'</div>':'');
     h+='<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Continue</button></div>';
   }
   if(id==="summary"){
