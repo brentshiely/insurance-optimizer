@@ -2,6 +2,8 @@
 
 Sep 19, 2026 · Brent Shiely
 
+> **Status as of Sep 19, 2026.** The only valid code is `public/index.html` in this repo, deployed to Cloudflare Pages at https://coverage-check.pages.dev (project `coverage-check`, `npm run deploy`). The earlier offline file this document originally described is retired and will not be recovered. Several items in "Architecture as it exists today" describe that retired version and are **not yet in the current code**; they are called out inline below and belong on the build list in "What to build, in order".
+
 ## What this is
 
 A working prototype of a household insurance coverage-gap tool: a tap-and-go wizard that shows where someone is overspending, underprotected, or paying twice across auto, home, renters, boat/powersports, life, and disability insurance. It is explicitly **not** a quote engine or lead-gen tool — no PII is ever collected (no name, address, email), and every population-level claim shown to the user carries a visible source citation.
@@ -26,11 +28,11 @@ These came from direct, repeated, emphatic feedback during development. Do not r
 - `BASE` — the fixed screen sequence before/around the dynamic policy queue: `["home","tenure","dep","veh","toys","qualify","insight"]`.
 - `buildQueue()` — recomputed on every call to `order()` (never cached/stale) — builds `S.queue` (auto/home/renters/powersports based on `S.a` and `S.extras`) and `S.incomeQueue` (life+disability, or a lighter `lifecheck`, based on `S.a.dep`).
 - `order()` — `BASE` + property/liability policy screens + `umbrella` + income-protection policy screens + `summary`. Always calls `buildQueue()` first.
-- `POLICY` object — one entry per policy type (`auto`, `home`, `renters`, `powersports`, `life`, `disability`, `lifecheck`), each with `{name, premiumDefault, fields:[{key,label,type,opts?,def}], findings:function(v,q){...}}`. `findings()` returns an array of `{t, msg, src?, url?}` — `t` is one of `over`/`under`/`twice`/`ok`/`info`, and state-driven findings read `S.state` directly as a closure rather than being passed it explicitly.
+- `POLICY` object — one entry per policy type (`auto`, `home`, `renters`, `life`, `disability`, `lifecheck`; **`powersports` is not yet built**), each with `{name, premiumDefault, fields:[{key,label,type,opts?,def}], findings:function(v,q){...}}`. `findings()` returns an array of `{t, msg, src?, url?}` (**per-policy findings currently carry no `src`/`url`; only the insight screen does**) — `t` is one of `over`/`under`/`twice`/`ok`/`info`, and state-driven findings read `S.state` directly as a closure rather than being passed it explicitly.
 - `QUAL` — shared qualifying questions (savings cushion, health insurance, $300K asset threshold phrased differently for owners vs. renters, existing roadside-assistance membership) asked once and reused across multiple policy findings.
-- State-driven data tables, each paired with a source constant: `NOFAULT` (no-fault auto states), `WINDSTATES` (hurricane/wind deductible states, NAIC), `EQ_STATES` / `NEWMADRID_STATES` (earthquake risk, with California and the New Madrid zone getting real dollar-figure math against the user's own dwelling coverage, other high-risk states getting a general note), `LASTRESORT_STATES` (FAIR Plan / Citizens / Windstorm states), `SDI_STATES` (state-run paid disability programs), `CREDITBAN_STATES` / `CREDITBAN_TEMP_STATES` / `CREDITRESTRICT_STATES` (credit-scoring rules for auto, home, and renters), `UM_MANDATORY_STATES` (uninsured motorist), `BOAT_MANDATE_STATES` (Arkansas/Utah boat liability minimums).
+- State-driven data tables, each paired with a source constant. **Current code has only `NOFAULT`; the rest are to be built:** `NOFAULT` (no-fault auto states), `WINDSTATES` (hurricane/wind deductible states, NAIC), `EQ_STATES` / `NEWMADRID_STATES` (earthquake risk, with California and the New Madrid zone getting real dollar-figure math against the user's own dwelling coverage, other high-risk states getting a general note), `LASTRESORT_STATES` (FAIR Plan / Citizens / Windstorm states), `SDI_STATES` (state-run paid disability programs), `CREDITBAN_STATES` / `CREDITBAN_TEMP_STATES` / `CREDITRESTRICT_STATES` (credit-scoring rules for auto, home, and renters), `UM_MANDATORY_STATES` (uninsured motorist), `BOAT_MANDATE_STATES` (Arkansas/Utah boat liability minimums).
 - Sticky footer CTA via `position:sticky` on `.foot`, corner-clipping moved to `.bar` since `.card` can no longer use `overflow:hidden`.
-- A tappable US state map (`GRID`, `usMap()`) using the `gridmap-layout-usa` tile-grid layout (not a literal geographic SVG) so small states stay tap-friendly on mobile, plus a full alphabetical-by-name dropdown fallback (`STATES_BY_NAME` / `STATE_NAMES`).
+- A tappable US state map (`GRID`, `usMap()`) using the `gridmap-layout-usa` tile-grid layout (not a literal geographic SVG) so small states stay tap-friendly on mobile, plus a dropdown fallback (**currently two-letter codes; the full-name version `STATES_BY_NAME` / `STATE_NAMES` is not yet built**).
 
 ## What's real vs. what's simulated right now
 
@@ -57,7 +59,21 @@ Whatever gets extracted should pre-fill the relevant policy's fields (dwelling c
 - **Single-file architecture** should probably be split into a proper multi-file project once PDF.js/Tesseract.js get added, for maintainability.
 - **Mobile testing** — the map and sticky footer were designed with mobile tap-targets in mind, but this has not been tested on real devices, only reasoned about.
 
-## Immediate open item: entry-screen copy + iconography
+## What to build, in order
+
+Proposed sequence for the online version, to be confirmed with Brent before each step:
+
+1. **State-driven findings and the unbuilt pieces of the "Architecture" section**: the state data tables (wind deductible, earthquake/CEA and New Madrid with real dollar math, FAIR Plan / last resort, SDI states, credit-scoring rules, UM-mandatory, boat mandates), the `powersports` policy, the full-name state dropdown, and `src`/`url` citations on per-policy findings. This is the personalization backbone the rest sits on.
+2. **Plain-language disclaimer** (informational, not advice, not a licensed agent). Small, and must exist before real users.
+3. **Document extraction**, PDF.js first, Tesseract.js fallback, all in-browser (see below).
+4. **Missing coverage types**: flood (NFIP), scheduled valuables, landlord/rental-dwelling.
+5. Opt-in local persistence, roadside credit-card nuance, multi-file split, real-device mobile pass.
+
+## Entry-screen copy + iconography (done Sep 19, 2026)
+
+Both items below shipped in commit `d5c7221`. Kept here for the reasoning.
+
+
 
 The entry screen's headline is being reworked and was mid-edit at hand-off time. Two concrete pieces to finish:
 
@@ -66,8 +82,8 @@ The entry screen's headline is being reworked and was mid-edit at hand-off time.
 
 ## Deployment target
 
-Cloudflare Pages/Workers on Brent's own account. No specific project/zone has been set up yet — that's part of this handoff's scope, not already done.
+Cloudflare Pages, project `coverage-check`, on Brent's account. Live at https://coverage-check.pages.dev. Deploy with `npm run deploy` from the repo root. No custom domain yet (the `profit-capture.com` zone is on the same account if one is wanted).
 
 ## Source of truth
 
-The current working file is the one to build from: `public/index.html` (formerly `coverage-check-wizard_2.html`). Read it in full before making changes — it is dense (~590 lines, ~52KB) but every piece of logic described above is in there and has been through multiple rounds of correction based on direct user feedback. Where this document and the code disagree, trust the code as of hand-off time, since this document is a snapshot.
+The current working file is the one to build from: `public/index.html` in this repo. Read it in full before making changes — it is dense (~540 lines) and everything described above that isn't marked "not yet built" is in there and has been through multiple rounds of correction based on direct user feedback. Where this document and the code disagree, trust the code as of hand-off time, since this document is a snapshot.
