@@ -4,6 +4,15 @@ Executed strictly in order. A story is DONE only when: its acceptance criteria h
 
 Commit message: `Story N: <title>` + short body + the `Co-Authored-By` trailer. Never run `npm run deploy`.
 
+**Parallel build.** Stories run concurrently in separate git worktrees whenever their dependencies allow, and are merged to `main` one at a time (rebase on latest `main`, full suite green, fast-forward, push). Dependencies:
+
+```
+S1 (none)   S2 (none)   S3a (none)   S4a (none)
+S3b <- S2, S3a        S4b <- S2, S4a        S5 <- S2, S3b, S4b
+S6, S7, S8, S9, S10, S11 <- S5        S13 <- S1, S5, S6
+S12 <- S6..S11        S14 <- S6, S13        S15 <- S13        S16 <- S12, S14, S15
+```
+
 ## S0 - Bootstrap on the Coverage Check base (done by hand)
 Spec transcription, architecture, story backlog, dependency-free test harness (jsc/Node), `site-root` preview config. AC: `scripts/test.sh` passes; harness fails on a failing test and on a module load error.
 
@@ -15,13 +24,21 @@ AC: At least 8 scenarios (own / rent / both; dependents yes/no; vehicles 0/1/3+;
 `public/js/overlap/engine/{conditions,session,render,evaluate,validate,adapter}.mjs` per ARCHITECTURE.md, plus valid-but-empty `data/{sources,cards}.mjs`, `data/questions/index.mjs`, `data/flags/index.mjs` with per-domain files exporting `[]`, `data/catalog.mjs`, and a `liabilityStack.mjs` stub returning `null`.
 AC: Condition DSL covers every form; visibility is transitive; pruning removes stale answers; `not_sure` auto-appended; templates resolve and throw on unresolved tokens; evaluate ordering deterministic and pure (same input twice deep-equal; input not mutated); `validateCatalog` rejects a flag with zero/unknown sources, missing source fields, non-https url, bad date, duplicate ids, dangling `showIf` references, unknown option ids in conditions; `deriveAnswers` implements the ARCHITECTURE table exactly (never reads policy-screen numbers, never reads state) with tests per row. Unit tests use a fixture catalog in `tests/fixtures/`. Modules run under jsc.
 
-## S3 - Authoritative source registry (non-card)
-Web-researched, adversarially verified sources and fact sheets for: umbrella/liability stack, auto, home+renters, health, other bucket. `research/<domain>.mjs` (sources + paraphrased facts + design inputs + known gaps), `research/INDEX.md`, `public/js/overlap/data/sources.mjs`.
-AC: Every source URL fetched and read by the researcher AND re-fetched by an independent verifier who confirms the page supports the attached claims; failed/unreachable/overreaching items removed or marked; sources satisfy SPEC authority rules; `lastVerified` = actual verification date; no guessed URLs; tests validate registry shape, https, dates, unique ids, an authority-domain allowlist, and that every research fact cites existing source ids.
+## S3a - Verified research (non-card)
+Web-researched, adversarially verified fact sheets for: umbrella/liability stack, auto, home+renters, health, other bucket. `research/<domain>.mjs` (sources + paraphrased facts + design inputs + known gaps) and `research/INDEX.md`. No code dependencies.
+AC: Every source URL was fetched and read by the researcher AND re-fetched by an independent verifier who confirms the page supports the attached claims; failed/unreachable/overreaching items removed or marked; sources satisfy the SPEC authority rules; `lastVerified` = actual verification date; no guessed URLs; `tests/research/*.test.mjs` validate file shape, https, dates, unique ids, an authority-domain allowlist and forbidden-host list, and that every fact cites sources that exist in its own file and are verified.
 
-## S4 - Credit card lookup table
-About 12 popular, benefit-rich cards from issuers' own current benefits guides (rental car, trip protection, cellphone protection, extended warranty, purchase protection, roadside): `research/cards-*.mjs`, `public/js/overlap/data/cards.mjs`, helpers (`cardsWithBenefit`, etc).
-AC: Each card has `guideUrl` + `lastVerified`; each benefit has a status; anything not confirmed from the issuer's current guide is `unverified` (never guessed); an independent verifier re-checks every card; tests validate shape and helpers.
+## S3b - Source registry
+`public/js/overlap/data/sources.mjs` built only from verified sources in `research/*.mjs`.
+AC: Registry holds only verified sources, deduplicated by URL; shape, https, date, id==key, allowlist tests; every research fact's sources resolve in the registry; the real catalog passes `validateCatalog`.
+
+## S4a - Verified card research
+About 12 popular, benefit-rich cards from issuers' own current benefits guides (rental car, trip protection, cellphone protection, extended warranty, purchase protection, roadside): `research/cards-*.mjs`. No code dependencies.
+AC: Each card has `guideUrl` + `lastVerified` and each benefit a status; anything not confirmed from the issuer's current guide is `unverified` (never guessed); an independent verifier re-checks every card; shape tests.
+
+## S4b - Credit card lookup table
+`public/js/overlap/data/cards.mjs` with helpers (`cardsWithBenefit`, etc) built from the verified card research.
+AC: Shape and helper tests; `unverified` never upgraded or asserted as fact; `CARD_DISCLAIMER` exists; the real catalog passes `validateCatalog`.
 
 ## S5 - Question catalog
 The overlap decision tree from SPEC "Question flow and branching" as closed-list data in `data/questions/*.mjs`, adapted to the host app: `policies` is derived (see ARCHITECTURE adapter table); the asked Q1 equivalent is `other_items` plus the `cards` question. Every question has presets and `not_sure` as specified.
@@ -57,7 +74,7 @@ AC: Every flag triggered by at least one scenario; every flag has >=1 valid sour
 
 ## S13 - UI: overlap screens and insurer action list
 Wire the engine into the wizard: `ovl:*` section screens from the catalog, then the action list grouped Raise / Drop / Question with Background, Ask, Reason, Source (publisher, title, link, last verified), copy-to-clipboard and print, a short plain-language "informational, not insurance advice" note, and a privacy line. Existing summary totals retained. Pure view-model in `js/overlap-ui/` unit-tested.
-AC: View-model tests; golden test updated deliberately (diff = only the new screens, documented); driven in the Browser pane through at least 3 scenarios incl. one with umbrella and one with cards; keyboard operable, labelled controls, focus management, contrast in light and dark, usable at 375px; no storage APIs (grep test); no console errors.
+AC: View-model tests; golden test updated deliberately (diff = only the new screens, documented); driven in the Browser pane through at least 3 scenarios incl. one with an umbrella (the card scenario is covered by S16, because the other-bucket flags land in parallel); keyboard operable, labelled controls, focus management, contrast in light and dark, usable at 375px; no storage APIs (grep test); no console errors.
 
 ## S14 - Liability stack visualization
 Single reusable component rendering the LiabilityStack model, used in the umbrella section and the action list.

@@ -23,7 +23,7 @@ How the Insurance Overlap & Trim work is built **into the existing Coverage Chec
 - This machine has **no Node**. Unit tests run under macOS JavaScriptCore: `scripts/test.sh [path-substring]` (also `npm test`; falls back to Node if present). Runner: `tests/harness.mjs` (`test`, `suite`, `assert`, `assertSnapshot`, `serialize`). Synchronous tests, `tests/**/*.test.mjs`, auto-discovered.
 - jsc has **no `URL`, `console`, `fetch`, `structuredClone`**; it has `print` and `read(path)`. Pure modules and tests must not use them.
 - Data modules are `.mjs` with `export default <plain data>` (never `.json`) so tests can import them.
-- **Browser tests (UI stories).** Serve the repo root with the `site-root` config in `.claude/launch.json` (`mcp__Claude_Browser__preview_start name:"site-root"`, http://127.0.0.1:8080) and drive pages with the Browser pane tools. The app is at `/public/index.html`. `tests/browser/golden.html` replays scripted scenarios through the real app in a same-origin iframe, compares each screen's text with recorded goldens, and writes `GOLDEN: PASS` or `GOLDEN: FAIL ...` into `<pre id="result">` (read it with `get_page_text`). Volatile text (seconds, tap counts) is normalized. S1 defines the mechanics and documents them in `tests/browser/README.md`.
+- **Browser tests (UI stories).** Each story works in its own git worktree and serves it with its own static server on its own port (`python3 -m http.server <port> --bind 127.0.0.1` from the worktree root; the app is at `/public/index.html`) and drives it from its own Browser pane tab (`tabs_create`, then pass that `tabId` on every call; never touch other tabs). `tests/browser/golden.html` replays scripted scenarios through the real app in a same-origin iframe, compares each screen's text with recorded goldens, and writes `GOLDEN: PASS` or `GOLDEN: FAIL ...` into `<pre id="result">` (read it with `get_page_text`). Volatile text (seconds, tap counts) is normalized. S1 defines the mechanics and documents them in `tests/browser/README.md`.
 - Snapshots: `tests/snapshots/*.snap.mjs` (`export default <plain data>`), compared with `assertSnapshot`. Regenerated only deliberately via `scripts/update-snapshots.sh`; any snapshot diff must be explainable by the story.
 - `npm run deploy` publishes the live site. **Never run it.** Pushing to `main` does not deploy.
 
@@ -142,6 +142,11 @@ One engine, `computeLiabilityStack(input)` (S6), documented here when it lands. 
 
 ## Analytics (S15)
 Provider-pluggable adapter (`none` default, `plausible`, `fathom`, `zaraz`). Events are `{ name, label }` only; `name` from a fixed allowlist, `label` a `questionId=optionId` or `flagId` string from closed lists. No identifiers, cookies, free text, or precise figures; adequacy and cushion are band ids only. The adapter refuses anything outside the allowlist, and a test enforces it. The existing local-only telemetry panel is unchanged and never transmitted.
+
+## Parallel build rules
+- Stories are developed in separate git worktrees and merged to `main` serially (rebase, full suite, fast-forward, push).
+- Own your files: each story edits only the files its description names. Shared append-only logs (`docs/DECISIONS.md`, `docs/OPEN-ITEMS.md`) use git's union merge (see `.gitattributes`); number your entries with your story id (e.g. `S6-1`), not the next global D-number.
+- Flag files are per domain (`flags/{umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs`); only the owning story edits one. `flags/index.mjs` is created once by S2.
 
 ## Conventions
 - IDs: questions/options `snake_case`; flags/sources/cards `kebab-case`.
