@@ -7,11 +7,14 @@ Commit message: `Story N: <title>` + short body + the `Co-Authored-By` trailer. 
 **Parallel build.** Stories run concurrently in separate git worktrees whenever their dependencies allow, and are merged to `main` one at a time (rebase on latest `main`, full suite green, fast-forward, push). Dependencies:
 
 ```
-S1 (none)   S2 (none)   S3a (none)   S4a (none)
-S3b <- S2, S3a        S4b <- S2, S4a        S5 <- S2, S3b, S4b
+S1 (none)   S2 (none)   S3a (none)   S4a (none, DEFERRED)
+S3b <- S2, S3a        S4b <- S2, S4a (DEFERRED)        S5 <- S2, S3b
 S6, S7, S8, S9, S10, S11 <- S5        S13 <- S1, S5, S6
 S12 <- S6..S11        S14 <- S6, S13        S15 <- S13        S16 <- S12, S14, S15
+S11b <- S4b, S11 (DEFERRED)
 ```
+
+**Credit-card work is deferred (D14).** Researching card benefits requires fetching issuer sites (e.g. americanexpress.com) that trigger permission prompts the owner must approve at the machine. Stories S4a, S4b and S11b are therefore parked until the owner is present; the rest of the build does not depend on them. Until then the card table is empty, the `cards` question lists the intended cards as static choices, and card-aware flag wording is built and tested against fixture cards only. Partial verified research for 8 of the 12 cards is preserved on the unmerged branch `story/S4a`.
 
 ## S0 - Bootstrap on the Coverage Check base (done by hand)
 Spec transcription, architecture, story backlog, dependency-free test harness (jsc/Node), `site-root` preview config. AC: `scripts/test.sh` passes; harness fails on a failing test and on a module load error.
@@ -40,8 +43,12 @@ AC: Each card has `guideUrl` + `lastVerified` and each benefit a status; anythin
 `public/js/overlap/data/cards.mjs` with helpers (`cardsWithBenefit`, etc) built from the verified card research.
 AC: Shape and helper tests; `unverified` never upgraded or asserted as fact; `CARD_DISCLAIMER` exists; the real catalog passes `validateCatalog`.
 
+## S11b - Card cross-reference activation (DEFERRED, runs after S4b)
+With the real card table in place: every card id offered by the `cards` question exists in `CARDS` (or the question list is corrected), real-data scenarios for the other-bucket flags (named card, strong emphasis only for confirmed benefits, unverified never asserted), snapshot update, and golden scenarios with cards.
+AC: tests above; no flag asserts an unverified benefit; S12 audits still green.
+
 ## S5 - Question catalog
-The overlap decision tree from SPEC "Question flow and branching" as closed-list data in `data/questions/*.mjs`, adapted to the host app: `policies` is derived (see ARCHITECTURE adapter table); the asked Q1 equivalent is `other_items` plus the `cards` question. Every question has presets and `not_sure` as specified.
+The overlap decision tree from SPEC "Question flow and branching" as closed-list data in `data/questions/*.mjs`, adapted to the host app (the `cards` question uses a static list of the 12 intended cards because the card table is deferred; S4b later verifies the list against `CARDS`): `policies` is derived (see ARCHITECTURE adapter table); the asked Q1 equivalent is `other_items` plus the `cards` question. Every question has presets and `not_sure` as specified.
 AC: Every SPEC question exists with the specified presets; each branch is gated per SPEC; every option id referenced by a condition exists; every question reachable; no free text; deductible and cushion bands carry comparable `{min,max}` values; sections defined for the wizard (which questions share a screen); tests walk the tree for several policy combinations and assert the exact visible question ids; `validateCatalog` passes.
 
 ## S6 - Liability stack engine and umbrella core flags
@@ -65,7 +72,7 @@ Medical-rider overlap (MedPay / home med-pay vs health), supplemental bolt-ons, 
 AC: Never judges plan adequacy; open-enrollment framing only in health copy; bands only; scenario tests over every band combination; sourced; consistent with the existing no-fault-aware MedPay finding.
 
 ## S11 - Other-bucket flags with card cross-reference
-Rental car, towing/roadside (incl. motorcycle/boat), travel, phone, extended warranty, AD&D; name the user's card when the table supports it; always "check your card's current benefits guide"; stronger emphasis when a held card carries the benefit.
+(Card naming is built and tested against fixture cards; with the real table empty the wording is generic until S11b.) Rental car, towing/roadside (incl. motorcycle/boat), travel, phone, extended warranty, AD&D; name the user's card when the table supports it; always "check your card's current benefits guide"; stronger emphasis when a held card carries the benefit.
 AC: Unverified card benefits never asserted; scenario tests across card/no-card combinations; sourced (NAIC/III/FTC for concepts, issuer guide for card claims).
 
 ## S12 - Snapshot and audit suite
