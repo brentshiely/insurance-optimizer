@@ -15,7 +15,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S6 | Liability stack engine and umbrella core flags | pending |
 | S7 | Umbrella scope and adequacy flags | done |
 | S8 | Auto coverage-gap flags | pending |
-| S9 | Home exclusions and renters flags | pending |
+| S9 | Home exclusions and renters flags | done |
 | S10 | Health flags and deductible-vs-cushion | pending |
 | S11 | Other-bucket flags with card cross-reference | pending |
 | S11b | Card cross-reference activation | deferred (after S4b) |
