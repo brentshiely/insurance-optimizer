@@ -4,7 +4,7 @@ How the Insurance Overlap & Trim work is built **into the existing Coverage Chec
 
 ## What exists, what we add
 
-- **Existing (keep working, keep its look):** the wizard in `public/index.html`: state picker, own/rent, dependents, vehicles, motor extras, qualifiers, per-policy screens with editable numbers, state-driven findings with citations, umbrella screen, summary, light/dark theme, the "Prototype telemetry" panel (local only).
+- **Existing (keep working, keep its look):** the wizard (shell `public/index.html`, logic `public/js/app.js`, styles `public/css/app.css`): state picker, own/rent, dependents, vehicles, motor extras, qualifiers, per-policy screens with editable numbers, state-driven findings with citations, umbrella screen, summary, light/dark theme, the "Prototype telemetry" panel (local only).
 - **Added by this work:** a pure, tested **overlap engine** (decision tree, flags, liability stack, source registry, credit-card table) and new wizard screens that feed it, ending in the spec's **insurer action list** (Raise / Drop / Question, each with Background, Ask, one-line Reason, Source).
 
 ## Principles
@@ -23,7 +23,7 @@ How the Insurance Overlap & Trim work is built **into the existing Coverage Chec
 - This machine has **no Node**. Unit tests run under macOS JavaScriptCore: `scripts/test.sh [path-substring]` (also `npm test`; falls back to Node if present). Runner: `tests/harness.mjs` (`test`, `suite`, `assert`, `assertSnapshot`, `serialize`). Synchronous tests, `tests/**/*.test.mjs`, auto-discovered.
 - jsc has **no `URL`, `console`, `fetch`, `structuredClone`**; it has `print` and `read(path)`. Pure modules and tests must not use them.
 - Data modules are `.mjs` with `export default <plain data>` (never `.json`) so tests can import them.
-- **Browser tests (UI stories).** Each story works in its own git worktree and serves it with its own static server on its own port (`python3 -m http.server <port> --bind 127.0.0.1` from the worktree root; the app is at `/public/index.html`) and drives it from its own Browser pane tab (`tabs_create`, then pass that `tabId` on every call; never touch other tabs). `tests/browser/golden.html` replays scripted scenarios through the real app in a same-origin iframe, compares each screen's text with recorded goldens, and writes `GOLDEN: PASS` or `GOLDEN: FAIL ...` into `<pre id="result">` (read it with `get_page_text`). Volatile text (seconds, tap counts) is normalized. S1 defines the mechanics and documents them in `tests/browser/README.md`.
+- **Browser tests (UI stories).** Each story works in its own git worktree and serves it with its own static server on its own port (`python3 -m http.server <port> --bind 127.0.0.1` from the worktree root; the app is at `/public/index.html`) and drives it from its own Browser pane tab (`tabs_create`, then pass that `tabId` on every call; never touch other tabs). `tests/browser/golden.html` replays scripted scenarios through the real app in a same-origin iframe, compares each screen's text with recorded goldens, and writes `GOLDEN: PASS` or `GOLDEN: FAIL ...` into `<pre id="result">` (read it with `get_page_text`). Volatile text (seconds, tap counts) is normalized. S1 defines the mechanics and documents them in `tests/browser/README.md`: `<pre id="result">` starts as `GOLDEN: RUNNING` (poll until it changes), then its first line is exactly `GOLDEN: PASS` or `GOLDEN: FAIL <scenarioId> step <n>` (step 0 = initial load, step k = after the k-th entry of the scenario's `steps`); a filtered run (`?only=`) reports `GOLDEN: PASS-PARTIAL`, which is not a full pass. Scenarios are plain data in `tests/browser/scenarios.mjs`; goldens are `tests/browser/golden/<id>.mjs` and change only deliberately (README, "Re-recording").
 - Snapshots: `tests/snapshots/*.snap.mjs` (`export default <plain data>`), compared with `assertSnapshot`. Regenerated only deliberately via `scripts/update-snapshots.sh`; any snapshot diff must be explainable by the story.
 - `npm run deploy` publishes the live site. **Never run it.** Pushing to `main` does not deploy.
 
@@ -46,10 +46,12 @@ scripts/                         test.sh, serve.sh, update-snapshots.sh
 coverage-check-wizard-handoff.md existing app principles (kept)
 ```
 
+**How the shell loads the app (S1).** `index.html` holds markup and metadata only. It links `css/app.css` in `<head>` and loads `js/app.js` with `<script type="module">` at the end of `<body>`. Both paths are relative, so the site works with `public/` as the web root (Cloudflare Pages, `npm run preview`). Module scripts need http(s): the page does not work from `file://`. `app.js` is still one IIFE around the original wizard code (the split moved it verbatim), so nothing is imported or exported yet; later stories add `import` lines at the top of `app.js` for `js/overlap/` and `js/overlap-ui/`. There is no inline `<script>` or `<style>` left, but four inline `style="..."` attributes remain (see DECISIONS S1-6, for S15's CSP).
+
 ## Core data contracts
 
 ### Host state and the adapter
-The host keeps its state object `S`. S1 adds `S.o` (overlap answers keyed by question id). `adapter.mjs` exports `deriveAnswers(snapshot)` where `snapshot = { a, extras, q, p, o }` (plain copies of `S.a`, `S.extras`, `S.q`, `S.p`, `S.o`; `state` is deliberately excluded). It returns the engine's `answers` and is pure and unit-tested. Derived `policies` (multi) answer:
+The host keeps its state object `S`. S1 adds `S.o` (overlap answers keyed by question id; starts as `{}` and is rebuilt as `{}` by "Start over"; nothing reads it until S13). `adapter.mjs` exports `deriveAnswers(snapshot)` where `snapshot = { a, extras, q, p, o }` (plain copies of `S.a`, `S.extras`, `S.q`, `S.p`, `S.o`; `state` is deliberately excluded). It returns the engine's `answers` and is pure and unit-tested. Derived `policies` (multi) answer:
 
 | policy id | derived from host |
 |---|---|

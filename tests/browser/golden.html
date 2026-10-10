@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden-master replay</title>
+<link rel="icon" href="data:,">
+<style>
+:root{color-scheme:light dark;--ink:#14211E;--muted:#566864;--line:#D3DDDA;--pass:#2F6B3A;--fail:#A8322B;--bg:#F1F5F4}
+@media (prefers-color-scheme:dark){:root{--ink:#E7EFEC;--muted:#9BAFAA;--line:#2B3A37;--pass:#8FD19A;--fail:#F29088;--bg:#0E1514}}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:20px;margin:0 0 4px}
+p{margin:4px 0;color:var(--muted)}
+pre{white-space:pre-wrap;word-break:break-word;border:1px solid var(--line);border-radius:8px;padding:12px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:12px 0}
+#scenarios{list-style:none;padding:0;margin:12px 0;display:grid;gap:4px}
+#scenarios li{font:13px/1.4 ui-monospace,Menlo,Consolas,monospace}
+#scenarios li[data-status=pass]::before{content:"PASS ";color:var(--pass);font-weight:700}
+#scenarios li[data-status=recorded]::before{content:"RECORDED ";color:var(--pass);font-weight:700}
+#scenarios li[data-status=fail]::before{content:"FAIL ";color:var(--fail);font-weight:700}
+#scenarios li[data-status=running]::before{content:"... "}
+#scenarios li[data-status=queued]::before{content:"queued "}
+</style>
+</head>
+<body>
+<h1>Golden-master replay</h1>
+<p id="mode">Loading...</p>
+<pre id="result">GOLDEN: RUNNING</pre>
+<ul id="scenarios" aria-label="Scenarios"></ul>
+<pre id="record" hidden></pre>
+
+<script type="module">
+// Query options (all optional):
+//   (none)          replay every scenario against its golden (default)
+//   record=1        capture instead of compare; the golden files' JSON is printed into <pre id="record">
+//   record=1&post=1 also POST each golden file to tests/browser/record-server.py (dev helper)
+//   only=a,b        run just these scenario ids (a pass is then reported as GOLDEN: PASS-PARTIAL)
+//   app=<url>       app page to load (default ../../public/index.html, must be same-origin)
+//   pool=<n>        scenarios replayed concurrently (default 6)
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const record = params.has("record");
+const stamp = Date.now();   // cache-busts the harness's own modules and goldens
+const resultEl = $("result"), listEl = $("scenarios"), recordEl = $("record");
+
+function show(text) { resultEl.textContent = text; }
+
+(async () => {
+  try {
+    const R = await import("./runner.mjs?t=" + stamp);
+    const all = (await import("./scenarios.mjs?t=" + stamp)).default;
+    const only = params.get("only") ? params.get("only").split(",").map(s => s.trim()).filter(Boolean) : null;
+    if (only) for (const id of only) if (!all.some(s => s.id === id)) throw new Error(`--only names an unknown scenario: ${id}`);
+    const scenarios = only ? all.filter(s => only.includes(s.id)) : all;
+    const appUrl = new URL(params.get("app") || "../../public/index.html", location.href).href;
+    if (new URL(appUrl).origin !== location.origin) throw new Error("the app must be served from the same origin as this page");
+    $("mode").textContent = `${record ? "RECORD" : "REPLAY"} mode, ${scenarios.length} of ${all.length} scenarios, app: ${new URL(appUrl).pathname}`;
+
+    const items = new Map();
+    for (const s of scenarios) {
+      const li = document.createElement("li");
+      li.dataset.status = "queued";
+      li.textContent = `${s.id} - ${s.title || ""}`;
+      listEl.appendChild(li);
+      items.set(s.id, li);
+    }
+
+    await R.refreshAppAssets(appUrl);   // defeat stale browser caches of the app under test
+
+    const results = await R.runPool(scenarios, Math.max(1, Number(params.get("pool")) || R.POOL_SIZE), async (scn) => {
+      const li = items.get(scn.id);
+      li.dataset.status = "running";
+      let golden = null;
+      if (!record) {
+        try { golden = (await import(`./golden/${scn.id}.mjs?t=${stamp}`)).default; } catch (e) { golden = null; }
+      }
+      const r = await R.runScenario(scn, { appUrl, golden, record });
+      li.dataset.status = r.ok ? (record ? "recorded" : "pass") : "fail";
+      li.textContent = `${scn.id} - ${scn.title || ""} (${r.stepsRun} screens${r.ok ? "" : `, failed at step ${r.failure.step}`})`;
+      return r;
+    });
+
+    let note = "";
+    if (record && results.every(r => r.ok)) {
+      const obj = {};
+      for (const r of results) obj[r.id] = r.steps;
+      recordEl.hidden = false;
+      recordEl.textContent = JSON.stringify(obj, null, 1);
+      if (params.has("post")) {
+        for (const r of results) {
+          const resp = await fetch("/__golden/" + r.id, { method: "POST", headers: { "Content-Type": "text/plain" }, body: R.goldenFileText(r.id, r.steps) });
+          if (!resp.ok) throw new Error(`record-server refused ${r.id}: HTTP ${resp.status}`);
+        }
+        note = `\nwrote ${results.length} golden file(s) via record-server`;
+      }
+    }
+    show(R.buildReport(scenarios, results, { record, partial: !!only && only.length < all.length }) + note);
+  } catch (e) {
+    show(`GOLDEN: FAIL harness step 0\nharness error: ${e && e.message || e}`);
+  }
+})();
+</script>
+</body>
+</html>

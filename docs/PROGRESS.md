@@ -5,7 +5,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | Story | Title | Status |
 |---|---|---|
 | S0 | Bootstrap on the Coverage Check base | done |
-| S1 | Safety net and modular split | pending |
+| S1 | Safety net and modular split | done |
 | S2 | Engine core and adapter | done |
 | S3a | Verified research (non-card) | pending |
 | S3b | Source registry | pending |

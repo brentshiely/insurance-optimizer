@@ -6,3 +6,4 @@
 - **Deploy:** nothing here deploys. Run `npm run deploy` when ready.
 - **Superseded scratch repo:** `brentshiely/insurance-overlap-explainer` (private) holds only an abandoned bootstrap commit; delete it when convenient.
 - **Health branch timing:** the supplemental-health content is most useful during open enrollment (roughly October to early December).
+- **S1-1 - `coverage-check-wizard-handoff.md` still points at the single file.** Its status line and "current working file" paragraph call `public/index.html` the only valid code and describe it as one dense file; its "single-file architecture" caveat is now resolved. After the split the wizard lives in `public/js/app.js` and `public/css/app.css`. Left untouched by S1 (not a file S1 owns); worth a wording pass in S16.
