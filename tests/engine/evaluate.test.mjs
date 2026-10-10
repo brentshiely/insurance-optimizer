@@ -106,9 +106,15 @@ suite('evaluate: results shape and content', (t) => {
     const r = ev({ policies: ['umbrella', 'auto', 'home'], umbrella_limit: '1m', auto_liability: '500_500', home_liability: '1m' });
     assert.deepEqual(flagIds(r, 'raise'), []);
   });
-  t('the stack is whatever computeLiabilityStack returns (null until S6)', () => {
+  t('the stack is whatever computeLiabilityStack returns (Story S6: null without an umbrella, a model with one)', () => {
     assert.equal(computeLiabilityStack({}), null);
-    assert.equal(ev(SCENARIO_A).stack, null);
+    assert.equal(ev({}).stack, null);
+    assert.equal(ev({ policies: ['auto', 'home'] }).stack, null, 'no umbrella, no stack');
+    const stack = ev(SCENARIO_A).stack;
+    assert.deepEqual(stack, createContext(SCENARIO_A, FIXTURE).stack);
+    assert.deepEqual(stack.layers.map((l) => [l.id, l.limitLabel, l.status]), [['auto', '100/300', 'unknown'], ['home', '$300,000', 'unknown']],
+      'the fixture catalog has no "what does your umbrella require" questions, so nothing can be compared');
+    assert.equal(stack.umbrella.limit, 1000000);
   });
 });
 
@@ -222,9 +228,11 @@ suite('evaluate: ctx helpers', (t) => {
     }
     assert.equal(ctx.holds(undefined), false);
   });
-  t('ctx.stack is present (null until S6) and the ctx is frozen', () => {
-    assert.equal(ctx.stack, null);
+  t('ctx.stack is the liability stack (an umbrella is held here), frozen with the ctx', () => {
+    assert.deepEqual(ctx.stack.layers.map((l) => [l.id, l.status]), [['auto', 'unknown']]);
+    assert.equal(ctx.stack.umbrella.limit, 2000000);
     assert.equal(Object.isFrozen(ctx), true);
+    assert.equal(Object.isFrozen(ctx.stack), true);
   });
   t('values handed to flags cannot be used to alter the catalog', () => {
     assert.throws(() => { ctx.option('umbrella_limit').value = 1; }, /read.?only|frozen|not extensible|Cannot/i);

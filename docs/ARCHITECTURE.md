@@ -24,7 +24,7 @@ How the Insurance Overlap & Trim work is built **into the existing Coverage Chec
 - jsc has **no `URL`, `console`, `fetch`, `structuredClone`**; it has `print` and `read(path)`. Pure modules and tests must not use them.
 - Data modules are `.mjs` with `export default <plain data>` (never `.json`) so tests can import them.
 - **Browser tests (UI stories).** Each story works in its own git worktree and serves it with its own static server on its own port (`python3 -m http.server <port> --bind 127.0.0.1` from the worktree root; the app is at `/public/index.html`) and drives it from its own Browser pane tab (`tabs_create`, then pass that `tabId` on every call; never touch other tabs). `tests/browser/golden.html` replays scripted scenarios through the real app in a same-origin iframe, compares each screen's text with recorded goldens, and writes `GOLDEN: PASS` or `GOLDEN: FAIL ...` into `<pre id="result">` (read it with `get_page_text`). Volatile text (seconds, tap counts) is normalized. S1 defines the mechanics and documents them in `tests/browser/README.md`: `<pre id="result">` starts as `GOLDEN: RUNNING` (poll until it changes), then its first line is exactly `GOLDEN: PASS` or `GOLDEN: FAIL <scenarioId> step <n>` (step 0 = initial load, step k = after the k-th entry of the scenario's `steps`); a filtered run (`?only=`) reports `GOLDEN: PASS-PARTIAL`, which is not a full pass. Scenarios are plain data in `tests/browser/scenarios.mjs`; goldens are `tests/browser/golden/<id>.mjs` and change only deliberately (README, "Re-recording").
-- Snapshots: `tests/snapshots/*.snap.mjs` (`export default <plain data>`), compared with `assertSnapshot`. Regenerated only deliberately via `scripts/update-snapshots.sh`; any snapshot diff must be explainable by the story.
+- Snapshots (mechanism built by S6, `tests/snapshots/README.md`): `tests/snapshots/*.snap.mjs` (`export default <plain data>`), compared with `assertSnapshot`. Each snapshot has a generator `tests/snapshots/gen/<name>.gen.mjs` that prints the data as JSON with `print()` (via `serialize()` from the harness, so key order is stable), usually built by a function in `tests/snapshots/builders/` that the test also calls. `scripts/update-snapshots.sh [--check] [name]` runs every generator under jsc and writes the matching `.snap.mjs`; regenerate only deliberately, and any snapshot diff must be explainable by the story.
 - `npm run deploy` publishes the live site. **Never run it.** Pushing to `main` does not deploy.
 
 ## Layout
@@ -181,7 +181,7 @@ Built behavior (`createContext(answers, catalog = default)` in `engine/evaluate.
 - `ctx.isNotSure(qid)` is true when the answer is `not_sure` (single) or includes it (multi).
 - `ctx.option(qid)`: single -> the chosen option object (with `.value`, or the `{ id:'not_sure', label:'Not sure' }` option); multi -> an array of the chosen option objects; `undefined` when unanswered. Check `isNotSure` before reading `.value`.
 - `ctx.cards()`: the card entries chosen in the `cards` question (see Question), ordered by card id, as frozen copies; `[]` when none. `ctx.cardsWith(benefitKey)`: those whose `benefits[benefitKey].status` is `primary`, `secondary` or `yes`. `unverified` and `none` never count; a flag that wants to mention an unverified benefit must read `ctx.cards()` itself and never state it as fact.
-- `ctx.stack`: `computeLiabilityStack(ctx)`, run once while the ctx is built (`ctx.stack` is `null` during that call). A stub returning `null` until S6.
+- `ctx.stack`: `computeLiabilityStack(ctx)`, run once while the ctx is built (`ctx.stack` is `null` during that call). `null` unless the user holds an umbrella; otherwise the LiabilityStack model below, frozen with the ctx. Flags read it through `stackFindings(ctx.stack, type)` (exported by `engine/liabilityStack.mjs`, safe on `null`).
 
 ### Results
 ```js
@@ -204,8 +204,47 @@ Keyed by card id: `{ id, name, issuer, lastVerified, guideUrl, benefits: { renta
 
 Validation (S2): `data/cards.mjs` exports a **named** `CARDS` object keyed by card id (`id === key`, kebab-case); `name`, `issuer` non-empty, `lastVerified` a real date, `guideUrl` https, and `benefits` must contain all six keys above (use `status: 'unverified'` for anything not confirmed from the issuer's guide), each with a valid `status`, a non-empty `summary` and optional string `conditions`. Extra benefit keys are allowed if they have the same shape. The `cards` catalog part is optional for validation.
 
-### LiabilityStack
-One engine, `computeLiabilityStack(input)` (S6), documented here when it lands. Models underlying policies (auto, home, motorcycle, boat) and the umbrella: limits, required minimums, per-layer status (`ok`, `below_required`, `above_required`, `unknown`). Flags consume `ctx.stack`; the visualization (S14) renders the same model.
+### LiabilityStack (built by S6)
+One engine, `computeLiabilityStack(ctx)` in `engine/liabilityStack.mjs`, builds the model that flags consume as `ctx.stack` and that the Story S14 visualization renders as `results.stack`. It is plain, self-describing data (labels, statuses, numbers, one sentence per layer; no functions, no `undefined`, nothing shared between calls) and reads only the user's own closed-list answers, never the host's policy-screen numbers (DECISIONS D10, S6-1).
+
+**When it exists.** `null` unless `ctx.holds('umbrella')` (or when `ctx` is not an evaluation context). With an umbrella and no underlying policy it is the umbrella alone (`layers: []`).
+
+```js
+{
+  version: 1,
+  umbrella: { id: 'umbrella', label: 'Umbrella', limit: 1000000 | null, limitLabel: '$1 million' | 'Not sure' | 'Not answered yet', limitAnswer: 'known' | 'not_sure' | 'unanswered' | 'unreadable' },
+  layers: [   // one per held underlying policy, always in the order auto, home, motorcycle, boat
+    {
+      id: 'auto', label: 'Auto liability', policyText: 'auto policy',
+      limitShape: 'split' | 'single',                        // auto, motorcycle, boat are split; home is a single amount
+      limit: { perPerson, perAccident } | number | null,     // dollars; null unless limitAnswer is 'known'
+      limitLabel: '100/300',  limitText: '100/300',          // as shown in the question / ready for the middle of a sentence ("lower than 100/300")
+      limitIsCeiling: false,                                 // true only for the "Lower than ..." rung
+      limitAnswer: 'known' | 'not_sure' | 'unanswered' | 'unreadable',
+      required: { ... } | number | null,  requiredLabel, requiredText, requiredAnswer,   // what the umbrella asks for underneath, same shapes
+      status: 'ok' | 'below_required' | 'above_required' | 'unknown',
+      statusLabel: "Meets your umbrella's requirement" | "Below your umbrella's requirement" | "Above your umbrella's requirement" | 'Not confirmed',
+      shortBy: null | number | { perPerson, perAccident },   // exact difference, only when below_required and the limit is exact
+      summary: 'Your auto liability limit is 100/300, but your umbrella asks for 250/500.',
+    },
+  ],
+  counts: { ok, below_required, above_required, unknown },   // number of layers in each status
+  findings: [   // what flags consume, in layer order
+    { id: 'auto-below-required', type: 'below_required' | 'above_required' | 'unconfirmed', layer: 'auto', layerLabel, policyText,
+      limitLabel, limitText, limitIsCeiling, requiredLabel, requiredText, notSure: [] | ['limit'] | ['required'] | ['limit', 'required'] },
+  ],
+  attachmentNote: 'An umbrella pays only after the liability limit on the policy underneath has been used up, ...',
+  sourceIds: ['iii-what-is-umbrella-liability-policy', 'iii-should-i-purchase-umbrella', 'iii-homebuyers-handbook'],   // sources for attachmentNote; look them up in SOURCES
+}
+```
+
+**Attachment point.** An umbrella pays only after the liability limit of the policy underneath has been used up (research fact `umbrella-attaches-after-underlying-exhausted`; it adds to the underlying policy and does not replace it). So the *attachment point* of a layer is that layer's own liability limit (`layer.limit`): the amount of that policy's coverage that has to be used up before the umbrella can start to pay for that policy. For a split limit like 250/500 there are two: per person and per accident. The *required minimum* (`layer.required`) is the attachment point the umbrella insurer expects, as the user read it off their umbrella; each insurer sets its own (research fact `umbrella-underlying-requirements-insurer-specific`). The model compares the two. It deliberately says nothing about what an umbrella insurer does in the stretch between a limit below the requirement and the requirement itself, because no authoritative source states it (DECISIONS S3a-umbrella-1, S6-2), and it adds no "total protection" figure for the same reason.
+
+**Status.** `ok`: the limit equals the requirement. `below_required`: the limit is certainly lower (for a split limit, lower on either number). `above_required`: not below, and higher on either number. `unknown`: the limit or the requirement is Not sure, unanswered or unreadable, or a ceiling cannot be placed against the requirement. A "Lower than ..." answer is a ceiling (`limitIsCeiling`): its `limit` is the largest limit the rung can mean (299,999, or 99,999/299,999), so it is `below_required` against every requirement the catalog offers and `unknown` against anything at or under the ceiling. Not sure never gives a verdict: it gives `unknown` and an `unconfirmed` finding naming which part is Not sure (`notSure`). Unanswered gives `unknown` and no finding. The umbrella's own size does not change any layer.
+
+**Findings are what flags read.** `below_required` feeds the four Raise flags, `above_required` (auto and home only) feeds the over-buying Question, and `unconfirmed` feeds the Not sure Question; see `docs/QUESTION-FLAG-PLAN.md` S6. Other exports: `stackFindings(stack, type)`, `STACK_STATUSES`, `LAYER_IDS`, `LOWER_OPTION_ID`, `STACK_VERSION`.
+
+**Inputs.** Per layer, the matching pair of questions: `auto_liability` / `umbrella_min_auto`, `home_liability` / `umbrella_min_home`, `motorcycle_liability` / `umbrella_min_motorcycle`, `boat_liability` / `umbrella_min_boat`; the umbrella object reads `umbrella_limit`. The first rung (id `lower`) of each limit question is the ceiling convention (DECISIONS S5-13).
 
 ### Research files (`research/*.mjs`, S3a)
 Five domain files (`umbrella-liability-stack`, `auto-coverages`, `home-and-renters`, `health-supplemental`, `other-bucket`), each `export default { domain, retrievedOn, sources, facts, designInputs, rejected, gaps }` (plain data, not deployed). A source is `{ id, publisher, title, url, authorityType, lastVerified, verification: { status: 'verified', checkedOn, note } }`; a fact is `{ id, topic, claim, sourceIds, confidence: 'high'|'medium'|'low', caveats }` and may cite only sources in its own file. Every source URL is https on an allowlisted authority host (none on the forbidden commercial list), one URL has one id everywhere, fact ids are unique across files, and `designInputs` lists the facts behind each hint in `factIds`. `rejected` keeps removed or trimmed items (with their original objects) so they can be reinstated. `research/INDEX.md` is the lookup table for flag and question authors and is checked against the files by `tests/research/research.test.mjs`. S3b builds `data/sources.mjs` from the `sources` arrays, deduplicated by URL.
