@@ -182,6 +182,13 @@ scenarios' early steps is therefore still the proof that the existing screens di
 summary now shows the real flag copy, a later story that edits that copy or adds a flag that fires in one of
 these scenarios (S10, S11, S12) must re-record the affected summary steps deliberately, and say so.
 
+### Re-record after S10 (integration)
+
+S10's health and deductible flags merged after S13 was written and fire in 11 of the 17 scenarios, so one summary
+screen in each of those scenarios was re-recorded (DECISIONS S13-13). The change is only added Question items
+and the new count in the list's first line; every line before the "Your insurer action list" heading and from
+"[Start over]" on is unchanged. S11 and S12 should expect the same.
+
 ## Files
 
 | file | role |
