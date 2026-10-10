@@ -16,7 +16,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S7 | Umbrella scope and adequacy flags | done |
 | S8 | Auto coverage-gap flags | done |
 | S9 | Home exclusions and renters flags | done |
-| S10 | Health flags and deductible-vs-cushion | pending |
+| S10 | Health flags and deductible-vs-cushion | done |
 | S11 | Other-bucket flags with card cross-reference | pending |
 | S11b | Card cross-reference activation | deferred (after S4b) |
 | S12 | Snapshot and audit suite | pending |
