@@ -14,6 +14,8 @@
 //   applyAnswer(snapshot, qid, optionId)    new `o` with that tap applied and stale answers pruned
 //   actionListViewModel(snapshot)           Raise / Drop / Question groups with the rendered flag text
 //   actionListText(vm)                      plain text of that list for the clipboard
+//   liabilityStackModel(snapshot)           the engine's umbrella/limits model (Story S14), or null without an umbrella
+//   stackForScreen(snapshot, screenId)      that model on the screens that draw it, else null
 //
 // Results are fresh plain objects (never the engine's or the catalog's own), so callers may edit them.
 // Identical input gives byte-identical output. Inputs are never mutated.
@@ -21,12 +23,18 @@ import CATALOG from '../overlap/data/catalog.mjs';
 import { SECTIONS } from '../overlap/data/questions/index.mjs';
 import { createSession } from '../overlap/engine/session.mjs';
 import { deriveAnswers } from '../overlap/engine/adapter.mjs';
-import { evaluate } from '../overlap/engine/evaluate.mjs';
+import { evaluate, createContext } from '../overlap/engine/evaluate.mjs';
 import { NOT_SURE, POLICIES_KEY } from '../overlap/engine/constants.mjs';
 
 /** Screen ids the host adds to its order(): one `ovl:<sectionId>` per section, then `actions` last. */
 export const OVERLAP_SCREEN_PREFIX = 'ovl:';
 export const ACTIONS_SCREEN_ID = 'actions';
+
+/**
+ * The sections whose screens draw the umbrella and the limits under it (Story S14): the ones that ask the limit
+ * questions the engine's LiabilityStack is built from. The stack itself is drawn by stackView.mjs.
+ */
+export const STACK_SECTION_IDS = ['umbrella_stack', 'umbrella_vehicles'];
 
 /** The three action-list groups, in display order, with their headings (SPEC "Output: the insurer action list"). */
 export const BUCKET_LABELS = { raise: 'Raise', drop: 'Drop', question: 'Question' };
@@ -218,6 +226,26 @@ export function actionListViewModel(snapshot, catalog = DEFAULT_CATALOG) {
     emptyTitle: empty ? EMPTY_TITLE : null,
     emptyMessage: empty ? EMPTY_MESSAGE : null,
   };
+}
+
+/**
+ * The engine's LiabilityStack for the snapshot (docs/ARCHITECTURE.md "LiabilityStack"), as a fresh plain object, or
+ * null when no umbrella is held. Only the stack is built (no flags are evaluated). stackView.mjs turns it into
+ * what the page draws; nothing else is read from the snapshot for that.
+ */
+export function liabilityStackModel(snapshot, catalog = DEFAULT_CATALOG) {
+  const stack = createContext(deriveAnswers(snapshot), catalog).stack;
+  return stack === null ? null : JSON.parse(JSON.stringify(stack));
+}
+
+/**
+ * The stack for one overlap screen: the model on the screens listed in STACK_SECTION_IDS (when an umbrella is
+ * held), null on every other screen id. The screens call this after every tap, so the drawing follows the answers.
+ */
+export function stackForScreen(snapshot, screenId, catalog = DEFAULT_CATALOG) {
+  if (typeof screenId !== 'string' || screenId.indexOf(OVERLAP_SCREEN_PREFIX) !== 0) return null;
+  if (STACK_SECTION_IDS.indexOf(screenId.slice(OVERLAP_SCREEN_PREFIX.length)) < 0) return null;
+  return liabilityStackModel(snapshot, catalog);
 }
 
 function sourceLine(s) {

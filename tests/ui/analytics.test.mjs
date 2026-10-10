@@ -899,7 +899,7 @@ suite('page sources: no network calls, no storage, no cookies, no extra resource
     if (!canRead) return;
     const app = read('public/js/app.js');
     assert.equal(app.includes('entryNoteHtml(analytics.counting)'), true);
-    assert.equal(app.includes('actionListHtml(vm,analytics.counting)'), true);
+    assert.equal(app.includes('actionListHtml(vm,analytics.counting,stk)'), true); // S14 adds the stack drawing as the third argument
     assert.equal(app.includes('actionListErrorHtml(analytics.counting)'), true);
     assert.equal(app.includes('startAnalytics({window:window,document:document},ANALYTICS_CONFIG)'), true);
   });

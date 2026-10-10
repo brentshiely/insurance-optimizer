@@ -1,4 +1,5 @@
-import { overlapSections, overlapScreenIds, applyAnswer, actionListViewModel, actionListText, ACTIONS_SCREEN_ID } from './overlap-ui/viewModel.mjs';
+import { overlapSections, overlapScreenIds, applyAnswer, actionListViewModel, actionListText, liabilityStackModel, stackForScreen, ACTIONS_SCREEN_ID } from './overlap-ui/viewModel.mjs';
+import { stackViewModel } from './overlap-ui/stackView.mjs';
 import { overlapScreenHtml, overlapProgress, overlapScreenLabel, sectionIdOf, actionListHtml, actionListErrorHtml, entryNoteHtml } from './overlap-ui/screens.mjs';
 import { patchOverlapScreen, restoreFocus, focusHeading, copyText, printList, COPY_OK, COPY_FAILED } from './overlap-ui/dom.mjs';
 import { startAnalytics, becameSelected, flagIdsOf } from './overlap-ui/analytics.mjs';
@@ -317,11 +318,20 @@ function pValues(pid){
 function go(n){ var from=order()[S.i]; S.times.push({s:screenLabel(from),t:(Date.now()-S.t0)/1000}); S.t0=Date.now(); S.i=n; render(); overlapFocus(from); }
 // Keyboard and screen reader users land on the heading of an overlap screen (and of the summary when they arrive from one).
 function overlapFocus(from){ var id=order()[S.i]; if(sectionIdOf(id)!==null||(id==="summary"&&sectionIdOf(from)!==null)) focusHeading(stage) }
+// The umbrella and the limits under it (Story S14): drawn on the screens that ask for them and in the action list.
+// Built from the engine's liability stack only; null (nothing drawn) when no umbrella is held.
+function stackFor(id){
+  try{ return stackViewModel(stackForScreen(snapshot(),id)) }
+  catch(err){ console.error("Could not build the umbrella and limits drawing",err); return null }
+}
 function actionListSection(){
+  var stk=null;
+  try{ stk=stackViewModel(liabilityStackModel(snapshot())) }
+  catch(err){ console.error("Could not build the umbrella and limits drawing",err) }
   try{
     var vm=actionListViewModel(snapshot());
     flagIdsOf(vm).forEach(function(id){analytics.emit("flag_shown",{flagId:id})});
-    return actionListHtml(vm,analytics.counting);
+    return actionListHtml(vm,analytics.counting,stk);
   }
   catch(err){ console.error("Could not build the insurer action list",err); return actionListErrorHtml(analytics.counting) }
 }
@@ -465,7 +475,7 @@ function render(){
     h=policyScreen(id.slice(2));
   }
   if(id.indexOf("ovl:")===0){
-    h=overlapScreenHtml(overlapSections(snapshot()),id,back());
+    h=overlapScreenHtml(overlapSections(snapshot()),id,back(),stackFor(id));
   }
   if(id==="umbrella"){
     var hasAuto=S.p.auto,hasHome=S.p.home;
@@ -531,7 +541,7 @@ stage.addEventListener("click",function(e){
     var before=S.o;
     S.o=applyAnswer(snapshot(),b.dataset.oq,b.dataset.ov);S.taps++;
     if(becameSelected(before,S.o,b.dataset.oq,b.dataset.ov)) analytics.emit("answer",{questionId:b.dataset.oq,optionId:b.dataset.ov});
-    if(patchOverlapScreen(stage,overlapSections(snapshot()),order()[S.i])) known();
+    if(patchOverlapScreen(stage,overlapSections(snapshot()),order()[S.i],stackFor(order()[S.i]))) known();
     else{render();restoreFocus(stage,b.dataset.oq,b.dataset.ov)}
     return}
   if(b.dataset.p&&b.dataset.k){ // yesno field toggle button

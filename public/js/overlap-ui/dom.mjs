@@ -3,24 +3,32 @@
 // objects it needs as arguments, so it can be exercised with small stand-ins under jsc (tests/ui/dom.test.mjs)
 // and nothing here reaches for a global. No browser storage is used anywhere.
 //
-//   patchOverlapScreen(stage, sections, screenId)   update answers in place; false = do a full re-render
+//   patchOverlapScreen(stage, sections, screenId, stackVm?)   update answers (and the stack drawing) in place; false = do a full re-render
 //   restoreFocus(stage, questionId, optionId)       put focus back on the option that was just used
 //   focusHeading(stage)                             move focus to the screen's heading
 //   copyText(text, env, done)                       clipboard write with a textarea fallback
 //   printList(win)                                  open the print dialog
-import { overlapScreenKey, sectionIdOf } from './screens.mjs';
+import { overlapScreenKey, sectionIdOf, stackBodyHtml, stackLiveText } from './screens.mjs';
 
 /**
  * Updates the pressed state of every option, the Continue button and the hint under it WITHOUT replacing the
  * elements, so keyboard focus, the scroll position and a screen reader's place all stay put. Returns false
  * (and changes nothing) when the screen's shape differs from what is on the page (a different set of
- * questions or a different "N of M"), in which case the caller renders the whole screen again.
+ * questions or a different "N of M", or a stack drawing that the page has and the caller no longer wants, or
+ * the other way round), in which case the caller renders the whole screen again.
+ *
+ * `stackVm` (Story S14) is stackViewModel(...) for the screens that draw the umbrella and the limits under it:
+ * the drawing is replaced with the new one, and its live region (a separate element that is never replaced) is
+ * given the new one-line summary only when that summary changed, so a screen reader announces real changes only.
  */
-export function patchOverlapScreen(stage, sections, screenId) {
+export function patchOverlapScreen(stage, sections, screenId, stackVm) {
   const body = stage.querySelector('#ovl-body');
   const next = stage.querySelector('#ovl-next');
   const hint = stage.querySelector('#ovl-hint');
   if (!body || !next || !hint) return false;
+  const stackBody = stage.querySelector('#stk-body');
+  const stackLive = stage.querySelector('#stk-live');
+  if (stackVm ? (!stackBody || !stackLive) : (stackBody || stackLive)) return false;
   const key = overlapScreenKey(sections, screenId);
   if (key === null || body.getAttribute('data-ovl-key') !== key) return false;
   const sid = sectionIdOf(screenId);
@@ -43,6 +51,11 @@ export function patchOverlapScreen(stage, sections, screenId) {
   }
   next.disabled = !section.complete;
   hint.hidden = section.complete;
+  if (stackVm) {
+    stackBody.innerHTML = stackBodyHtml(stackVm);
+    const sentence = stackLiveText(stackVm);
+    if (stackLive.textContent !== sentence) stackLive.textContent = sentence;
+  }
   return true;
 }
 

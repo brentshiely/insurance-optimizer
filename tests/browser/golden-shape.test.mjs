@@ -4,6 +4,7 @@
 import { test, assert } from '../harness.mjs';
 import scenarios from './scenarios.mjs';
 import { OPS, validateStep, normalizeVolatile, diffLines, goldenFileText } from './runner.mjs';
+import { STACK_HEADING, STATUS_SENTENCES, EMPTY_NOTE } from '../../public/js/overlap-ui/stackView.mjs';
 
 const steps = (pred) => scenarios.flatMap(s => s.steps).filter(pred);
 const values = (op, key, extra = () => true) => new Set(steps(s => s.op === op && extra(s)).map(s => s[key]));
@@ -156,6 +157,59 @@ test('browser goldens (Story S13): the scenarios between them show a Raise list,
     umbrellaScope: 'What your umbrella covers', autoGaps: 'A closer look at your auto policy', renters: 'Your renters policy',
     health: 'Your health insurance and the extras around it', homeExclusions: 'What your home policy leaves out', deductible: 'What you would pay first',
   })) assert.includes(text, `\n${heading}\n`, `no golden reaches the ${id} overlap screen`);
+});
+
+// ---- Story S14: the umbrella and the limits under it ------------------------------------------------------------
+const isStackScreen = (text) => isOverlapScreen(text) && (text.includes('\nWhat sits under your umbrella\n') || text.includes('\nYour motorcycle or boat under the umbrella\n'));
+
+test('browser goldens (Story S14): the umbrella drawing appears only on the two umbrella limit screens and in the summary of a household with an umbrella, so every other screen is untouched', () => {
+  if (!canRead) return;
+  for (const s of scenarios) {
+    let sawStack = false;
+    for (const g of goldenOf(s.id)) {
+      const has = g.text.includes(STACK_HEADING);
+      if (g.text.includes('Which state are you in?')) sawStack = false; // Start over begins a new run
+      if (isStackScreen(g.text)) { assert.ok(has, `${s.id} step ${g.step}: an umbrella limit screen shows the drawing`); sawStack = true; }
+      else if (isSummary(g.text)) assert.equal(has, sawStack, `${s.id} step ${g.step}: the summary shows the drawing exactly when an umbrella limit screen came first`);
+      else assert.ok(!has, `${s.id} step ${g.step}: no other screen shows the drawing`);
+    }
+  }
+});
+
+test('browser goldens (Story S14): between them the scenarios record every status sentence, an umbrella with nothing under it, and Not sure on the umbrella itself', () => {
+  if (!canRead) return;
+  const all = scenarios.flatMap(s => goldenOf(s.id).map(g => g.text)).join('\n#####\n');
+  for (const [status, sentence] of Object.entries(STATUS_SENTENCES)) assert.includes(all, `\n${sentence}\n`, `no golden shows the "${status}" sentence`);
+  assert.includes(all, `\n${EMPTY_NOTE}\n`, 'an umbrella with nothing under it');
+  assert.includes(all, '\nUmbrella limit: Not sure\n', 'Not sure on the umbrella');
+  assert.includes(all, '\nWe do not have your umbrella limit yet\n', 'before the umbrella size is answered');
+  assert.includes(all, '\nYour limit: Lower than 100/300\n', 'a "Lower than" limit');
+});
+
+test('browser goldens (Story S14): umbrella-stack-live taps every limit on its own, so the drawing is recorded after each answer and each recording is different', () => {
+  if (!canRead) return;
+  const scn = scenarios.find(s => s.id === 'umbrella-stack-live');
+  assert.ok(scn, 'scenario umbrella-stack-live');
+  assert.ok(scn.steps.filter(x => x.op === 'answer' && x.list.length === 1 && /liability|umbrella_/.test(x.list[0][0])).length >= 12, 'one tap per step on the limit screens');
+  const drawings = goldenOf(scn.id).map(g => g.text).filter(isStackScreen);
+  assert.ok(drawings.length >= 16, `${drawings.length} recorded limit screens`);
+  const bodies = drawings.map(t => t.slice(t.indexOf(STACK_HEADING + '\n'), t.indexOf('\n== known ==')));
+  const distinct = new Set(bodies);
+  assert.ok(distinct.size >= 14, `only ${distinct.size} different drawings were recorded`);
+});
+
+test('browser goldens (Story S14): the summary draws the umbrella and its limits right above the group that holds the umbrella items', () => {
+  if (!canRead) return;
+  for (const id of ['umbrella-low-underlying-raise', 'umbrella-only-renter', 'ny-nofault-umbrella-back']) {
+    const g = goldenOf(id);
+    const text = g[g.length - 1].text;
+    const at = text.indexOf('\n' + STACK_HEADING + '\n');
+    assert.ok(at > text.indexOf('\nYour insurer action list\n'), `${id}: inside the action list`);
+    assert.ok(/\n(Raise|Drop|Question) \(\d+\)\n/.test(text.slice(at)), `${id}: a group follows the drawing`);
+  }
+  const low = goldenOf('umbrella-low-underlying-raise');
+  const t = low[low.length - 1].text;
+  assert.ok(t.indexOf(STACK_HEADING) < t.indexOf('\nRaise (5)\n'), 'the drawing sits above the Raise group that holds the umbrella items');
 });
 
 test('browser harness: volatile text normalization touches only taps and seconds', () => {

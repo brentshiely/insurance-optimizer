@@ -9,9 +9,11 @@
 // an https URL. The markup reuses the app's existing classes (.opts/.opt, .chips/.chip, .qrow/.yn2, .item,
 // .tag, .src, .foot, .primary, .link, .ghost) and adds a few ovl- / oq- / al- classes in css/app.css.
 //
-//   overlapScreenHtml(sections, screenId, backHtml)   one `ovl:<section>` screen (questions + Continue)
+//   overlapScreenHtml(sections, screenId, backHtml, stackVm?)   one `ovl:<section>` screen (questions + Continue),
+//                                                     with the umbrella stack drawing (Story S14) when given
 //   questionHtml(question)                            one question as a labelled group of toggle buttons
-//   actionListHtml(vm)                                the "Your insurer action list" section
+//   actionListHtml(vm, counting, stackVm?)            the "Your insurer action list" section, with the stack when given
+//   stackBodyHtml(stackVm) / stackLiveText(stackVm)   what dom.mjs puts in the stack drawing and its live region
 //   overlapProgress(sections)                         { answered, total } for the "What we know" panel
 //   overlapScreenLabel(screenId)                      short telemetry label for an overlap screen id
 //   entryNoteHtml(counting)                           the not-advice note and privacy line on the entry screen
@@ -19,6 +21,7 @@
 import {
   BUCKET_LABELS, EMPHASIS_LABEL, INFO_NOTE, OVERLAP_SCREEN_PREFIX,
 } from './viewModel.mjs';
+import { stackViewHtml } from './stackView.mjs';
 
 /**
  * The privacy lines (Story S15). Which one the page shows follows whether a counting provider is switched on
@@ -130,12 +133,33 @@ function screenKey(section, position, total) {
   return section.id + '|' + position + '|' + total + '|' + section.questions.map((q) => q.id).join(',');
 }
 
+/** The stack drawing for a view-model from stackViewModel(), or '' when there is none. */
+export function stackBodyHtml(stackVm) {
+  return stackVm ? stackViewHtml(stackVm, { idPrefix: 'stk' }) : '';
+}
+
+/** The sentence a screen reader hears when the drawing changes (stackViewModel().ariaSummary), or ''. */
+export function stackLiveText(stackVm) {
+  return stackVm && typeof stackVm.ariaSummary === 'string' ? stackVm.ariaSummary : '';
+}
+
+// The umbrella stack on an overlap screen. The live region is a separate, stable element that already holds the
+// summary when the screen is drawn (so nothing is announced on arrival) and that dom.mjs rewrites only when an answer
+// changes the drawing, because a screen reader announces text that changes inside an existing region, not a region
+// that is replaced. The drawing itself is aria-live="off": #stage is a polite live region (index.html), and without
+// this a tap would read the whole redrawn stack aloud on top of the one-line summary.
+function stackBlockHtml(stackVm) {
+  return '<div class="stk-wrap"><p class="vh" id="stk-live" role="status">' + esc(stackLiveText(stackVm)) + '</p><div id="stk-body" aria-live="off">' + stackBodyHtml(stackVm) + '</div></div>';
+}
+
 /**
  * One overlap screen. `sections` is overlapSections(snapshot), `screenId` is 'ovl:<sectionId>', `backHtml` is
  * the host's Back control (so the markup stays the host's). Continue is disabled until every visible question
- * on the screen has an answer. Returns '' when the screen id does not match a section.
+ * on the screen has an answer. `stackVm` (optional) is stackViewModel(...) for the screens that draw the umbrella
+ * and the limits under it; it goes below the questions and is redrawn in place as they are answered. Returns ''
+ * when the screen id does not match a section.
  */
-export function overlapScreenHtml(sections, screenId, backHtml) {
+export function overlapScreenHtml(sections, screenId, backHtml, stackVm) {
   const sid = sectionIdOf(screenId);
   const index = sections.findIndex((s) => s.id === sid);
   if (index < 0) return '';
@@ -145,6 +169,7 @@ export function overlapScreenHtml(sections, screenId, backHtml) {
     (section.reason !== '' ? '<p class="sub">' + esc(section.reason) + '</p>' : '') +
     '<div class="oqs" id="ovl-body" data-ovl-key="' + esc(screenKey(section, index + 1, sections.length)) + '">' +
       section.questions.map(questionHtml).join('') + '</div>' +
+    (stackVm ? stackBlockHtml(stackVm) : '') +
     '<p class="small oq-needs" id="ovl-hint"' + (section.complete ? ' hidden' : '') + '>' + esc(NEEDS_HINT) + '</p>' +
     '<div class="row spread foot ovl-foot">' + backHtml + '<button type="button" class="primary" id="ovl-next" data-act="next" aria-describedby="ovl-hint"' +
       (section.complete ? '' : ' disabled') + '>Continue</button></div>';
@@ -189,13 +214,22 @@ export function entryNoteHtml(counting) {
   return '<div class="entry-notes"><p class="small">' + esc(ENTRY_NOTE) + '</p><p class="small">' + esc(privacyLine(counting)) + '</p></div>';
 }
 
+// An item is about the umbrella when its id says so (every umbrella flag, including the motorcycle and boat ones, starts with it).
+const isUmbrellaItem = (item) => typeof item.id === 'string' && item.id.indexOf('umbrella-') === 0;
+
 /**
  * "Your insurer action list": counts, the not-advice note, Copy / Print buttons and the status line the copy
  * button writes to (both left out when there is nothing to copy), the Raise / Drop / Question groups, and the
  * privacy line (`counting` picks which one; see privacyLine). An empty list prints the honest empty state and never says everything is fine.
+ *
+ * `stackVm` (optional, Story S14) is stackViewModel(...) for a household with an umbrella. It is drawn directly above
+ * the first group that holds an umbrella item, so it sits next to the items it explains (above the first group when
+ * no umbrella item fired, below the empty-state message for an empty list), and it prints with the list.
  */
-export function actionListHtml(vm, counting) {
+export function actionListHtml(vm, counting, stackVm) {
   const counts = vm.groups.map((g) => g.count + ' ' + g.label).join(', ');
+  const stackHtml = stackVm ? '<div class="al-stack">' + stackViewHtml(stackVm, { idPrefix: 'al-stk' }) + '</div>' : '';
+  const at = Math.max(0, vm.groups.findIndex((g) => g.items.some(isUmbrellaItem)));
   return '<section class="actionlist" id="actionlist" aria-labelledby="al-h">' +
     '<h2 id="al-h">Your insurer action list</h2>' +
     (vm.empty ? '' : '<p>' + vm.total + (vm.total === 1 ? ' item' : ' items') + ' to take to your insurer: ' + esc(counts) + '.</p>') +
@@ -206,8 +240,8 @@ export function actionListHtml(vm, counting) {
       '<button type="button" class="ghost" data-act="print">Print my list</button></div>' +
       '<p class="small al-status" id="al-status" role="status"></p>') +
     (vm.empty
-      ? '<div class="finding al-empty"><h3 class="al-gh">' + esc(vm.emptyTitle) + '</h3><p>' + esc(vm.emptyMessage) + '</p></div>'
-      : vm.groups.map(groupHtml).join('')) +
+      ? '<div class="finding al-empty"><h3 class="al-gh">' + esc(vm.emptyTitle) + '</h3><p>' + esc(vm.emptyMessage) + '</p></div>' + stackHtml
+      : vm.groups.map((g, i) => (i === at ? stackHtml : '') + groupHtml(g)).join('')) +
     '<p class="small al-privacy">' + esc(privacyLine(counting)) + '</p>' +
   '</section>';
 }

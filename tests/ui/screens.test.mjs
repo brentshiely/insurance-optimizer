@@ -47,9 +47,9 @@ suite('screens: the module is pure and its wording is plain', (t) => {
     assert.equal(found, null, found ? `forbidden "${found}" in ${MODULE_PATH}` : '');
   });
 
-  t('imports only the view-model next to it', () => {
+  t('imports only the view-model and the stack drawing (Story S14) next to it', () => {
     if (!canRead) return;
-    assert.deepEqual(importsOf(read(MODULE_PATH)), ['./viewModel.mjs']);
+    assert.deepEqual(importsOf(read(MODULE_PATH)), ['./viewModel.mjs', './stackView.mjs']);
   });
 
   t('user-facing wording is ASCII, has no dash characters, no placeholders and names no state', () => {

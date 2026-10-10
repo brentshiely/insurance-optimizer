@@ -155,6 +155,53 @@ h2[data-focus]:focus{outline-offset:4px}
 .al-srcs .src{display:inline;margin:0;font-size:13px}
 .al-ver{white-space:nowrap}
 .al-empty{gap:8px}
+/* The umbrella and the limits under it (Story S14). Status is always words plus a distinct icon shape; bars are SVG. */
+.stk{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.stk-h{margin:0;font-size:18px;line-height:1.25}
+.stk-rows{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.stk-row{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px}
+.stk-layer{background:var(--surface)}
+.stk-umbrella{background:var(--accent-soft);border-color:var(--accent)}
+.stk-ico{display:block;color:var(--muted)}
+.stk-ico svg{display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.stk-umbrella .stk-ico{color:var(--accent)}
+.stk-ico.ok{color:var(--ok)}
+.stk-ico.below{color:var(--under)}
+.stk-ico.above{color:var(--info)}
+.stk-main{display:flex;flex-direction:column;gap:6px;min-width:0;overflow-wrap:break-word}
+.stk-name{font-size:15px;font-weight:700}
+.stk-sentence{font-size:14px;font-weight:600;line-height:1.35}
+.stk-bar{display:block;width:100%;height:16px;overflow:visible}
+.stk-track{fill:var(--line)}
+.stk-umbrella .stk-track{fill:var(--surface)}
+.stk-bar.empty .stk-track{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.stk-fill{vector-effect:non-scaling-stroke}
+.stk-fill.cap{fill:var(--accent);stroke:var(--accent)}
+.stk-fill.ok{fill:var(--ok);stroke:var(--ok)}
+.stk-fill.below{fill:var(--under);stroke:var(--under)}
+.stk-fill.above{fill:var(--info);stroke:var(--info)}
+.stk-fill.unknown{fill:var(--muted);stroke:var(--muted)}
+.stk-fill.ceiling{fill-opacity:.22;stroke-width:2;stroke-dasharray:4 3}
+.stk-req-halo,.stk-req{vector-effect:non-scaling-stroke}
+.stk-req-halo{stroke:var(--surface);stroke-width:6}
+.stk-req{stroke:var(--ink);stroke-width:2.5}
+.stk-nums{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.stk-nums>div{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px}
+.stk-nums dt{display:flex;align-items:baseline;gap:6px}
+.stk-nums dd{margin-left:auto;white-space:nowrap}
+.stk-key{display:inline-block;flex:none;width:14px;height:12px;align-self:center}
+.stk-key.fill{background:var(--accent)}
+.stk-key.fill.ok{background:var(--ok)}
+.stk-key.fill.below{background:var(--under)}
+.stk-key.fill.above{background:var(--info)}
+.stk-key.fill.unknown{background:var(--muted)}
+.stk-key.fill.ceiling{box-sizing:border-box;border:2px dashed var(--muted);background:none}
+.stk-key.fill.ceiling.below{border-color:var(--under)}
+.stk-key.tick{background:linear-gradient(var(--ink),var(--ink)) center/3px 100% no-repeat}
+.stk-note,.stk-detail,.stk-empty{margin:0}
+@media (max-width:480px){.stk{padding:12px}.stk-row{grid-template-columns:22px minmax(0,1fr);column-gap:8px;padding:10px}}
+.stk-wrap{display:block}
+.al-stack{display:block}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media print{
   :root{--ground:#fff;--surface:#fff;--ink:#000;--muted:#333;--line:#999}
@@ -165,6 +212,8 @@ h2[data-focus]:focus{outline-offset:4px}
   .pad{padding:0;min-height:0;gap:12px}
   .actionlist{border-top:0;padding-top:0}
   .item{break-inside:avoid;grid-template-columns:90px 1fr}
+  .stk,.stk-row{break-inside:avoid}
+  .stk-umbrella{background:none}
   .al-gh{break-after:avoid}
   .tag{color:#000!important;background:none!important;border:1px solid #000}
   .al-srcs,.al-label,.al-n,.sub,.small{color:#333}

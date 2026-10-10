@@ -21,6 +21,6 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S11b | Card cross-reference activation | deferred (after S4b) |
 | S12 | Snapshot and audit suite | pending |
 | S13 | UI: overlap screens and insurer action list | done |
-| S14 | Liability stack visualization | pending |
+| S14 | Liability stack visualization | done |
 | S15 | Privacy-safe analytics, CSP and disclaimer | done |
 | S16 | Ship readiness | pending |

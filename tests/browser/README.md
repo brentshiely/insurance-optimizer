@@ -94,7 +94,7 @@ screens, `button[data-oq][data-ov]`).
 `scenarios.mjs` is plain data; the op list is documented at its top and implemented in `runner.mjs` (`OPS`).
 Generic `click` and `set` ops let later stories drive new screens, and the `answer` op (Story S13)
 taps a list of `[questionId, optionId]` overlap options in one step (Continue is a separate `next`, and stays
-disabled until every visible question on the screen is answered). 17 scenarios, 590 captured screens (each
+disabled until every visible question on the screen is answered). 19 scenarios, 663 captured screens (each
 reaches the summary, which now ends with the insurer action list):
 
 | id | covers |
@@ -116,6 +116,8 @@ reaches the summary, which now ends with the insurer action list):
 | `umbrella-low-underlying-raise` | OK, own, motorcycle, umbrella held with auto, home and motorcycle limits below what it asks: Raise and Question items |
 | `nothing-held-empty-state` | NH, rent, nothing else: the honest empty list (no Copy or Print buttons, no all-clear wording) |
 | `not-sure-everywhere` | OK, own, 2 vehicles, umbrella: Not sure to every overlap question that offers it (eight Question items) |
+| `umbrella-stack-live` | OK, own, 1 vehicle, motorcycle + boat, umbrella: every limit on the two umbrella screens answered **one tap per step**, so the umbrella drawing (Story S14) is recorded after each answer: unanswered, a "Lower than" limit, meets, below and above what the umbrella asks for, Not sure on a limit and on the umbrella itself |
+| `umbrella-only-renter` | VT, rents, no vehicles or extras, umbrella: the umbrella with nothing underneath to compare (the drawing's empty note), in the umbrella-size question and in the action list |
 
 The overlap answers in the 14 older scenarios are varied on purpose (limits above, at and below what the
 umbrella asks, lease / loan / paid off, every deductible and cushion band, a tick and an untick on the extras
@@ -199,6 +201,48 @@ and 535 are byte-identical (DECISIONS S15-8). The line depends on `provider` in 
 provider changes it, so the goldens must be re-recorded again then (`tests/ui/analytics.test.mjs` fails until they are).
 The app's CSP (`public/_headers`, `frame-ancestors 'none'`) blocks this harness's iframe, so replay and record on a plain
 static server as above, not behind `scripts/serve.py`.
+
+## Story S14 re-record
+
+Story S14 draws the umbrella and the limits under it (`js/overlap-ui/stackView.mjs`) on the two umbrella limit
+screens (`What sits under your umbrella`, `Your motorcycle or boat under the umbrella`) and in the action list on
+the summary. Eight of the 17 scenarios hold an umbrella, so their goldens were re-recorded and compared with the
+goldens at the commit before the story, on the recorded text, step by step (no step was added to or removed from
+an old scenario, so entries line up one to one):
+
+- **556 of the 590 old screens are byte-identical**: every screen before the overlap screens, every overlap screen
+  except the two umbrella limit screens, every summary without an umbrella, and all of `oh-restart-replay` after
+  Start over up to its second summary.
+- **The other 34 are pure insertions**: in each, every old line is kept, in the same order, and exactly one block
+  of new lines is added. 16 are `What sits under your umbrella` screens (the screen as drawn and after the answer
+  taps), 10 are `Your motorcycle or boat under the umbrella` screens, and 8 are summaries (the block sits inside
+  "Your insurer action list", directly above the first group that holds an umbrella item). The block is the
+  drawing's text (heading, note, a row per policy with its sentence and its numbers) plus, on the two limit
+  screens, the one-line summary of the screen reader live region, which is visually hidden but is page text.
+  By scenario: `fl-own-wind-boat-moto` 5, `mn-nofault-rent-boat` 5, `oh-restart-replay` 5, `tx-rent-3veh-moto-rv` 5,
+  `umbrella-low-underlying-raise` 5, `ar-jetski-newmadrid` 3, `ny-nofault-umbrella-back` 3, `not-sure-everywhere` 3.
+- **Two new scenarios add 73 screens** (49 and 24), 663 in all: `umbrella-stack-live` and `umbrella-only-renter`.
+
+The capture skips `<svg>`, so the bars, markers and icons are not in the goldens (their text equivalents, the
+sentences and the two numbers, are); how the drawing looks was checked in the Browser pane in light and dark, at
+375px and at the pane's 474px, and with the print stylesheet applied. `golden-shape.test.mjs` has four Story S14
+tests: the drawing appears only on the two limit screens and in the summary of a household with an umbrella (so every
+other screen is untouched), every status sentence and the umbrella-alone note are recorded, `umbrella-stack-live`
+records a different drawing after each tap, and the summary places the drawing above the umbrella items.
+
+A caution from this re-record: two replays run against `record-server.py` while the Browser pane tab was hidden failed
+at step 0 of a scenario that does not hold an umbrella ("the app did not render anything into #stage", a different
+scenario each time), and the same goldens passed twice in a row against a plain `python3 -m http.server`. A load
+timeout in a throttled hidden tab is the likely reason, not a content change; record with `record-server.py`, but
+replay against the plain server, and front the tab (`tabs_select`) while it runs.
+
+### S14 and S15 together
+
+S15 merged first, so S14's goldens were rebased onto S15's. Both stories had changed the summary step of eight umbrella
+scenarios (S15 the privacy line, S14 the stack drawing); those steps were merged on the recorded text and need no
+re-record, and the 17 older scenarios replay as `GOLDEN: PASS`. The two scenarios S14 added were re-recorded to pick up
+S15's entry-screen note and privacy line (3 steps in each differ from S14's own recording, by exactly those lines;
+DECISIONS S14-10). All 19 scenarios and 663 screens now carry both stories' changes.
 
 ## Files
 
