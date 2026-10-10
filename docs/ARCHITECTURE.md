@@ -36,11 +36,12 @@ public/                          (deployed as-is)
   js/app.js                      existing wizard logic as an ES module; integration points for overlap
   js/overlap/                    NEW pure modules
     engine/ conditions.mjs session.mjs render.mjs evaluate.mjs validate.mjs liabilityStack.mjs adapter.mjs
-    data/   sources.mjs cards.mjs catalog.mjs questions/*.mjs flags/*.mjs
+            constants.mjs util.mjs        (internal: closed lists, reserved ids, tiny helpers)
+    data/   sources.mjs cards.mjs catalog.mjs questions/index.mjs flags/{index,umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs
   js/overlap-ui/                 NEW DOM code for the new screens (questions, action list, stack view, analytics)
 docs/                            SPEC (frozen), ARCHITECTURE, STORIES, PROGRESS, DECISIONS, OPEN-ITEMS
 research/                        verified research (.mjs), inputs to sources, cards, flag copy (not deployed)
-tests/                           harness, unit tests, scenarios, snapshots, browser/
+tests/                           harness, unit tests (tests/engine/), fixtures/ (fixture catalog), helpers/ (purity helpers), scenarios, snapshots, browser/
 scripts/                         test.sh, serve.sh, update-snapshots.sh
 coverage-check-wizard-handoff.md existing app principles (kept)
 ```
@@ -63,8 +64,14 @@ The host keeps its state object `S`. S1 adds `S.o` (overlap answers keyed by que
 
 All other answers are the user's own `o.*` selections. Policy-screen numbers (`p.auto.liability` etc.) are never read.
 
+Built behavior of `deriveAnswers(snapshot)` (`engine/adapter.mjs`):
+- Returns a fresh plain object: every `o.*` entry copied by question id (`undefined`/`null` skipped; arrays cloned; no filtering, pruning unknown keys is the session's job) plus `policies`, a sorted, duplicate-free string array. `o.other_items` is both passed through as an answer and folded into `policies` (only the six Other-bucket ids count). An `o.policies` key, if present, is ignored: `policies` is always derived.
+- Reads only `snapshot.{a,extras,q,p,o}`; from them only `a.home`, `a.veh`, `q.health`, `p.umbrella.hasUmbrella`, `extras` membership and `o`. Only the host's exact values count (`"Own"`, `"3+"`, `"Yes"`, `"Motorcycle"` ...). Missing, `null` or wrongly typed parts count as absent. Never mutates the snapshot. Tests record every property read to prove this.
+
 ### Answers
-Plain JSON `{ [questionId]: optionId | optionId[] }`, plus the derived `policies` array. Single questions hold one option id, multi questions an array. Unanswered = key absent. `'not_sure'` is the reserved option id for "Not sure". Only closed-list option ids exist; no free text anywhere.
+Plain JSON `{ [questionId]: optionId | optionId[] }`, plus the derived `policies` array (reserved key, not a question; `holds` conditions and `ctx.holds` read it). Single questions hold one option id, multi questions an array. Unanswered = key absent. `'not_sure'` is the reserved option id for "Not sure". Only closed-list option ids exist; no free text anywhere.
+
+Pruning (`session.prune`, run first by `evaluate`) returns a new answers object holding only valid answers to visible questions: unknown option ids, wrong shapes (array for a single question, string for a multi) and keys that are not questions are dropped; a multi answer is put in the question's option order, deduplicated, an exclusive option (e.g. "None of these", `not_sure`) wins over the others, and an empty multi answer counts as unanswered; `policies` is kept, deduplicated and sorted.
 
 ### Question
 ```js
@@ -82,6 +89,12 @@ Plain JSON `{ [questionId]: optionId | optionId[] }`, plus the derived `policies
 ```
 Option `value` carries machine-comparable data (numbers or `{min,max}` bands); labels are display only.
 
+Details fixed by S2 (`engine/session.mjs`, `engine/validate.mjs`):
+- `createSession(catalog)` resolves each question into a deep-frozen copy; with `allowNotSure` it appends `{ id:'not_sure', label:'Not sure' }` (for `type:'multi'` also `exclusive:true`). Authors never list `not_sure` themselves (validation rejects it). Conditions may refer to `not_sure` only on a question with `allowNotSure`.
+- `exclusive: true` on a multi option means picking it clears the other options and picking another clears it (e.g. "None of these").
+- `domain` is one of the `DOMAINS` list in `engine/constants.mjs` (the ten values above). `section` is a snake_case string. Question and option ids are snake_case (option ids may start with a digit, e.g. `250_500`, `1m`). `showIf` may be omitted (same as `null`).
+- The multi question with id **`cards`** is the card question (`CARDS_QUESTION_ID`). Each of its options names a card via `value: { cardId: 'chase-sapphire-preferred' }`; an option without `value.cardId` falls back to its id with `_` turned into `-`. Non-card options (e.g. "None of these") simply match no card. Validation checks every `value.cardId` exists in `cards`.
+
 ### Condition DSL (data, serializable)
 ```
 { holds: 'auto' }                           // derived `policies` includes this id
@@ -93,11 +106,18 @@ Option `value` carries machine-comparable data (numbers or `{min,max}` bands); l
 ```
 A question is visible iff its `showIf` is true AND every question its `showIf` references is itself visible (transitive). `evaluate()` prunes answers to non-visible questions first, so stale answers never leak into results.
 
+Built behavior (`engine/conditions.mjs`):
+- `evaluateCondition(cond, env)` with `env = { answers }` (the answers object, including `policies`). Returns a boolean. `is`/`in` match only single (string) answers, `includes` only multi (array) answers, `answered` is true for any non-empty answer including `not_sure`; unanswered or inherited keys are never matches.
+- Malformed conditions throw an `Error` ("Malformed condition: ...") naming the path of every problem. The whole tree is checked before evaluating, so a bad branch is reported even if an earlier branch would short-circuit. Rejected: non-objects, empty objects, unknown forms, extra keys, `answer` without exactly one of `is`/`in`/`includes`, non-string ids, empty `in`, empty or non-array `all`/`any`.
+- Also exported: `checkCondition(cond) -> string[]` (problems, never throws) and `conditionRefs(cond) -> { answers: [{ qid, form, optionIds }], holds: [policyId] }`, used by the session and by validation.
+- Session visibility rules: a reference to a question that does not exist hides the question (validation reports it); a condition cycle throws "Condition cycle between questions: a -> b -> a" (validation reports it first). A `not` gate whose referenced question is hidden is hidden too (transitivity wins).
+- Session API (`createSession(catalog)`): `questions`, `getQuestion(qid)`, `isVisible(qid, answers)`, `visibleQuestions(answers)`, `prune(answers)`, `setAnswer(answers, qid, value)`, `toggleOption(answers, qid, optionId)` (multi only), `clearAnswer(answers, qid)`, `nextUnanswered(answers, section?)`. The three change helpers return new objects, never mutate their input, throw on unknown question or option ids, and deliberately do not prune other answers (so a user flipping a gate back and forth keeps what they entered; `evaluate` prunes). `nextUnanswered` returns the first visible, unanswered question in catalog order (optionally within one section) or `null`.
+
 ### Source (registry entry) - required fields
 ```js
 { id:'iii-umbrella', publisher:'Insurance Information Institute', title:'...', url:'https://...', lastVerified:'2026-10-10' }
 ```
-All four required; `url` https; `lastVerified` `YYYY-MM-DD`.
+All four required; `url` https (with a dotted host); `lastVerified` a real `YYYY-MM-DD` date (month and leap years checked). `data/sources.mjs` exports the registry as a **named** `SOURCES` object keyed by source id, with `id === key`.
 
 ### Flag
 ```js
@@ -116,8 +136,23 @@ All four required; `url` https; `lastVerified` `YYYY-MM-DD`.
 ```
 Strings may contain `{{var}}` tokens resolved from `vars`; an unresolved token is an error. `applies` is pure and deterministic.
 
+Built behavior (`engine/evaluate.mjs`, `engine/render.mjs`, `engine/validate.mjs`):
+- `title`, `background`, `ask` and `reason` are each a non-empty string or `(ctx, vars) => string`, all handled the same way (so `title` may also use `{{var}}`). A function's returned text also goes through token resolution, so a token left in it is an error. Tokens are `{{name}}` (name = letters, digits, underscore, not starting with a digit; spaces inside the braces allowed); values must be strings or finite numbers; format numbers into strings yourself. Malformed tokens (`{{}}`, `{{a b}}`, stray `{{`/`}}`) are errors.
+- `applies(ctx)` may return `false`, `null`, `true` (shorthand for `{}`) or `{ emphasis?, vars? }`. Returning `undefined` (a forgotten `return`), a string or an array throws, naming the flag. `emphasis` defaults to `'normal'`.
+- `priority` is optional (a finite number; default 100 when absent). Lower sorts first.
+- Errors while evaluating a flag are rethrown with the flag id (and field) in the message. A flag that does not apply is never rendered, so only flags that fire can hit render errors; `validateCatalog` catches the static problems earlier.
+- `domain` must be one of the question `domain` values; `kind` one of `cross-policy | within-policy | education`.
+
 ### Context (`ctx`)
 `ctx.holds(policyId)`, `ctx.answer(qid)`, `ctx.is(qid, optId)`, `ctx.includes(qid, optId)`, `ctx.isNotSure(qid)`, `ctx.option(qid)` (chosen option object, `.value` available), `ctx.cards()` (selected CARDS entries), `ctx.cardsWith(benefitKey)`, `ctx.stack` (LiabilityStack model or null). Reading a non-visible/unanswered question returns `undefined`/`false`; it never throws.
+
+Built behavior (`createContext(answers, catalog = default)` in `engine/evaluate.mjs` builds the same ctx that `evaluate` passes to flags; it prunes first). The ctx and everything it hands out are frozen, so a flag cannot alter answers or the catalog by accident.
+- `ctx.answer(qid)`: the option id (single) or array of option ids (multi); `undefined` for unanswered, hidden or unknown questions, and for `'policies'` (use `holds`).
+- `ctx.is(qid, optId)` is for single questions and `ctx.includes(qid, optId)` for multi; each is `false` for the other kind.
+- `ctx.isNotSure(qid)` is true when the answer is `not_sure` (single) or includes it (multi).
+- `ctx.option(qid)`: single -> the chosen option object (with `.value`, or the `{ id:'not_sure', label:'Not sure' }` option); multi -> an array of the chosen option objects; `undefined` when unanswered. Check `isNotSure` before reading `.value`.
+- `ctx.cards()`: the card entries chosen in the `cards` question (see Question), ordered by card id, as frozen copies; `[]` when none. `ctx.cardsWith(benefitKey)`: those whose `benefits[benefitKey].status` is `primary`, `secondary` or `yes`. `unverified` and `none` never count; a flag that wants to mention an unverified benefit must read `ctx.cards()` itself and never state it as fact.
+- `ctx.stack`: `computeLiabilityStack(ctx)`, run once while the ctx is built (`ctx.stack` is `null` during that call). A stub returning `null` until S6.
 
 ### Results
 ```js
@@ -131,8 +166,14 @@ evaluate(answers) -> {
 ```
 Ordering: bucket, then `priority` ascending, then `id`. Same answers => deep-equal results.
 
+Built behavior: `evaluate(answers, catalog = default catalog)` (`engine/evaluate.mjs`). All three buckets are always present (possibly empty). `meta.visibleQuestionIds` is in catalog order and `answeredCount` counts visible questions with a valid answer. `sources` are fresh copies with exactly the five fields, in `sourceIds` order. The result is built from fresh objects, so callers may mutate it. Input answers and catalog are never mutated (tests deep-freeze both). `stack` is a copy of `ctx.stack`.
+
+`engine/validate.mjs`: `validateCatalog(catalog) -> { ok, errors: string[] }` (never throws; reports every problem) and `assertValidCatalog(catalog)` (returns the catalog, or throws one `Error` listing all problems). Beyond the contract it also checks: option ids unique per question and never an explicit `not_sure`; every `showIf` well formed, referencing existing questions and option ids, a form that matches the question type (`is`/`in` single, `includes` multi), known policy ids in `holds`, and no cycles; id conventions (questions/options snake_case, flags/sources/cards kebab-case); flag `domain`, `kind`, `bucket`, optional numeric `priority`, text fields, `applies` a function, `sourceIds` non-empty and existing; `id === key` for sources and cards.
+
 ### Card (`data/cards.mjs`)
 Keyed by card id: `{ id, name, issuer, lastVerified, guideUrl, benefits: { rentalCar, tripProtection, cellPhone, extendedWarranty, purchaseProtection, roadside } }`, each benefit `{ status: 'primary'|'secondary'|'yes'|'none'|'unverified', summary, conditions? }`. `unverified` is never presented as fact. The UI always tells users to check their own card's current benefits guide.
+
+Validation (S2): `data/cards.mjs` exports a **named** `CARDS` object keyed by card id (`id === key`, kebab-case); `name`, `issuer` non-empty, `lastVerified` a real date, `guideUrl` https, and `benefits` must contain all six keys above (use `status: 'unverified'` for anything not confirmed from the issuer's guide), each with a valid `status`, a non-empty `summary` and optional string `conditions`. Extra benefit keys are allowed if they have the same shape. The `cards` catalog part is optional for validation.
 
 ### LiabilityStack
 One engine, `computeLiabilityStack(input)` (S6), documented here when it lands. Models underlying policies (auto, home, motorcycle, boat) and the umbrella: limits, required minimums, per-layer status (`ok`, `below_required`, `above_required`, `unknown`). Flags consume `ctx.stack`; the visualization (S14) renders the same model.
@@ -146,7 +187,9 @@ Provider-pluggable adapter (`none` default, `plausible`, `fathom`, `zaraz`). Eve
 ## Parallel build rules
 - Stories are developed in separate git worktrees and merged to `main` serially (rebase, full suite, fast-forward, push).
 - Own your files: each story edits only the files its description names. Shared append-only logs (`docs/DECISIONS.md`, `docs/OPEN-ITEMS.md`) use git's union merge (see `.gitattributes`); number your entries with your story id (e.g. `S6-1`), not the next global D-number.
-- Flag files are per domain (`flags/{umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs`); only the owning story edits one. `flags/index.mjs` is created once by S2.
+- Flag files are per domain (`flags/{umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs`); only the owning story edits one. `flags/index.mjs` is created once by S2 and already concatenates all nine; nobody else edits it.
+- Data module export contract (what `data/catalog.mjs` imports): `questions/index.mjs` exports named `QUESTIONS` (array); `sources.mjs` exports named `SOURCES` (object keyed by id); `cards.mjs` exports named `CARDS` (object keyed by id; extra helper exports are fine); each `flags/<domain>.mjs` has an array as its **default** export. A story that replaces one of these files keeps that export shape (a default export alongside the named one is harmless). `catalog.mjs` and `flags/index.mjs` are not edited.
+- `tests/engine/purity.test.mjs` scans every module reachable from the engine files and `data/catalog.mjs` for forbidden globals (DOM, Node, `URL`, `console`, timers, `structuredClone`, `fetch`, `Date`, `Math.random`, `Intl`), non-relative or non-`.mjs` imports; new data files are covered automatically once the catalog imports them.
 
 ## Conventions
 - IDs: questions/options `snake_case`; flags/sources/cards `kebab-case`.
