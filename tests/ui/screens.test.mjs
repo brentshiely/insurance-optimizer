@@ -8,6 +8,7 @@ import { suite, assert } from '../harness.mjs';
 import {
   esc, questionHtml, overlapScreenHtml, overlapScreenKey, actionListHtml, actionListErrorHtml, overlapProgress,
   overlapScreenLabel, sectionIdOf, SCREEN_LABELS, PRIVACY_LINE, LIST_INTRO, NEEDS_HINT,
+  PRIVACY_LINE_COUNTING, ENTRY_NOTE,
 } from '../../public/js/overlap-ui/screens.mjs';
 import {
   overlapSections, applyAnswer, actionListViewModel, INFO_NOTE, EMPHASIS_LABEL, EMPTY_TITLE, EMPTY_MESSAGE,
@@ -53,7 +54,7 @@ suite('screens: the module is pure and its wording is plain', (t) => {
 
   t('user-facing wording is ASCII, has no dash characters, no placeholders and names no state', () => {
     const states = /Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming/;
-    const texts = [PRIVACY_LINE, LIST_INTRO, NEEDS_HINT, ...Object.values(SCREEN_LABELS), actionListErrorHtml()];
+    const texts = [PRIVACY_LINE, PRIVACY_LINE_COUNTING, ENTRY_NOTE, LIST_INTRO, NEEDS_HINT, ...Object.values(SCREEN_LABELS), actionListErrorHtml()];
     for (const text of texts) {
       assert.equal(/^[\x20-\x7e]*$/.test(text), true, `ASCII only: ${text}`);
       assert.equal(/\{\{|\}\}|TODO|undefined|\[object/.test(text), false, `no placeholder: ${text}`);
@@ -61,7 +62,7 @@ suite('screens: the module is pure and its wording is plain', (t) => {
     }
   });
 
-  t('the privacy line says answers stay on the page and are not saved', () => {
+  t('the default privacy line (nothing is counted) says answers stay on the page and are not saved', () => {
     assert.match(PRIVACY_LINE, /stay on this page/);
     assert.match(PRIVACY_LINE, /not saved/);
   });

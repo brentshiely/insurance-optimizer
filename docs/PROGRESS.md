@@ -22,5 +22,5 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S12 | Snapshot and audit suite | pending |
 | S13 | UI: overlap screens and insurer action list | done |
 | S14 | Liability stack visualization | pending |
-| S15 | Privacy-safe analytics, CSP and disclaimer | pending |
+| S15 | Privacy-safe analytics, CSP and disclaimer | done |
 | S16 | Ship readiness | pending |

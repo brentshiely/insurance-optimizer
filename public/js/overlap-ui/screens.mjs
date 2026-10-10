@@ -14,12 +14,31 @@
 //   actionListHtml(vm)                                the "Your insurer action list" section
 //   overlapProgress(sections)                         { answered, total } for the "What we know" panel
 //   overlapScreenLabel(screenId)                      short telemetry label for an overlap screen id
+//   entryNoteHtml(counting)                           the not-advice note and privacy line on the entry screen
+//   privacyLine(counting)                             the privacy line (which one depends on whether answers are counted)
 import {
   BUCKET_LABELS, EMPHASIS_LABEL, INFO_NOTE, OVERLAP_SCREEN_PREFIX,
 } from './viewModel.mjs';
 
-/** Shown on the action list. S15 must revisit it when anonymous counting ships (OPEN-ITEMS S13-3). */
-export const PRIVACY_LINE = 'Your answers stay on this page and are not saved. Close or refresh the page and they are gone.';
+/**
+ * The privacy lines (Story S15). Which one the page shows follows whether a counting provider is switched on
+ * (js/config.mjs): with the default, 'none', nothing is counted or sent, and the page must not claim otherwise;
+ * with a provider set, it says plainly that answers are counted anonymously. The passed flag comes from
+ * isCounting(ANALYTICS_CONFIG) in analytics.mjs; this module stays free of any import beyond the view-model.
+ */
+export const PRIVACY_LINE_NONE = 'Your answers stay on this page and are not saved. Nothing about them is counted or sent anywhere. Close or refresh the page and they are gone.';
+export const PRIVACY_LINE_COUNTING = 'Answers are counted anonymously. We count which options were chosen, and visits to this page, never who you are, and there are no cookies. Your answers are never stored against a person, and the numbers you type are never sent. Close or refresh the page and your answers are gone.';
+
+/** The default line (nothing is counted). */
+export const PRIVACY_LINE = PRIVACY_LINE_NONE;
+
+/** The line for the current setup: `counting` is true when answers are counted anonymously. */
+export function privacyLine(counting) {
+  return counting === true ? PRIVACY_LINE_COUNTING : PRIVACY_LINE_NONE;
+}
+
+/** The informational-not-advice note for the entry screen (the action list has the longer INFO_NOTE). */
+export const ENTRY_NOTE = 'This is general information, not insurance advice, and this tool is not a licensed agent or broker.';
 
 /** Intro line above the action list. */
 export const LIST_INTRO = 'Take this list to your insurer or agent. Each item says why it matters, what to ask and what to say.';
@@ -165,12 +184,17 @@ function groupHtml(g) {
     '<ol class="list al-list">' + g.items.map((item) => itemHtml(g.bucket, item)).join('') + '</ol></div>';
 }
 
+/** Two short lines under the state picker on the entry screen: not advice, and what happens to your answers. */
+export function entryNoteHtml(counting) {
+  return '<div class="entry-notes"><p class="small">' + esc(ENTRY_NOTE) + '</p><p class="small">' + esc(privacyLine(counting)) + '</p></div>';
+}
+
 /**
  * "Your insurer action list": counts, the not-advice note, Copy / Print buttons and the status line the copy
  * button writes to (both left out when there is nothing to copy), the Raise / Drop / Question groups, and the
- * privacy line. An empty list prints the honest empty state and never says everything is fine.
+ * privacy line (`counting` picks which one; see privacyLine). An empty list prints the honest empty state and never says everything is fine.
  */
-export function actionListHtml(vm) {
+export function actionListHtml(vm, counting) {
   const counts = vm.groups.map((g) => g.count + ' ' + g.label).join(', ');
   return '<section class="actionlist" id="actionlist" aria-labelledby="al-h">' +
     '<h2 id="al-h">Your insurer action list</h2>' +
@@ -184,13 +208,13 @@ export function actionListHtml(vm) {
     (vm.empty
       ? '<div class="finding al-empty"><h3 class="al-gh">' + esc(vm.emptyTitle) + '</h3><p>' + esc(vm.emptyMessage) + '</p></div>'
       : vm.groups.map(groupHtml).join('')) +
-    '<p class="small al-privacy">' + esc(PRIVACY_LINE) + '</p>' +
+    '<p class="small al-privacy">' + esc(privacyLine(counting)) + '</p>' +
   '</section>';
 }
 
 /** Shown in place of the list if building it ever throws, so the summary above it still works. */
-export function actionListErrorHtml() {
+export function actionListErrorHtml(counting) {
   return '<section class="actionlist" id="actionlist" aria-labelledby="al-h"><h2 id="al-h">Your insurer action list</h2>' +
     '<div class="finding al-empty"><p>We could not build your list this time. Your answers are still on this page, so you can go back and try again, or start over.</p></div>' +
-    '<p class="small al-privacy">' + esc(PRIVACY_LINE) + '</p></section>';
+    '<p class="small al-privacy">' + esc(privacyLine(counting)) + '</p></section>';
 }

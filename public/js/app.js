@@ -1,6 +1,8 @@
 import { overlapSections, overlapScreenIds, applyAnswer, actionListViewModel, actionListText, ACTIONS_SCREEN_ID } from './overlap-ui/viewModel.mjs';
-import { overlapScreenHtml, overlapProgress, overlapScreenLabel, sectionIdOf, actionListHtml, actionListErrorHtml } from './overlap-ui/screens.mjs';
+import { overlapScreenHtml, overlapProgress, overlapScreenLabel, sectionIdOf, actionListHtml, actionListErrorHtml, entryNoteHtml } from './overlap-ui/screens.mjs';
 import { patchOverlapScreen, restoreFocus, focusHeading, copyText, printList, COPY_OK, COPY_FAILED } from './overlap-ui/dom.mjs';
+import { startAnalytics, becameSelected, flagIdsOf } from './overlap-ui/analytics.mjs';
+import { ANALYTICS_CONFIG } from './config.mjs';
 (function(){
 var STATES="AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ").sort();
 var STATE_NAMES={AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",DC:"District of Columbia",FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"};
@@ -277,6 +279,9 @@ var POLICY={
 // S.o holds the overlap answers (question id -> option id, or an array of option ids for a tick-many question); see js/overlap-ui/.
 var S={state:"",a:{},extras:[],i:0,q:{},p:{},o:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};
 var stage=document.getElementById("stage"),bar=document.getElementById("bar");
+// Anonymous answer counting (Story S15). With the default provider, "none", this adds nothing to the page and sends nothing.
+// Only overlap answers, the flags shown and Copy / Print reach it; never the state, a policy-screen field or a typed number.
+var analytics=startAnalytics({window:window,document:document},ANALYTICS_CONFIG);
 
 function buildQueue(){
   var q=[],iq=[],a=S.a;
@@ -313,8 +318,12 @@ function go(n){ var from=order()[S.i]; S.times.push({s:screenLabel(from),t:(Date
 // Keyboard and screen reader users land on the heading of an overlap screen (and of the summary when they arrive from one).
 function overlapFocus(from){ var id=order()[S.i]; if(sectionIdOf(id)!==null||(id==="summary"&&sectionIdOf(from)!==null)) focusHeading(stage) }
 function actionListSection(){
-  try{ return actionListHtml(actionListViewModel(snapshot())) }
-  catch(err){ console.error("Could not build the insurer action list",err); return actionListErrorHtml() }
+  try{
+    var vm=actionListViewModel(snapshot());
+    flagIdsOf(vm).forEach(function(id){analytics.emit("flag_shown",{flagId:id})});
+    return actionListHtml(vm,analytics.counting);
+  }
+  catch(err){ console.error("Could not build the insurer action list",err); return actionListErrorHtml(analytics.counting) }
 }
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function opts(key,list,hint){
@@ -415,6 +424,7 @@ function render(){
       '<h2>Which state are you in?</h2>'+
       usMap()+
       '<p><label class="link" for="st">Or pick from a list</label> <select id="st" aria-label="State"><option value=""'+(S.state===""?' selected':'')+'>Choose a state…</option>'+STATES_BY_NAME.map(function(s){return '<option value="'+s+'"'+(s===S.state?' selected':'')+'>'+STATE_NAMES[s]+'</option>'}).join("")+'</select></p>'+
+      entryNoteHtml(analytics.counting)+
       '<div class="row spread foot">'+back()+'<button class="primary" data-act="next"'+(S.state?'':' disabled')+'>Get started</button></div>';
   }
   if(id==="tenure"){
@@ -518,7 +528,9 @@ stage.addEventListener("click",function(e){
   if(b.dataset.qual){S.q[b.dataset.qual]=b.dataset.v;S.taps++;render();return}
   if(b.dataset.umb){S.p.umbrella[b.dataset.umb]=b.dataset.v;S.taps++;render();return}
   if(b.dataset.oq){ // overlap question option: update the answers, then the screen (in place when its shape is unchanged)
+    var before=S.o;
     S.o=applyAnswer(snapshot(),b.dataset.oq,b.dataset.ov);S.taps++;
+    if(becameSelected(before,S.o,b.dataset.oq,b.dataset.ov)) analytics.emit("answer",{questionId:b.dataset.oq,optionId:b.dataset.ov});
     if(patchOverlapScreen(stage,overlapSections(snapshot()),order()[S.i])) known();
     else{render();restoreFocus(stage,b.dataset.oq,b.dataset.ov)}
     return}
@@ -528,14 +540,14 @@ stage.addEventListener("click",function(e){
   var act=b.dataset.act;
   if(act==="back") go(S.i-1);
   if(act==="next") go(S.i+1);
-  if(act==="print") printList(window);
+  if(act==="print"){ analytics.emit("list_printed"); printList(window) }
   if(act==="copy"){
     var st=document.getElementById("al-status"),txt=null;
     try{ txt=actionListText(actionListViewModel(snapshot())) }catch(err){ console.error("Could not build the list to copy",err) }
     if(txt===null){ if(st) st.textContent=COPY_FAILED }
-    else copyText(txt,{navigator:navigator,document:document},function(ok){ var el=document.getElementById("al-status"); if(el) el.textContent=ok?COPY_OK:COPY_FAILED });
+    else copyText(txt,{navigator:navigator,document:document},function(ok){ var el=document.getElementById("al-status"); if(el) el.textContent=ok?COPY_OK:COPY_FAILED; if(ok) analytics.emit("list_copied") });
   }
-  if(act==="restart"){S={state:S.state,a:{},extras:[],i:0,q:{},p:{},o:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};render()}
+  if(act==="restart"){analytics.reset();S={state:S.state,a:{},extras:[],i:0,q:{},p:{},o:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};render()}
 });
 stage.addEventListener("change",function(e){
   if(e.target.id==="st"){S.state=e.target.value;render()}

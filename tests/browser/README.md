@@ -189,6 +189,17 @@ screen in each of those scenarios was re-recorded (DECISIONS S13-13). The change
 and the new count in the list's first line; every line before the "Your insurer action list" heading and from
 "[Start over]" on is unchanged. S11 and S12 should expect the same.
 
+### Re-record after S15
+
+S15 added two lines to the entry screen (the not-advice sentence and the privacy line, under the state picker) and
+replaced the privacy line at the foot of the action list with one that follows the analytics setting. The goldens
+were re-recorded; of 590 entries, 37 (every screen that shows the entry page) gain exactly those two lines before
+"[Get started ...]", 18 summaries (one per scenario, two in `oh-restart-replay`) swap the old privacy line for the new one,
+and 535 are byte-identical (DECISIONS S15-8). The line depends on `provider` in `public/js/config.mjs`: choosing a
+provider changes it, so the goldens must be re-recorded again then (`tests/ui/analytics.test.mjs` fails until they are).
+The app's CSP (`public/_headers`, `frame-ancestors 'none'`) blocks this harness's iframe, so replay and record on a plain
+static server as above, not behind `scripts/serve.py`.
+
 ## Files
 
 | file | role |

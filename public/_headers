@@ -1,0 +1,31 @@
+# Cloudflare Pages response headers. Cloudflare reads this file and does not serve it as a page.
+# Format: a path pattern on its own line, then indented "Name: value" lines.
+# To try it locally: python3 scripts/serve.py public   (applies these rules; npm run preview does not).
+#
+# Content-Security-Policy, for the default setup (analytics provider "none" in js/config.mjs):
+#   default-src 'self'          anything not listed below may only come from this site
+#   script-src 'self'           only this site's own scripts; no inline script, no eval
+#   style-src 'self' 'unsafe-inline'
+#                               'unsafe-inline' is needed for a handful of style="..." attributes the app writes
+#                               (the state map tile positions, the home icon tilt, one row in a policy screen, the
+#                               progress bar's starting width). Styles cannot run code, and every route a style could
+#                               use to send something out (images, fonts, connections) stays limited to this site.
+#                               It can be removed once those attributes become CSS classes (docs/OPEN-ITEMS.md S15-3).
+#   img-src 'self' data:        the app's own images and inline data images only
+#   connect-src 'self'          the page may talk only to this site; this is what keeps answers from leaving
+#   object-src 'none'           no plugins
+#   base-uri 'none'             a stray <base> tag cannot redirect relative links
+#   form-action 'none'          the app has no forms, and none may be added to post elsewhere
+#   frame-ancestors 'none'      nobody can show this page inside a frame
+#
+# When an analytics provider is chosen, add its hosts to script-src and connect-src (and img-src for Fathom) as the
+# table in docs/OPEN-ITEMS.md (S15-1) says; tests/ui/analytics.test.mjs fails until this file and js/config.mjs agree.
+#
+# Referrer-Policy no-referrer: the page's links go to reference sites (insurance regulators and similar) and need no
+# referrer, and those sites should not be told that the visitor was using this tool.
+# Permissions-Policy: the app uses no camera, microphone, location or payment feature, so it turns them all off.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
