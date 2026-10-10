@@ -11,7 +11,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S3b | Source registry | done |
 | S4a | Verified card research | deferred (owner at machine; partial on branch story/S4a) |
 | S4b | Credit card lookup table | deferred (owner at machine) |
-| S5 | Question catalog | pending |
+| S5 | Question catalog | done |
 | S6 | Liability stack engine and umbrella core flags | pending |
 | S7 | Umbrella scope and adequacy flags | pending |
 | S8 | Auto coverage-gap flags | pending |

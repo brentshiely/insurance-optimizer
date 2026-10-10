@@ -39,13 +39,13 @@ suite('evaluate: results shape and content', (t) => {
     assert.deepEqual(ev(null), empty);
     assert.deepEqual(ev('nope'), empty);
   });
-  t('the default catalog is used when none is passed (empty today, but valid)', () => {
-    assert.deepEqual(evaluate({}), {
-      flags: { raise: [], drop: [], question: [] },
-      stack: null,
-      meta: { visibleQuestionIds: [], answeredCount: 0 },
-    });
-    assert.deepEqual(evaluate({}), evaluate({}, DEFAULT_CATALOG));
+  t('the default catalog is used when none is passed (no answers: only the always-shown question is visible)', () => {
+    // Story S5 filled the question catalog: with no answers the only visible question is the Q1 equivalent.
+    // Flags and the stack belong to the flag stories (S6 to S11), so only the result's shape is pinned here.
+    const r = evaluate({});
+    assert.deepEqual(r.meta, { visibleQuestionIds: ['other_items'], answeredCount: 0 });
+    assert.deepEqual(Object.keys(r.flags), ['raise', 'drop', 'question']);
+    assert.deepEqual(r, evaluate({}, DEFAULT_CATALOG));
   });
   t('umbrella scenario: three Raise flags in bucket, priority, id order', () => {
     const r = ev(SCENARIO_A);

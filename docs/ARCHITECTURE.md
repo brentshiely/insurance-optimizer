@@ -37,11 +37,11 @@ public/                          (deployed as-is)
   js/overlap/                    NEW pure modules
     engine/ conditions.mjs session.mjs render.mjs evaluate.mjs validate.mjs liabilityStack.mjs adapter.mjs
             constants.mjs util.mjs        (internal: closed lists, reserved ids, tiny helpers)
-    data/   sources.mjs cards.mjs catalog.mjs questions/index.mjs flags/{index,umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs
+    data/   sources.mjs cards.mjs catalog.mjs questions/{index,sections,gates,presets,extras,umbrellaStack,umbrellaVehicles,umbrellaScope,autoGaps,renters,health,homeExclusions,deductible,cards,extrasDetail}.mjs flags/{index,umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs
   js/overlap-ui/                 NEW DOM code for the new screens (questions, action list, stack view, analytics)
-docs/                            SPEC (frozen), ARCHITECTURE, STORIES, PROGRESS, DECISIONS, OPEN-ITEMS
+docs/                            SPEC (frozen), ARCHITECTURE, STORIES, PROGRESS, DECISIONS, OPEN-ITEMS, QUESTION-FLAG-PLAN (question catalog to flag stories contract)
 research/                        verified research (.mjs), inputs to sources, cards, flag copy (not deployed)
-tests/                           harness, unit tests (tests/engine/, tests/research/, tests/data/), fixtures/ (fixture catalog), helpers/ (purity helpers), scenarios, snapshots, browser/
+tests/                           harness, unit tests (tests/engine/, tests/research/, tests/data/), fixtures/ (fixture catalog, flagPlan), helpers/ (purity helpers), scenarios, snapshots, browser/
 scripts/                         test.sh, serve.sh, update-snapshots.sh
 coverage-check-wizard-handoff.md existing app principles (kept)
 ```
@@ -80,7 +80,7 @@ Pruning (`session.prune`, run first by `evaluate`) returns a new answers object 
 {
   id: 'auto_liability',            // snake_case, unique
   domain: 'core'|'umbrella'|'auto'|'home'|'renters'|'health'|'vehicles'|'deductible'|'other'|'cards',
-  section: 'umbrella'|'auto'|...,  // which wizard screen groups it (S5 finalizes the list)
+  section: 'extras'|'umbrella_stack'|...,  // which wizard screen groups it (final list under "Question catalog (S5)")
   type: 'single'|'multi',
   prompt: 'What is the most your auto policy will pay ...?',
   help: 'Where to find this / why we ask (plain language)',   // optional
@@ -96,6 +96,31 @@ Details fixed by S2 (`engine/session.mjs`, `engine/validate.mjs`):
 - `exclusive: true` on a multi option means picking it clears the other options and picking another clears it (e.g. "None of these").
 - `domain` is one of the `DOMAINS` list in `engine/constants.mjs` (the ten values above). `section` is a snake_case string. Question and option ids are snake_case (option ids may start with a digit, e.g. `250_500`, `1m`). `showIf` may be omitted (same as `null`).
 - The multi question with id **`cards`** is the card question (`CARDS_QUESTION_ID`). Each of its options names a card via `value: { cardId: 'chase-sapphire-preferred' }`; an option without `value.cardId` falls back to its id with `_` turned into `-`. Non-card options (e.g. "None of these") simply match no card. Validation checks every `value.cardId` exists in `cards`.
+
+### Question catalog (built by S5)
+`data/questions/index.mjs` assembles `QUESTIONS` (38 questions, display order) from one file per section and exports `SECTIONS` (defined in `sections.mjs`). Shared builders live in `gates.mjs` (condition shorthand) and `presets.mjs` (option ladders and bands); they only return plain data. The full plan, including the question-to-flag contract for S6 to S11, is `docs/QUESTION-FLAG-PLAN.md`; its tables are checked against the catalog by `tests/data/questions.test.mjs`.
+
+| Section id | File | Questions | Shown when |
+|---|---|---|---|
+| `extras` | `extras.mjs` | `other_items` | always |
+| `umbrella_stack` | `umbrellaStack.mjs` | `umbrella_limit`, `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home` | holds `umbrella` |
+| `umbrella_vehicles` | `umbrellaVehicles.mjs` | `motorcycle_liability`, `umbrella_min_motorcycle`, `boat_liability`, `umbrella_min_boat` | `umbrella` and (`motorcycle` or `boat`) |
+| `umbrella_scope` | `umbrellaScope.mjs` | `umbrella_exposure`, `umbrella_um_uim`, `side_business` | holds `umbrella` |
+| `auto_gaps` | `autoGaps.mjs` | `auto_financing`, `auto_value`, `auto_gap_coverage`, `auto_collision`, `auto_um_uim`, `auto_um_uim_limit`, `auto_rental_reimbursement` | holds `auto` |
+| `renters` | `renters.mjs` | `renters_for`, `renters_child_housing` | holds `renters`, or `other_items` includes `renters_with_home` |
+| `health` | `health.mjs` | `auto_medpay`, `health_hsa`, `health_supplemental`, `health_short_term` | holds `health` |
+| `home_exclusions` | `homeExclusions.mjs` | `home_sewer_backup`, `home_flood_policy` | holds `home` |
+| `deductible` | `deductible.mjs` | `deductible_auto`, `deductible_home`, `deductible_health`, `emergency_cushion` | `auto`, `home` or `health` |
+| `cards` | `cards.mjs` | `cards`, `card_usual_payment` | any card-linked Other item (`rental_car`, `towing`, `travel`, `phone`, `warranty`) |
+| `extras_detail` | `extrasDetail.mjs` | `phone_bill_on_card`, `roadside_sources`, `towing_vehicle_policy`, `term_life` | `phone`, `towing` or `accidental_death` |
+
+Contract details fixed by S5:
+- **Sections.** `SECTIONS = [{ id, title, reason, showIf }]` in display order; `id` is the `section` of its questions, `reason` is plain text tied to what the user already told us, `showIf` is a Condition over policies (`holds`) or `null`. The one exception is `renters`, whose gate also reads the always-shown `other_items` answer `renters_with_home` (see below); no other section gate reads an answer. Questions of one section are contiguous in `QUESTIONS`. Every question carries its own complete `showIf` (the engine never reads sections); the tests prove a section has a visible question exactly when its `showIf` is true. The host (S13) renders one `ovl:<section>` screen per section with a visible question.
+- **`other_items`** is the always-shown Q1 equivalent. Its option ids are the six Other-bucket policy ids the adapter folds into `policies`, then `renters_with_home`, then an exclusive `none`; it has no Not sure. `renters_with_home` ("a renters policy on top of a home you own, like one you pay for so a child at college has coverage") is an answer only: the adapter does not fold it, so `ctx.holds('renters')` stays host-derived (a.home is Rent or Both). It exists because the host derives renters from rent or both alone, which would otherwise leave out the SPEC's headline Renters + Homeowners case, a parent who owns their home and pays for a student's renters policy (DECISIONS S5-15). Flags about that case read `ctx.holds('home')` and `renters_for`, never `ctx.holds('renters')`.
+- **Option `value` shapes.** A number (whole dollars: `umbrella_limit`, `home_liability`, `umbrella_min_home`); a split limit `{ perPerson, perAccident }` (auto-style presets 100/300, 250/500, 500/500, used by `umbrella_min_auto`, `umbrella_min_motorcycle`, `umbrella_min_boat`, and, with an extra first rung `lower` "Lower than 100/300" whose value is the largest limit it can mean, `{ perPerson: 99999, perAccident: 299999 }`, by the user's own `auto_liability`, `motorcycle_liability`, `boat_liability` and `auto_um_uim_limit`; `home_liability` likewise gets a first rung `lower` "Lower than $300,000" = 299999, while the umbrella-minimum questions have no `lower` rung); or a band `{ min, max }` (`umbrella_exposure`, `auto_value`, `deductible_*`, `emergency_cushion`). Bands are whole dollars with both ends inclusive, `max: null` is open ended, the first starts at 0 and the next `min` is the previous `max` plus one. Inside a question every option has the same shape, and Not sure never has a value (flags check `ctx.isNotSure(qid)` first). Compare band edges, never a guess: "certainly below" is `a.max !== null && a.max < b.min`; a deductible exceeds the cushion when `cushion.max !== null && deductible.min > cushion.max`.
+- **`cards`** uses a static list: `CARD_CHOICES` (12 `{ id (kebab-case), name }`, exported from `questions/cards.mjs`) plus an exclusive `other_none`. Option ids are the card ids with hyphens turned into underscores, which is how `ctx.cards()` maps them back, so the options carry no `value.cardId` while `CARDS` is empty (`validateCatalog` rejects a `cardId` not in `CARDS`). S4b/S11b verify the ids against `CARDS`.
+- **Not sure.** Offered on every question except `other_items`, `side_business`, `auto_financing`, `renters_for` and `cards` (reasons in DECISIONS S5-8).
+- **Gates.** A gate refers only to questions earlier in display order (a test enforces it). Because visibility is transitive, a question that reads another question's answer is hidden whenever that question is hidden, so gates only read questions that are visible whenever the reader should be: `auto_gap_coverage` and `auto_collision` read `auto_financing` and `auto_value` (always visible with an auto policy), `auto_um_uim_limit` reads `auto_um_uim`, `renters_for` reads `other_items` (always visible, so the read hides nothing), `renters_child_housing` reads `renters_for`, and `card_usual_payment` reads `cards`. A gate must never reference two questions that can be hidden for different users (the user would then never see it), which is why `renters_for` is the single root of the renters chain: it is visible exactly when a renters policy exists (the host's or the homeowner's tick), and the follow-up needs only `holds('home')` and `renters_for` is `child_away`.
 
 ### Condition DSL (data, serializable)
 ```
@@ -195,7 +220,7 @@ Provider-pluggable adapter (`none` default, `plausible`, `fathom`, `zaraz`). Eve
 - Stories are developed in separate git worktrees and merged to `main` serially (rebase, full suite, fast-forward, push).
 - Own your files: each story edits only the files its description names. Shared append-only logs (`docs/DECISIONS.md`, `docs/OPEN-ITEMS.md`) use git's union merge (see `.gitattributes`); number your entries with your story id (e.g. `S6-1`), not the next global D-number.
 - Flag files are per domain (`flags/{umbrella,umbrellaScope,vehicles,auto,home,renters,health,deductible,other}.mjs`); only the owning story edits one. `flags/index.mjs` is created once by S2 and already concatenates all nine; nobody else edits it.
-- Data module export contract (what `data/catalog.mjs` imports): `questions/index.mjs` exports named `QUESTIONS` (array); `sources.mjs` exports named `SOURCES` (object keyed by id); `cards.mjs` exports named `CARDS` (object keyed by id; extra helper exports are fine); each `flags/<domain>.mjs` has an array as its **default** export. A story that replaces one of these files keeps that export shape (a default export alongside the named one is harmless). `catalog.mjs` and `flags/index.mjs` are not edited.
+- Data module export contract (what `data/catalog.mjs` imports): `questions/index.mjs` exports named `QUESTIONS` (array, display order) and `SECTIONS` (ordered `[{ id, title, reason, showIf }]`); `sources.mjs` exports named `SOURCES` (object keyed by id); `cards.mjs` exports named `CARDS` (object keyed by id; extra helper exports are fine); each `flags/<domain>.mjs` has an array as its **default** export. A story that replaces one of these files keeps that export shape (a default export alongside the named one is harmless). `catalog.mjs` and `flags/index.mjs` are not edited.
 - `tests/engine/purity.test.mjs` scans every module reachable from the engine files and `data/catalog.mjs` for forbidden globals (DOM, Node, `URL`, `console`, timers, `structuredClone`, `fetch`, `Date`, `Math.random`, `Intl`), non-relative or non-`.mjs` imports; new data files are covered automatically once the catalog imports them.
 
 ## Conventions
