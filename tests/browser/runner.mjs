@@ -61,6 +61,10 @@ export const OPS = {
       el.dispatchEvent(new h.win.Event("change", { bubbles: true }));
     },
   },
+  // overlap question screens (Story S13): taps options in order, all in ONE step. `list` is [[questionId, optionId], ...];
+  // each tap is button[data-oq][data-ov]. A tap updates the screen synchronously, so a question that an earlier tap in the
+  // same list opened (a gated follow-up) is there for the next one. Continue is a separate `next` step.
+  answer: { need: ["list"], run(s, h) { for (const [q, v] of s.list) h.click(`button[data-oq="${A(q)}"][data-ov="${A(v)}"]`); } },
   // generic escape hatches for screens added by later stories
   click: { need: ["sel"], run(s, h) { h.click(s.sel); return { expectChange: !!s.expectChange }; } },
   set: { need: ["sel", "value"], run(s, h) { h.setValue(s.sel, s.value); } },
@@ -71,6 +75,7 @@ export function validateStep(step) {
   const def = OPS[step.op];
   if (!def) return `unknown op "${step.op}"`;
   for (const k of def.need) if (step[k] === undefined) return `op "${step.op}" needs "${k}"`;
+  if (step.op === "answer" && !(Array.isArray(step.list) && step.list.length > 0 && step.list.every(e => Array.isArray(e) && e.length === 2 && e.every(x => typeof x === "string" && x !== "")))) return 'op "answer" needs a non-empty list of [questionId, optionId] pairs';
   return null;
 }
 

@@ -20,7 +20,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S11 | Other-bucket flags with card cross-reference | pending |
 | S11b | Card cross-reference activation | deferred (after S4b) |
 | S12 | Snapshot and audit suite | pending |
-| S13 | UI: overlap screens and insurer action list | pending |
+| S13 | UI: overlap screens and insurer action list | done |
 | S14 | Liability stack visualization | pending |
 | S15 | Privacy-safe analytics, CSP and disclaimer | pending |
 | S16 | Ship readiness | pending |

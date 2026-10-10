@@ -7,7 +7,9 @@ the exact line that differs.
 
 The goldens were recorded from the ORIGINAL inline version of `public/index.html` (before Story 1 split it
 into `public/css/app.css` and `public/js/app.js`). A passing replay therefore means "the app still shows
-exactly what it showed before".
+exactly what it showed before". Story S13 then re-recorded them deliberately to add the overlap screens and
+the insurer action list; every earlier screen still reads exactly as originally recorded (see "Story S13
+re-record" below for the proof).
 
 ## Run the replay
 
@@ -18,7 +20,7 @@ exactly what it showed before".
    ```
 
 2. Open `http://127.0.0.1:8200/tests/browser/golden.html`.
-3. Wait about 20 seconds. Read `<pre id="result">`: its first line is `GOLDEN: RUNNING` until the run ends, then
+3. Wait about a minute (a browser tab that is not visible throttles timers and can take two to three times as long). Read `<pre id="result">`: its first line is `GOLDEN: RUNNING` until the run ends, then
    exactly one of:
 
    - `GOLDEN: PASS`
@@ -70,8 +72,9 @@ problem: the screen text differs from the golden
 For each step the text of `#stage` (the wizard card) and `#known` (the "What we know" panel), nothing else.
 
 - Text is taken from the DOM, independent of CSS, one logical line per block, whitespace collapsed.
-- Controls are written out so their state is part of the text: buttons as `[Own]`, selected ones as
-  `[*Own]`, disabled ones as `[Continue (disabled)]`; selects as `{select: current | options: a | b}`;
+- Controls are written out so their state is part of the text: buttons as `[Own]`, selected ones (the `sel`
+  class, or `aria-pressed="true"` as on the overlap screens) as `[*Own]`, disabled ones as
+  `[Continue (disabled)]`; selects as `{select: current | options: a | b}`;
   number inputs as `{input number: 5000}`; links as `label <href>` (so citation URLs are checked).
 - The **only** volatile text is the summary's "`<n>` taps, `<n>` seconds", normalized to
   `N taps, S seconds`. Nothing else is hidden or ignored.
@@ -83,13 +86,16 @@ For each step the text of `#stage` (the wizard card) and `#known` (the "What we 
 
 The harness drives the app **only** through DOM events on the elements a user would use
 (`[data-state]`, `#st`, `button[data-q][data-v]`, `button[data-x]`, `button[data-qual][data-v]`,
-`button[data-act]`, `[data-p][data-k]` fields and toggles, `[data-umb]`, the file inputs).
+`button[data-act]`, `[data-p][data-k]` fields and toggles, `[data-umb]`, the file inputs, and, on the overlap
+screens, `button[data-oq][data-ov]`).
 
 ## Scenarios
 
 `scenarios.mjs` is plain data; the op list is documented at its top and implemented in `runner.mjs` (`OPS`).
-Generic `click` and `set` ops let later stories drive new screens. 14 scenarios, 340 captured screens
-(each reaches the summary):
+Generic `click` and `set` ops let later stories drive new screens, and the `answer` op (Story S13)
+taps a list of `[questionId, optionId]` overlap options in one step (Continue is a separate `next`, and stays
+disabled until every visible question on the screen is answered). 17 scenarios, 590 captured screens (each
+reaches the summary, which now ends with the insurer action list):
 
 | id | covers |
 |---|---|
@@ -107,6 +113,15 @@ Generic `click` and `set` ops let later stories drive new screens. 14 scenarios,
 | `tx-own-twia` | TX own, windstorm percentage without savings, TWIA last-resort |
 | `la-own-citizens` | LA own, windstorm with savings, Citizens last-resort |
 | `co-rent-di-gap` | CO paid-leave program with no dollar figure, no long-term disability |
+| `umbrella-low-underlying-raise` | OK, own, motorcycle, umbrella held with auto, home and motorcycle limits below what it asks: Raise and Question items |
+| `nothing-held-empty-state` | NH, rent, nothing else: the honest empty list (no Copy or Print buttons, no all-clear wording) |
+| `not-sure-everywhere` | OK, own, 2 vehicles, umbrella: Not sure to every overlap question that offers it (eight Question items) |
+
+The overlap answers in the 14 older scenarios are varied on purpose (limits above, at and below what the
+umbrella asks, lease / loan / paid off, every deductible and cushion band, a tick and an untick on the extras
+screen, a gated follow-up that opens after one tap, a homeowner who pays for a child's renters policy, Not sure).
+No scenario ticks a card-linked extra, so the `cards` and `extras_detail` screens are not recorded: the card
+scenario belongs to S16, and S11 changes what those answers produce.
 
 Across them: own / rent / both; dependents yes / no; vehicles 0 / 1 / 2 / 3+; extras none and several
 (Boat, Jet ski, RV, Motorcycle, ATV, E-bike); the quick-check answers Yes / No / Not sure; edits to
@@ -137,17 +152,42 @@ refactor pass: a refactor must reproduce the existing goldens exactly. Re-record
    `tests/browser/golden/<id>.mjs` in the exact format `goldenFileText()` in `runner.mjs` produces (the unit
    test compares the file byte for byte).
 3. Review `git diff tests/browser/golden`. The diff must contain exactly the changes the story intends and
-   nothing else (S13's should be only the new screens). Explain it in `docs/DECISIONS.md` and the commit.
+   nothing else (S13's was only the new screens, see below). Explain it in `docs/DECISIONS.md` and the commit.
+   A line diff is noisy when steps are inserted (every later entry's `"step": n` label is renumbered), so
+   compare the recorded `text` of the old file (`git show <commit before the change>:tests/browser/golden/<id>.mjs`)
+   with the new one, entry by entry, after taking out the inserted screens.
 4. Replay twice and expect `GOLDEN: PASS` both times, then run `scripts/test.sh`.
 
 If you remove or rename a scenario, delete its golden file as well.
+
+## Story S13 re-record
+
+Story S13 added the overlap screens (one per applicable section, between the income-protection policies and
+the summary) and the "Your insurer action list" section at the bottom of the summary. Every old scenario now
+answers those screens before its summary. The goldens were compared against the ones at the commit before the
+story, on the recorded text (not the `step` labels, which shift after an insertion):
+
+- **325 of the 340 old screens are byte-identical**: everything before the overlap screens, and, in
+  `oh-restart-replay`, everything after Start over up to the second summary. This holds because the
+  "What we know" panel, which is part of every capture, shows its new "Overlap questions: a / b" row only on
+  the overlap screens and the summary.
+- **The other 15 are the summary screens** (one per old scenario, two in `oh-restart-replay`). Each keeps every
+  old line, in the same order, and gains only the "Your insurer action list" section (between "Add a real
+  declarations page..." and "[Start over]") and that one "Overlap questions" row.
+- **164 entries are new**, all overlap screens (answers, Continue disabled then enabled, gated follow-ups,
+  Not sure), and **three new scenarios** add 86 screens (590 in all).
+
+So the diff is only inserted new-screen steps plus the summary screen content. A passing replay of the old
+scenarios' early steps is therefore still the proof that the existing screens did not change. Because the
+summary now shows the real flag copy, a later story that edits that copy or adds a flag that fires in one of
+these scenarios (S10, S11, S12) must re-record the affected summary steps deliberately, and say so.
 
 ## Files
 
 | file | role |
 |---|---|
 | `golden.html` | the page: loads the scenarios, runs them, writes `#result`, the scenario list, and `#record` |
-| `runner.mjs` | step ops, text capture, iframe driving, diff, report |
+| `runner.mjs` | step ops (including `answer`), text capture, iframe driving, diff, report |
 | `scenarios.mjs` | the scenarios (plain data) |
 | `golden/<id>.mjs` | recorded goldens, `export default [{ step, text }, ...]` |
 | `record-server.py` | optional dev helper for re-recording |

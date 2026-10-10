@@ -1,3 +1,6 @@
+import { overlapSections, overlapScreenIds, applyAnswer, actionListViewModel, actionListText, ACTIONS_SCREEN_ID } from './overlap-ui/viewModel.mjs';
+import { overlapScreenHtml, overlapProgress, overlapScreenLabel, sectionIdOf, actionListHtml, actionListErrorHtml } from './overlap-ui/screens.mjs';
+import { patchOverlapScreen, restoreFocus, focusHeading, copyText, printList, COPY_OK, COPY_FAILED } from './overlap-ui/dom.mjs';
 (function(){
 var STATES="AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ").sort();
 var STATE_NAMES={AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",DC:"District of Columbia",FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"};
@@ -271,7 +274,7 @@ var POLICY={
   }}
 };
 
-// S.o will hold the overlap answers (question id -> option id) in later stories; nothing reads it yet.
+// S.o holds the overlap answers (question id -> option id, or an array of option ids for a tick-many question); see js/overlap-ui/.
 var S={state:"",a:{},extras:[],i:0,q:{},p:{},o:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};
 var stage=document.getElementById("stage"),bar=document.getElementById("bar");
 
@@ -286,12 +289,18 @@ function buildQueue(){
   S.queue=q; S.incomeQueue=iq;
 }
 function allPolicies(){ return S.queue.concat(S.incomeQueue) }
+// A plain copy of the host state the overlap view-models read (never the state picker; see engine/adapter.mjs).
+function snapshot(){ return JSON.parse(JSON.stringify({a:S.a,extras:S.extras,q:S.q,p:S.p,o:S.o})) }
+// The overlap question screens ("ovl:<section>"). The view-model's trailing "actions" id is not a screen of its own:
+// the action list is part of the summary (DECISIONS S13-5).
+function overlapIds(){ return overlapScreenIds(snapshot()).filter(function(x){return x!==ACTIONS_SCREEN_ID}) }
 function order(){
   buildQueue();
-  return BASE.concat(S.queue.map(function(x){return "p:"+x}),["umbrella"],S.incomeQueue.map(function(x){return "p:"+x}),["summary"]);
+  return BASE.concat(S.queue.map(function(x){return "p:"+x}),["umbrella"],S.incomeQueue.map(function(x){return "p:"+x}),overlapIds(),["summary"]);
 }
 function screenLabel(id){
   if(id.indexOf("p:")===0) return POLICY[id.slice(2)].name;
+  if(id.indexOf("ovl:")===0) return overlapScreenLabel(id);
   return {home:"Welcome",tenure:"Own or rent",dep:"Income",veh:"Vehicles",toys:"Anything else with a motor",insight:"First look",qualify:"A few quick checks",umbrella:"Umbrella",summary:"Summary"}[id];
 }
 function fieldVal(pid,f){ if(S.p[pid]===undefined) S.p[pid]={}; if(S.p[pid][f.key]===undefined) S.p[pid][f.key]=f.def; return S.p[pid][f.key]; }
@@ -300,7 +309,13 @@ function pValues(pid){
   var out={}; visibleFields(pid).forEach(function(f){out[f.key]=fieldVal(pid,f)}); return out;
 }
 
-function go(n){ S.times.push({s:screenLabel(order()[S.i]),t:(Date.now()-S.t0)/1000}); S.t0=Date.now(); S.i=n; render(); }
+function go(n){ var from=order()[S.i]; S.times.push({s:screenLabel(from),t:(Date.now()-S.t0)/1000}); S.t0=Date.now(); S.i=n; render(); overlapFocus(from); }
+// Keyboard and screen reader users land on the heading of an overlap screen (and of the summary when they arrive from one).
+function overlapFocus(from){ var id=order()[S.i]; if(sectionIdOf(id)!==null||(id==="summary"&&sectionIdOf(from)!==null)) focusHeading(stage) }
+function actionListSection(){
+  try{ return actionListHtml(actionListViewModel(snapshot())) }
+  catch(err){ console.error("Could not build the insurer action list",err); return actionListErrorHtml() }
+}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function opts(key,list,hint){
   return '<div class="opts">'+list.map(function(o){
@@ -439,6 +454,9 @@ function render(){
   if(id.indexOf("p:")===0){
     h=policyScreen(id.slice(2));
   }
+  if(id.indexOf("ovl:")===0){
+    h=overlapScreenHtml(overlapSections(snapshot()),id,back());
+  }
   if(id==="umbrella"){
     var hasAuto=S.p.auto,hasHome=S.p.home;
     var uv=S.p.umbrella||(S.p.umbrella={hasUmbrella:"No",limit:1000000});
@@ -464,12 +482,13 @@ function render(){
     if(uv&&S.q.assets300!=="Not sure"){ if(uv.hasUmbrella==="No"&&S.q.assets300==="Yes") under++; if(uv.hasUmbrella==="Yes"&&((S.p.auto&&S.p.auto.liability<=100)||(S.p.home&&S.p.home.liability<=300))) under++; }
     var secs=Math.round((Date.now()-S.start)/1000);
     var ap=allPolicies();
-    h='<h2>Your coverage, checked</h2>'+
+    h='<h2 tabindex="-1" data-focus>Your coverage, checked</h2>'+
       '<div class="totals"><div class="total over"><b>'+over+'</b><span>'+(over===1?'place':'places')+' you may be overspending</span></div>'+
       '<div class="total twice"><b>'+twice+'</b><span>'+(twice===1?'thing':'things')+' likely paid for twice</span></div>'+
       '<div class="total under"><b>'+under+'</b><span>'+(under===1?'gap':'gaps')+' in protection</span></div></div>'+
       '<p>Checked '+ap.length+' '+(ap.length===1?'policy':'policies')+' plus umbrella. '+S.taps+' taps, '+secs+' seconds. We still do not know your name.</p>'+
       '<p class="sub">Add a real declarations page any time to replace these sample numbers with yours.</p>'+
+      actionListSection()+
       '<div class="row spread foot"><button class="link" data-act="restart">Start over</button><span></span></div>';
   }
   stage.innerHTML=h; known(); tele();
@@ -479,6 +498,8 @@ function known(){
   if(S.extras.length) rows.push(["Also",S.extras.join(", ")]);
   var ap=allPolicies();
   if(ap.length) rows.push(["Policies checked",ap.filter(function(p){return S.p[p]}).length+" / "+ap.length]);
+  var oids=overlapIds();
+  if(oids.length&&S.i>=order().indexOf(oids[0])){ var pr=overlapProgress(overlapSections(snapshot())); rows.push(["Overlap questions",pr.answered+" / "+pr.total]) }
   document.getElementById("known").innerHTML=rows.map(function(r){return "<dt>"+r[0]+"</dt><dd>"+esc(r[1])+"</dd>"}).join("");
 }
 function tele(){
@@ -496,12 +517,24 @@ stage.addEventListener("click",function(e){
     render();return}
   if(b.dataset.qual){S.q[b.dataset.qual]=b.dataset.v;S.taps++;render();return}
   if(b.dataset.umb){S.p.umbrella[b.dataset.umb]=b.dataset.v;S.taps++;render();return}
+  if(b.dataset.oq){ // overlap question option: update the answers, then the screen (in place when its shape is unchanged)
+    S.o=applyAnswer(snapshot(),b.dataset.oq,b.dataset.ov);S.taps++;
+    if(patchOverlapScreen(stage,overlapSections(snapshot()),order()[S.i])) known();
+    else{render();restoreFocus(stage,b.dataset.oq,b.dataset.ov)}
+    return}
   if(b.dataset.p&&b.dataset.k){ // yesno field toggle button
     if(S.p[b.dataset.p]===undefined)S.p[b.dataset.p]={};
     S.p[b.dataset.p][b.dataset.k]=b.dataset.v;S.taps++;render();return}
   var act=b.dataset.act;
   if(act==="back") go(S.i-1);
   if(act==="next") go(S.i+1);
+  if(act==="print") printList(window);
+  if(act==="copy"){
+    var st=document.getElementById("al-status"),txt=null;
+    try{ txt=actionListText(actionListViewModel(snapshot())) }catch(err){ console.error("Could not build the list to copy",err) }
+    if(txt===null){ if(st) st.textContent=COPY_FAILED }
+    else copyText(txt,{navigator:navigator,document:document},function(ok){ var el=document.getElementById("al-status"); if(el) el.textContent=ok?COPY_OK:COPY_FAILED });
+  }
   if(act==="restart"){S={state:S.state,a:{},extras:[],i:0,q:{},p:{},o:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};render()}
 });
 stage.addEventListener("change",function(e){

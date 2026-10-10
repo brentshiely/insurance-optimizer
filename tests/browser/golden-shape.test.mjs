@@ -37,6 +37,14 @@ test('browser scenarios: every op has a definition', () => {
   assert.equal(validateStep({ op: 'opt', q: 'home' }), 'op "opt" needs "v"');
 });
 
+test('browser scenarios: the answer op needs a non-empty list of [questionId, optionId] string pairs', () => {
+  assert.equal(validateStep({ op: 'answer', list: [['other_items', 'none']] }), null);
+  assert.equal(validateStep({ op: 'answer' }), 'op "answer" needs "list"');
+  for (const bad of [[], 'x', [['a']], [['a', 'b', 'c']], [['a', 1]], [['', 'b']], [null]]) {
+    assert.match(validateStep({ op: 'answer', list: bad }), /needs a non-empty list/, JSON.stringify(bad));
+  }
+});
+
 test('browser scenarios: cover the required matrix', () => {
   const has = (set, ...vals) => vals.forEach(v => assert.ok(set.has(v), `missing ${v} in ${JSON.stringify([...set])}`));
   has(values('opt', 'v', s => s.q === 'home'), 'Own', 'Rent', 'Both');
@@ -93,6 +101,61 @@ test('browser goldens: every scenario ends on the summary and together they reac
   const restart = parseGolden(read('tests/browser/golden/oh-restart-replay.mjs'));
   const homeScreens = restart.filter(g => g.text.includes('Which state are you in?'));
   assert.ok(homeScreens.length >= 3, 'the entry screen shows again after Start over');
+});
+
+const goldenOf = (id) => parseGolden(read(`tests/browser/golden/${id}.mjs`));
+const isOverlapScreen = (text) => text.startsWith('== stage ==\nOverlap check ');
+const isSummary = (text) => text.includes('\nYour coverage, checked\n');
+
+test('browser goldens (Story S13): every scenario passes through an overlap screen before its summary, and the summary ends with the action list', () => {
+  if (!canRead) return;
+  for (const s of scenarios) {
+    const golden = goldenOf(s.id).map(g => g.text);
+    const summaries = golden.map((t, i) => (isSummary(t) ? i : -1)).filter(i => i >= 0);
+    assert.ok(summaries.length >= 1, `${s.id} reaches the summary`);
+    for (const i of summaries) {
+      assert.ok(golden.slice(0, i).some(isOverlapScreen), `${s.id}: an overlap screen comes before the summary at step ${i}`);
+      assert.includes(golden[i], '\nYour insurer action list\n', `${s.id} step ${i}: summary shows the action list`);
+      assert.includes(golden[i], 'not a licensed agent or broker', `${s.id} step ${i}: the not-advice note`);
+      assert.includes(golden[i], 'Your answers stay on this page and are not saved.', `${s.id} step ${i}: the privacy line`);
+      assert.includes(golden[i], 'Your coverage, checked\n', `${s.id} step ${i}: existing summary heading kept`);
+      assert.ok(/\n\d+ places? you may be overspending\n/.test(golden[i]), `${s.id} step ${i}: existing totals kept`);
+    }
+  }
+});
+
+test('browser goldens (Story S13): the "What we know" overlap row appears only on overlap screens and the summary, so earlier screens are untouched', () => {
+  if (!canRead) return;
+  for (const s of scenarios) {
+    for (const g of goldenOf(s.id)) {
+      const has = g.text.includes('Overlap questions: ');
+      assert.equal(has, isOverlapScreen(g.text) || isSummary(g.text), `${s.id} step ${g.step}`);
+    }
+  }
+});
+
+test('browser goldens (Story S13): the scenarios between them show a Raise list, an honest empty list, Not sure answers, a gated follow-up and a disabled Continue', () => {
+  if (!canRead) return;
+  const ids = scenarios.map(s => s.id);
+  for (const id of ['umbrella-low-underlying-raise', 'nothing-held-empty-state', 'not-sure-everywhere']) assert.ok(ids.includes(id), `scenario ${id}`);
+  const last = (id) => { const g = goldenOf(id); return g[g.length - 1].text; };
+  assert.includes(last('umbrella-low-underlying-raise'), '\nRaise (', 'umbrella scenario: a Raise group');
+  assert.includes(last('umbrella-low-underlying-raise'), '\nWhy it matters\n');
+  assert.includes(last('umbrella-low-underlying-raise'), '\nSay this\n');
+  assert.includes(last('nothing-held-empty-state'), '\nWe did not find anything to flag from your answers\n', 'empty scenario: the honest empty state');
+  assert.ok(!/\n(Raise|Drop|Question) \(/.test(last('nothing-held-empty-state')), 'empty scenario: no groups');
+  assert.ok(!/everything is fine|you are covered|no gaps|looks good/i.test(last('nothing-held-empty-state')), 'empty scenario is not an all-clear');
+  assert.ok(goldenOf('not-sure-everywhere').some(g => g.text.includes('[*Not sure]')), 'Not sure selected somewhere');
+  const all = scenarios.flatMap(s => goldenOf(s.id).map(g => g.text));
+  assert.ok(all.some(t => isOverlapScreen(t) && t.includes('[Continue (disabled)]')), 'a disabled Continue is recorded');
+  assert.ok(all.some(t => isOverlapScreen(t) && t.includes('[Back] [Continue]')), 'an enabled Continue is recorded');
+  assert.ok(scenarios.some(s => s.steps.filter(x => x.op === 'answer').length >= 3), 'the overlap screens are driven with the answer op');
+  const text = all.join('\n#####\n');
+  for (const [id, heading] of Object.entries({
+    extras: 'Extras you may be paying for', umbrellaStack: 'What sits under your umbrella', umbrellaVehicles: 'Your motorcycle or boat under the umbrella',
+    umbrellaScope: 'What your umbrella covers', autoGaps: 'A closer look at your auto policy', renters: 'Your renters policy',
+    health: 'Your health insurance and the extras around it', homeExclusions: 'What your home policy leaves out', deductible: 'What you would pay first',
+  })) assert.includes(text, `\n${heading}\n`, `no golden reaches the ${id} overlap screen`);
 });
 
 test('browser harness: volatile text normalization touches only taps and seconds', () => {
