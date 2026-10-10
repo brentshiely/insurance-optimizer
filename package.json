@@ -5,7 +5,8 @@
   "description": "Coverage Check: a no-PII household insurance coverage-gap wizard. Static site, deployed to Cloudflare Pages.",
   "scripts": {
     "deploy": "wrangler pages deploy public --project-name coverage-check",
-    "preview": "python3 -m http.server 8765 --bind 127.0.0.1 --directory public"
+    "preview": "python3 -m http.server 8765 --bind 127.0.0.1 --directory public",
+    "test": "scripts/test.sh"
   },
   "devDependencies": {
     "wrangler": "^4"

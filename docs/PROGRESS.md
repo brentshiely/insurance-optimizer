@@ -1,0 +1,23 @@
+# Progress
+
+One line per story, updated in the same commit that completes it. Commit SHAs: `git log --oneline`.
+
+| Story | Title | Status |
+|---|---|---|
+| S0 | Bootstrap on the Coverage Check base | done |
+| S1 | Safety net and modular split | pending |
+| S2 | Engine core and adapter | pending |
+| S3 | Authoritative source registry | pending |
+| S4 | Credit card lookup table | pending |
+| S5 | Question catalog | pending |
+| S6 | Liability stack engine and umbrella core flags | pending |
+| S7 | Umbrella scope and adequacy flags | pending |
+| S8 | Auto coverage-gap flags | pending |
+| S9 | Home exclusions and renters flags | pending |
+| S10 | Health flags and deductible-vs-cushion | pending |
+| S11 | Other-bucket flags with card cross-reference | pending |
+| S12 | Snapshot and audit suite | pending |
+| S13 | UI: overlap screens and insurer action list | pending |
+| S14 | Liability stack visualization | pending |
+| S15 | Privacy-safe analytics, CSP and disclaimer | pending |
+| S16 | Ship readiness | pending |
