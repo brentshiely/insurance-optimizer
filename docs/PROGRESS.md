@@ -13,7 +13,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S4b | Credit card lookup table | deferred (owner at machine) |
 | S5 | Question catalog | done |
 | S6 | Liability stack engine and umbrella core flags | pending |
-| S7 | Umbrella scope and adequacy flags | pending |
+| S7 | Umbrella scope and adequacy flags | done |
 | S8 | Auto coverage-gap flags | pending |
 | S9 | Home exclusions and renters flags | pending |
 | S10 | Health flags and deductible-vs-cushion | pending |
