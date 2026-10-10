@@ -8,7 +8,7 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S1 | Safety net and modular split | done |
 | S2 | Engine core and adapter | done |
 | S3a | Verified research (non-card) | done |
-| S3b | Source registry | pending |
+| S3b | Source registry | done |
 | S4a | Verified card research | pending |
 | S4b | Credit card lookup table | pending |
 | S5 | Question catalog | pending |

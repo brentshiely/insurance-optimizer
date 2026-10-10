@@ -41,7 +41,7 @@ public/                          (deployed as-is)
   js/overlap-ui/                 NEW DOM code for the new screens (questions, action list, stack view, analytics)
 docs/                            SPEC (frozen), ARCHITECTURE, STORIES, PROGRESS, DECISIONS, OPEN-ITEMS
 research/                        verified research (.mjs), inputs to sources, cards, flag copy (not deployed)
-tests/                           harness, unit tests (tests/engine/), fixtures/ (fixture catalog), helpers/ (purity helpers), scenarios, snapshots, browser/
+tests/                           harness, unit tests (tests/engine/, tests/research/, tests/data/), fixtures/ (fixture catalog), helpers/ (purity helpers), scenarios, snapshots, browser/
 scripts/                         test.sh, serve.sh, update-snapshots.sh
 coverage-check-wizard-handoff.md existing app principles (kept)
 ```
@@ -120,6 +120,8 @@ Built behavior (`engine/conditions.mjs`):
 { id:'iii-umbrella', publisher:'Insurance Information Institute', title:'...', url:'https://...', lastVerified:'2026-10-10' }
 ```
 All four required; `url` https (with a dotted host); `lastVerified` a real `YYYY-MM-DD` date (month and leap years checked). `data/sources.mjs` exports the registry as a **named** `SOURCES` object keyed by source id, with `id === key`.
+
+**Sources (built by S3b).** `public/js/overlap/data/sources.mjs` holds the registry: 89 entries, one per distinct URL, sorted by id, built from every `verification.status: "verified"` source in the five non-card research files (`research/*.mjs`; the 101 research entries collapse to 89 because S3a already gave a repeated page one id everywhere, so no id was merged or remapped). Each entry has exactly `id`, `publisher`, `title`, `url`, `lastVerified` (the research's `authorityType` and `verification` fields stay in `research/` and are not shipped). A flag cites a source by putting its registry id in `sourceIds`; `evaluate` turns each id into a `{ id, publisher, title, url, lastVerified }` entry on the result flag, and `validateCatalog` fails any id that is not in `SOURCES`. Flag authors pick ids from the Sources tables in `research/INDEX.md` (or the facts' `sourceIds`), never invent one, and never write a URL into a flag. Only authority hosts from SPEC "Sources and authority" appear (iii.org, naic.org, insureuonline.org, fema.gov, floodsmart.gov, irs.gov, healthcare.gov, cms.gov, hhs.gov, dol.gov, ftc.gov, consumerfinance.gov, federalreserve.gov, insurance-research.org, consumerfed.org, kff.org, including subdomains), and none of the commercial insurer, agency or comparison sites. `tests/data/sources.test.mjs` enforces the shape, unique ids and URLs, both host lists, that the registry equals the verified research sources field for field, that every research fact's `sourceIds` resolve, and that the real catalog passes `validateCatalog`. To add a source: verify it, add it to the right research file (and `research/INDEX.md`) first, then add the same entry here. Credit-card sources live in `data/cards.mjs` (`guideUrl`), not here.
 
 ### Flag
 ```js
