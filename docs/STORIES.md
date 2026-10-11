@@ -10,7 +10,8 @@ Commit message: `Story N: <title>` + short body + the `Co-Authored-By` trailer. 
 S1 (none)   S2 (none)   S3a (none)   S4a (none, DEFERRED)
 S3b <- S2, S3a        S4b <- S2, S4a (DEFERRED)        S5 <- S2, S3b
 S6, S7, S8, S9, S10, S11 <- S5        S13 <- S1, S5, S6
-S12 <- S6..S11        S14 <- S6, S13        S15 <- S13        S16 <- S12, S14, S15
+R1 <- S11 (replaces the prototype, D15)        S12 <- R1        S16 <- S12, R1
+(S13, S14, S15 are done; R1 reshapes the code they built)
 S11b <- S4b, S11 (DEFERRED)
 ```
 
@@ -74,6 +75,12 @@ AC: Never judges plan adequacy; open-enrollment framing only in health copy; ban
 ## S11 - Other-bucket flags with card cross-reference
 (Card naming is built and tested against fixture cards; with the real table empty the wording is generic until S11b.) Rental car, towing/roadside (incl. motorcycle/boat), travel, phone, extended warranty, AD&D; name the user's card when the table supports it; always "check your card's current benefits guide"; stronger emphasis when a held card carries the benefit.
 AC: Unverified card benefits never asserted; scenario tests across card/no-card combinations; sourced (NAIC/III/FTC for concepts, issuer guide for card claims).
+
+## R1 - Replace the prototype with the spec flow (D15)
+The owner confirmed the old Coverage Check prototype is discarded. The product is exactly `docs/SPEC.md`: entry -> Q1 (which policies do you have) -> only the relevant question sections -> the insurer action list. One atomic story so `main` is never half-broken.
+Step A (engine/data): Q1 becomes a real asked question `policies`; `other_items` and the host adapter (`engine/adapter.mjs`) are removed; every test migrates to plain answers without weakening any assertion.
+Step B (UI): `public/js/app.js` is rewritten around the overlap UI components; the state picker and tables, state-driven findings, own/rent/dependents/vehicles questions, editable sample-number policy screens, "first look" insights, over/under/twice totals, photo/upload buttons and the prototype telemetry panel are deleted (anonymous answer analytics from S15 is what replaces telemetry); dead CSS removed; old handoff archived to `docs/archive/`; README and ARCHITECTURE rewritten; browser goldens re-recorded for the new flow.
+AC: no prototype concept survives in code, tests or docs (leftover scan); Q1 matches the SPEC exactly; flag behavior unchanged for equivalent inputs; at least 12 new browser scenarios pass; end-to-end in the real browser incl. keyboard, 375px, light/dark, clean console, zero CSP violations; copy is truthful (no uploads, no numbers, no state).
 
 ## S12 - Snapshot and audit suite
 Deterministic scenario matrix over policy combinations with snapshots; catalog audit tests.
