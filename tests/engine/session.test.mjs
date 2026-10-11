@@ -1,6 +1,6 @@
 import { suite, assert } from '../harness.mjs';
 import { createSession } from '../../public/js/overlap/engine/session.mjs';
-import FIXTURE from '../fixtures/catalog.mjs';
+import FIXTURE, { POLICIES_QUESTION } from '../fixtures/catalog.mjs';
 import { deepFreeze, copy } from '../helpers/purity.mjs';
 
 const session = () => createSession(FIXTURE);
@@ -27,14 +27,14 @@ suite('session: not_sure is appended automatically', (t) => {
     const cat = deepFreeze(copy(FIXTURE));
     const s = createSession(cat);
     assert.equal(s.getQuestion('umbrella_limit').options.filter((o) => o.id === 'not_sure').length, 1);
-    assert.equal(cat.questions[0].options.length, 3, 'source question still has 3 options');
+    assert.equal(cat.questions.find((q) => q.id === 'umbrella_limit').options.length, 3, 'source question still has 3 options');
     const withExplicit = createSession({ questions: [{ id: 'q', domain: 'core', section: 's', type: 'single', prompt: 'p', allowNotSure: true, options: [{ id: 'a', label: 'A' }, { id: 'not_sure', label: 'Dunno' }] }] });
     assert.equal(withExplicit.getQuestion('q').options.filter((o) => o.id === 'not_sure').length, 1);
   });
   t('resolved questions are frozen copies, so callers cannot corrupt the catalog', () => {
     const q = session().getQuestion('home_liability');
     assert.throws(() => { q.options[0].value = 1; }, /read.?only|frozen|not extensible|Cannot/i);
-    assert.equal(FIXTURE.questions[2].options[0].value, 300000);
+    assert.equal(FIXTURE.questions.find((q) => q.id === 'home_liability').options[0].value, 300000);
   });
   t('showIf defaults to null', () => {
     const s = createSession({ questions: [{ id: 'q', domain: 'core', section: 's', type: 'single', prompt: 'p', options: [{ id: 'a', label: 'A' }] }] });
@@ -44,23 +44,23 @@ suite('session: not_sure is appended automatically', (t) => {
 });
 
 suite('session: visibility', (t) => {
-  t('with no policies only unconditional / negated questions show', () => {
-    assert.deepEqual(ids(session().visibleQuestions({})), ['assets_band']);
+  t('with no policies only Q1 and the unconditional / negated questions show', () => {
+    assert.deepEqual(ids(session().visibleQuestions({})), ['policies', 'assets_band']);
   });
   t('visibleQuestions keeps catalog order', () => {
     const a = { policies: ['umbrella', 'auto', 'home', 'health'] };
-    assert.deepEqual(ids(session().visibleQuestions(a)), ['umbrella_limit', 'auto_liability', 'home_liability', 'supplements']);
+    assert.deepEqual(ids(session().visibleQuestions(a)), ['policies', 'umbrella_limit', 'auto_liability', 'home_liability', 'supplements']);
   });
   t('a gated chain opens one step at a time', () => {
     const s = session();
     const base = { policies: ['umbrella'] };
-    assert.deepEqual(ids(s.visibleQuestions(base)), ['umbrella_limit']);
+    assert.deepEqual(ids(s.visibleQuestions(base)), ['policies', 'umbrella_limit']);
     const a1 = { ...base, umbrella_limit: '1m' };
-    assert.deepEqual(ids(s.visibleQuestions(a1)), ['umbrella_limit', 'umbrella_ext_um', 'umbrella_side_business']);
+    assert.deepEqual(ids(s.visibleQuestions(a1)), ['policies', 'umbrella_limit', 'umbrella_ext_um', 'umbrella_side_business']);
     const a2 = { ...a1, umbrella_ext_um: 'no' };
-    assert.deepEqual(ids(s.visibleQuestions(a2)), ['umbrella_limit', 'umbrella_ext_um', 'umbrella_um_detail', 'umbrella_side_business']);
+    assert.deepEqual(ids(s.visibleQuestions(a2)), ['policies', 'umbrella_limit', 'umbrella_ext_um', 'umbrella_um_detail', 'umbrella_side_business']);
     const a3 = { ...a1, umbrella_ext_um: 'yes' };
-    assert.deepEqual(ids(s.visibleQuestions(a3)), ['umbrella_limit', 'umbrella_ext_um', 'umbrella_side_business']);
+    assert.deepEqual(ids(s.visibleQuestions(a3)), ['policies', 'umbrella_limit', 'umbrella_ext_um', 'umbrella_side_business']);
   });
   t('`in` gate: a 5m umbrella skips the side-business question', () => {
     const a = { policies: ['umbrella'], umbrella_limit: '5m' };
@@ -90,7 +90,18 @@ suite('session: visibility', (t) => {
   });
   t('unknown question ids are not visible', () => {
     assert.equal(session().isVisible('nope', { policies: ['auto'] }), false);
-    assert.equal(session().isVisible('policies', { policies: ['auto'] }), false);
+    assert.equal(session().isVisible('other_items', { policies: ['auto'] }), false);
+  });
+  t('Q1 (policies) is an ordinary question that is always visible', () => {
+    assert.equal(session().isVisible('policies', {}), true);
+    assert.equal(session().isVisible('policies', { policies: ['auto'] }), true);
+    assert.equal(session().isVisible('policies', { policies: ['none'] }), true);
+  });
+  t('a `holds` gate counts as a read of Q1: with no Q1 in the catalog the gated question is hidden', () => {
+    const q = { id: 'q', domain: 'core', section: 's', type: 'single', prompt: 'p', options: [{ id: 'a', label: 'A' }], showIf: { not: { holds: 'auto' } } };
+    assert.equal(createSession({ questions: [q] }).isVisible('q', { policies: [] }), false, 'no policies question, so nothing can be read');
+    assert.equal(createSession({ questions: [POLICIES_QUESTION, q] }).isVisible('q', { policies: ['boat'] }), true);
+    assert.equal(createSession({ questions: [POLICIES_QUESTION, q] }).isVisible('q', { policies: ['auto'] }), false);
   });
   t('visibility is transitive: stale upstream answers do not open downstream questions', () => {
     // The user once held an umbrella and answered the chain, then deselected the umbrella.
@@ -103,6 +114,7 @@ suite('session: visibility', (t) => {
   t('transitive visibility also hides `not` gates that reference a hidden question', () => {
     const cat = {
       questions: [
+        POLICIES_QUESTION,
         { id: 'root', domain: 'core', section: 's', type: 'single', prompt: 'p', options: [{ id: 'a', label: 'A' }], showIf: { holds: 'auto' } },
         { id: 'child', domain: 'core', section: 's', type: 'single', prompt: 'p', options: [{ id: 'a', label: 'A' }], showIf: { not: { answered: 'root' } } },
       ],
@@ -181,11 +193,12 @@ suite('session: prune', (t) => {
     assert.deepEqual(s.prune({ policies: ['umbrella'], umbrella_limit: 1000000 }), { policies: ['umbrella'] }, 'number');
     assert.deepEqual(s.prune({ policies: ['umbrella'], umbrella_limit: null }), { policies: ['umbrella'] }, 'null');
   });
-  t('drops keys that are not questions, but keeps policies', () => {
+  t('drops keys that are not questions; policies is a question (Q1), so it is kept', () => {
     assert.deepEqual(session().prune({ policies: ['auto'], mystery: 'x' }), { policies: ['auto'] });
   });
-  t('policies are normalized: strings only, deduped, sorted', () => {
-    assert.deepEqual(session().prune({ policies: ['home', 'auto', 'home', 3, null] }).policies, ['auto', 'home']);
+  t('policies is normalized like any multi question: known option ids only, deduped, in option order', () => {
+    assert.deepEqual(session().prune({ policies: ['home', 'auto', 'home', 3, null, 'flood'] }).policies, ['auto', 'home']);
+    assert.deepEqual(session().prune({ policies: ['umbrella', 'auto', 'none'] }).policies, ['none'], 'the exclusive None of these wins');
   });
   t('policies that is not an array is dropped; absent policies stays absent', () => {
     assert.deepEqual(session().prune({ policies: 'auto' }), {});
@@ -241,7 +254,7 @@ suite('session: setAnswer, toggleOption, clearAnswer', (t) => {
   });
   t('setAnswer validates the question and the value', () => {
     assert.throws(() => session().setAnswer({}, 'nope', 'a'), /Unknown question "nope"/);
-    assert.throws(() => session().setAnswer({}, 'policies', ['auto']), /Unknown question "policies"/);
+    assert.throws(() => session().setAnswer({}, 'other_items', ['auto']), /Unknown question "other_items"/);
     assert.throws(() => session().setAnswer({}, 'umbrella_limit', '9m'), /Unknown option "9m"/);
     assert.throws(() => session().setAnswer({}, 'umbrella_limit', ['1m']), /single question/);
     assert.throws(() => session().setAnswer({}, 'supplements', 'accident'), /multi question/);

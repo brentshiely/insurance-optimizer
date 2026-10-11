@@ -23,7 +23,7 @@ export function copy(v) {
 
 /**
  * Wraps an object in a Proxy that records every property key read from it (and from nested objects,
- * under dotted paths) into `log`. Used to prove the adapter reads only the fields it is allowed to.
+ * under dotted paths) into `log`. Used to prove a view-model reads only the answers it is allowed to.
  */
 export function recordReads(obj, log, path = '') {
   if (obj === null || typeof obj !== 'object') return obj;

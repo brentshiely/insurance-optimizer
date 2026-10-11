@@ -6,34 +6,30 @@
 // parallel); exact content is checked against the fixture catalog.
 import { suite, assert } from '../harness.mjs';
 import {
-  esc, questionHtml, overlapScreenHtml, overlapScreenKey, actionListHtml, actionListErrorHtml, overlapProgress,
-  overlapScreenLabel, sectionIdOf, SCREEN_LABELS, PRIVACY_LINE, LIST_INTRO, NEEDS_HINT,
-  PRIVACY_LINE_COUNTING, ENTRY_NOTE,
+  esc, questionHtml, overlapScreenHtml, overlapScreenKey, actionListHtml, actionListErrorHtml, actionsFootHtml,
+  entryScreenHtml, knownHtml, sectionIdOf, PRIVACY_LINE, LIST_INTRO, NEEDS_HINT,
+  PRIVACY_LINE_COUNTING, ENTRY_NOTE, ENTRY_HEADING, ENTRY_INTRO, ENTRY_HOW, NEEDS_HINT_Q1,
 } from '../../public/js/overlap-ui/screens.mjs';
 import {
-  overlapSections, applyAnswer, actionListViewModel, INFO_NOTE, EMPHASIS_LABEL, EMPTY_TITLE, EMPTY_MESSAGE,
+  overlapSections, applyAnswer, actionListViewModel, policiesSummary, INFO_NOTE, EMPHASIS_LABEL, EMPTY_TITLE, EMPTY_MESSAGE,
 } from '../../public/js/overlap-ui/viewModel.mjs';
-import { SECTIONS } from '../../public/js/overlap/data/questions/index.mjs';
 import FIXTURE from '../fixtures/catalog.mjs';
 import { findForbidden, codeOnly, importsOf } from '../helpers/sourceScan.mjs';
 
 const MODULE_PATH = 'public/js/overlap-ui/screens.mjs';
-const host = (parts = {}) => ({ a: {}, extras: [], q: {}, p: {}, o: {}, ...parts });
-const UMBRELLA = { umbrella: { hasUmbrella: 'Yes' } };
+// Plain answers: Q1 (`policies`) holds the ticks, the rest is the user's own taps.
+const ans = (policies, more = {}) => ({ policies, ...more });
 const BACK = '<button class="link" data-act="back">Back</button>';
 const attrIds = (html) => Array.from(html.matchAll(/\sid="([^"]+)"/g)).map((m) => m[1]);
 const count = (html, needle) => html.split(needle).length - 1;
 
-const H_FULL = host({
-  a: { home: 'Both', veh: '3+' }, q: { health: 'Yes' }, p: UMBRELLA, extras: ['Motorcycle', 'Boat'],
-  o: { other_items: ['rental_car', 'towing', 'phone', 'accidental_death'] },
-});
+const H_FULL = ans(['auto', 'home', 'renters', 'umbrella', 'health', 'motorcycle', 'boat', 'rental_car', 'towing', 'phone', 'accidental_death']);
 const HOSTS = [
-  host(),
-  host({ a: { home: 'Rent', veh: '0' } }),
-  host({ a: { home: 'Own', veh: '2' }, q: { health: 'Yes' } }),
-  host({ a: { home: 'Own', veh: '1' }, p: UMBRELLA, o: { umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500' } }),
-  host({ a: { home: 'Own', veh: '0' }, o: { other_items: ['renters_with_home'] } }),
+  {},
+  ans(['renters']),
+  ans(['auto', 'home', 'health']),
+  ans(['auto', 'home', 'umbrella'], { umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500' }),
+  ans(['home', 'renters']),
   H_FULL,
 ];
 
@@ -54,7 +50,8 @@ suite('screens: the module is pure and its wording is plain', (t) => {
 
   t('user-facing wording is ASCII, has no dash characters, no placeholders and names no state', () => {
     const states = /Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming/;
-    const texts = [PRIVACY_LINE, PRIVACY_LINE_COUNTING, ENTRY_NOTE, LIST_INTRO, NEEDS_HINT, ...Object.values(SCREEN_LABELS), actionListErrorHtml()];
+    const texts = [PRIVACY_LINE, PRIVACY_LINE_COUNTING, ENTRY_NOTE, ENTRY_HEADING, ENTRY_INTRO, ENTRY_HOW, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, actionListErrorHtml(),
+      entryScreenHtml(false), entryScreenHtml(true), actionsFootHtml(BACK), knownHtml(policiesSummary({})), knownHtml(policiesSummary(ans(['auto', 'home'])))];
     for (const text of texts) {
       assert.equal(/^[\x20-\x7e]*$/.test(text), true, `ASCII only: ${text}`);
       assert.equal(/\{\{|\}\}|TODO|undefined|\[object/.test(text), false, `no placeholder: ${text}`);
@@ -67,17 +64,15 @@ suite('screens: the module is pure and its wording is plain', (t) => {
     assert.match(PRIVACY_LINE, /not saved/);
   });
 
-  t('every section id has a short telemetry label, and none is left over', () => {
-    assert.deepEqual(Object.keys(SCREEN_LABELS).sort(), SECTIONS.map((s) => s.id).sort());
-    for (const s of SECTIONS) assert.equal(overlapScreenLabel('ovl:' + s.id), SCREEN_LABELS[s.id]);
-    assert.equal(overlapScreenLabel('ovl:not_a_section'), 'not_a_section');
-    assert.equal(overlapScreenLabel('summary'), '');
+  t('the counting privacy line does not talk about typed numbers: nothing is typed any more', () => {
+    assert.equal(/numbers you type/.test(PRIVACY_LINE_COUNTING), false);
+    assert.match(PRIVACY_LINE_COUNTING, /You type nothing here/);
   });
 
   t('sectionIdOf only accepts ovl: ids', () => {
-    assert.equal(sectionIdOf('ovl:extras'), 'extras');
-    assert.equal(sectionIdOf('summary'), null);
-    assert.equal(sectionIdOf('p:auto'), null);
+    assert.equal(sectionIdOf('ovl:start'), 'start');
+    assert.equal(sectionIdOf('actions'), null);
+    assert.equal(sectionIdOf('entry'), null);
     assert.equal(sectionIdOf(undefined), null);
   });
 });
@@ -159,17 +154,17 @@ suite('questionHtml: one labelled group of toggle buttons per question', (t) => 
 
 // ---------------------------------------------------------------------------------------------------------
 suite('overlapScreenHtml: a screen of questions with a Continue that waits for every answer', (t) => {
-  const sections = overlapSections(host({ a: { home: 'Own', veh: '1' } }));
+  const sections = overlapSections(ans(['auto', 'home']));
   const autoIdx = sections.findIndex((s) => s.id === 'auto_gaps');
 
-  t('shows the "N of M" eyebrow, the title as a focusable heading, and the reason', () => {
+  t('shows the "Step N of M" eyebrow, the title as a focusable heading, and the reason', () => {
     const html = overlapScreenHtml(sections, 'ovl:auto_gaps', BACK);
-    assert.equal(html.startsWith(`<h3 class="pt">Overlap check ${autoIdx + 1} of ${sections.length}</h3>`), true);
+    assert.equal(html.startsWith(`<h3 class="pt">Step ${autoIdx + 1} of ${sections.length}</h3>`), true);
     assert.equal(html.includes('<h2 id="ovl-heading" tabindex="-1" data-focus>' + esc(sections[autoIdx].title) + '</h2>'), true);
     assert.equal(html.includes('<p class="sub">' + esc(sections[autoIdx].reason) + '</p>'), true);
   });
 
-  t('has one group per visible question, in order, and the host Back control in the footer', () => {
+  t('has one group per visible question, in order, and the Back control it was given in the footer', () => {
     const html = overlapScreenHtml(sections, 'ovl:auto_gaps', BACK);
     const order = Array.from(html.matchAll(/data-qid="([^"]+)"/g)).map((m) => m[1]);
     assert.deepEqual(order, sections[autoIdx].questions.map((q) => q.id));
@@ -189,14 +184,38 @@ suite('overlapScreenHtml: a screen of questions with a Continue that waits for e
 
   t('a screen the user finished is complete in the view-model too (end to end)', () => {
     const o = { auto_financing: 'paid_off', auto_value: 'under_3000', auto_collision: 'yes', auto_um_uim: 'no', auto_rental_reimbursement: 'yes' };
-    const secs = overlapSections(host({ a: { home: 'Own', veh: '1' }, o }));
+    const secs = overlapSections(ans(['auto', 'home'], o));
     const html = overlapScreenHtml(secs, 'ovl:auto_gaps', BACK);
     assert.equal(secs.find((s) => s.id === 'auto_gaps').complete, true);
     assert.equal(/id="ovl-next"[^>]*disabled/.test(html), false);
   });
 
+  t('Q1\'s screen says only "Step 1" (how many steps follow depends on what is ticked there) and its key has no total, so ticking policies patches in place', () => {
+    const none = overlapSections({});
+    const some = overlapSections(ans(['auto', 'home', 'umbrella']));
+    const a = overlapScreenHtml(none, 'ovl:start', BACK);
+    const b = overlapScreenHtml(some, 'ovl:start', BACK);
+    assert.equal(a.startsWith('<h3 class="pt">Step 1</h3>'), true);
+    assert.equal(b.startsWith('<h3 class="pt">Step 1</h3>'), true);
+    assert.equal(overlapScreenKey(none, 'ovl:start'), 'start|1||policies');
+    assert.equal(overlapScreenKey(some, 'ovl:start'), overlapScreenKey(none, 'ovl:start'));
+    assert.notEqual(none.length, some.length, 'the number of sections did change');
+    // the second screen onward do carry the total in the key
+    assert.equal(overlapScreenKey(some, 'ovl:' + some[1].id).startsWith(some[1].id + '|2|' + some.length + '|'), true);
+  });
+
+  t('Q1\'s hint says what unlocks Continue (a tick or None of these) and does not mention Not sure, which Q1 does not offer; the other screens keep the general hint', () => {
+    const q1 = overlapScreenHtml(overlapSections({}), 'ovl:start', BACK);
+    assert.equal(q1.includes('id="ovl-hint">' + esc(NEEDS_HINT_Q1) + '</p>'), true);
+    assert.equal(q1.includes(esc(NEEDS_HINT)), false);
+    assert.equal(/Not sure/.test(NEEDS_HINT_Q1), false);
+    const done = overlapScreenHtml(overlapSections(ans(['none'])), 'ovl:start', BACK);
+    assert.equal(done.includes('id="ovl-hint" hidden>'), true, 'hidden once Q1 is answered');
+    assert.equal(overlapScreenHtml(sections, 'ovl:auto_gaps', BACK).includes(esc(NEEDS_HINT)), true);
+  });
+
   t('returns an empty string for an id that is not an overlap screen', () => {
-    assert.equal(overlapScreenHtml(sections, 'summary', BACK), '');
+    assert.equal(overlapScreenHtml(sections, 'actions', BACK), '');
     assert.equal(overlapScreenHtml(sections, 'ovl:nope', BACK), '');
   });
 
@@ -204,8 +223,8 @@ suite('overlapScreenHtml: a screen of questions with a Continue that waits for e
     const key = overlapScreenKey(sections, 'ovl:auto_gaps');
     assert.equal(key.startsWith('auto_gaps|' + (autoIdx + 1) + '|' + sections.length + '|auto_financing,auto_value'), true);
     assert.equal(overlapScreenHtml(sections, 'ovl:auto_gaps', BACK).includes('data-ovl-key="' + esc(key) + '"'), true);
-    assert.equal(overlapScreenKey(sections, 'summary'), null);
-    const more = overlapSections(host({ a: { home: 'Own', veh: '1' }, o: { auto_financing: 'loan' } }));
+    assert.equal(overlapScreenKey(sections, 'actions'), null);
+    const more = overlapSections(ans(['auto', 'home'], { auto_financing: 'loan' }));
     assert.notEqual(overlapScreenKey(more, 'ovl:auto_gaps'), key, 'a newly opened question changes the key');
   });
 });
@@ -233,7 +252,7 @@ suite('overlapScreenHtml: every screen of many households is well formed', (t) =
   });
 
   t('the selected state of every option in the view-model shows in the markup', () => {
-    const snap = host({ a: { home: 'Own', veh: '1' }, o: { auto_financing: 'loan', auto_value: 'not_sure', other_items: ['phone', 'towing'] } });
+    const snap = ans(['auto', 'home', 'phone', 'towing'], { auto_financing: 'loan', auto_value: 'not_sure' });
     for (const s of overlapSections(snap)) {
       const html = overlapScreenHtml(overlapSections(snap), 'ovl:' + s.id, BACK);
       for (const q of s.questions) for (const o of q.options) {
@@ -253,7 +272,7 @@ suite('overlap screens can always be completed (Continue never deadlocks)', (t) 
           const open = overlapSections(snap).flatMap((sec) => sec.questions).find((q) => !q.answered);
           if (!open) break;
           const opt = pick === 'first' ? open.options[0] : open.options[open.options.length - 1];
-          snap = { ...snap, o: applyAnswer(snap, open.id, opt.id) };
+          snap = applyAnswer(snap, open.id, opt.id);
         }
         const secs = overlapSections(snap);
         assert.equal(secs.length > 0, true);
@@ -265,33 +284,67 @@ suite('overlap screens can always be completed (Continue never deadlocks)', (t) 
     }
   });
 
-  t('a question with no Not sure still has a way to answer it (extras has None of these)', () => {
-    const extras = overlapSections(host())[0].questions[0];
-    assert.equal(extras.id, 'other_items');
-    assert.equal(extras.options.some((o) => o.id === 'none'), true);
-    assert.equal(extras.options.some((o) => o.id === 'not_sure'), false);
+  t('a question with no Not sure still has a way to answer it (Q1 has None of these)', () => {
+    const q1 = overlapSections({})[0].questions[0];
+    assert.equal(q1.id, 'policies');
+    assert.equal(q1.options.some((o) => o.id === 'none'), true);
+    assert.equal(q1.options.some((o) => o.id === 'not_sure'), false);
   });
 });
 
-suite('overlapProgress', (t) => {
-  t('counts answered and total across every visible question', () => {
-    const none = overlapProgress(overlapSections(host()));
-    assert.deepEqual(none, { answered: 0, total: 1 });
-    const some = overlapProgress(overlapSections(host({ a: { home: 'Own', veh: '1' }, o: { other_items: ['none'], auto_financing: 'loan' } })));
-    assert.equal(some.answered, 2);
-    assert.equal(some.total > some.answered, true);
-    assert.deepEqual(overlapProgress([]), { answered: 0, total: 0 });
+suite('the entry screen, the "Your policies" panel and the action list foot', (t) => {
+  t('the entry screen says what this is, how it goes, the not-advice note and the privacy line, and starts with one button', () => {
+    for (const counting of [false, true]) {
+      const html = entryScreenHtml(counting);
+      assert.equal(html.includes('<h1 id="entry-heading" tabindex="-1" data-focus>' + esc(ENTRY_HEADING) + '</h1>'), true);
+      assert.equal(html.includes(esc(ENTRY_INTRO)), true);
+      assert.equal(html.includes(esc(ENTRY_HOW)), true);
+      assert.equal(html.includes(esc(ENTRY_NOTE)), true);
+      assert.equal(html.includes(esc(counting ? PRIVACY_LINE_COUNTING : PRIVACY_LINE)), true);
+      assert.equal(html.includes(esc(counting ? PRIVACY_LINE : PRIVACY_LINE_COUNTING)), false);
+      assert.equal(count(html, '<button'), 1);
+      assert.match(html, /<button type="button" class="primary" data-act="next">Get started<\/button><\/div>$/);
+      assert.equal(html.includes('aria-hidden="true"'), true, 'the icons are decoration');
+      assert.equal(count(html, '<svg'), 6);
+    }
+  });
+
+  t('the entry screen only promises what the flow does: taps, nothing typed, nothing uploaded, no state, no photo, no sample data', () => {
+    const text = entryScreenHtml(false).replace(/<[^>]*>/g, ' ');
+    assert.match(text, /nothing to type and nothing to upload/);
+    assert.match(text, /No name, no email, no sales call/);
+    assert.equal(/prototype|sample|declarations|photo|scan|upload a|which state|your state|editable|telemetry/i.test(text.replace('nothing to upload', '')), false);
+    assert.equal(/<input|<select|<textarea|type="file"|style=/.test(entryScreenHtml(true)), false, 'no field, file picker or style attribute');
+  });
+
+  t('the entry screen never says anything is stored, sent or counted that is not (the line follows the setting)', () => {
+    assert.equal(/counted anonymously/.test(entryScreenHtml(false)), false);
+    assert.equal(/Nothing about them is counted or sent/.test(entryScreenHtml(true)), false);
+  });
+
+  t('knownHtml lists what Q1 ticked, in Q1\'s order, by short name, and says so when there is nothing yet or "None of these"', () => {
+    assert.equal(knownHtml(policiesSummary({})), '<li class="known-none">Nothing ticked yet</li>');
+    assert.equal(knownHtml(policiesSummary(ans(['none']))), '<li class="known-none">None of these</li>');
+    const html = knownHtml(policiesSummary(ans(['umbrella', 'auto', 'rental_car'])));
+    assert.equal(html, '<li>Auto insurance</li><li>Umbrella insurance</li><li>Rental car insurance</li>');
+    assert.equal(knownHtml(undefined), '<li class="known-none">Nothing ticked yet</li>');
+  });
+
+  t('knownHtml escapes whatever label it is given', () => {
+    assert.equal(knownHtml({ answered: true, none: false, held: [{ id: 'x', label: '<b>"x"</b>' }] }), '<li>&lt;b&gt;&quot;x&quot;&lt;/b&gt;</li>');
+  });
+
+  t('the foot under the action list has Back (as given) to change an answer, and Start over', () => {
+    assert.equal(actionsFootHtml(BACK), '<div class="row spread foot ovl-foot">' + BACK + '<button type="button" class="link" data-act="restart">Start over</button></div>');
+    assert.equal(actionsFootHtml('<span></span>').includes('<span></span><button'), true);
   });
 });
 
 // ---------------------------------------------------------------------------------------------------------
-const FIX_ALL = host({
-  a: { veh: '1', home: 'Own' }, q: { health: 'Yes' }, p: UMBRELLA,
-  o: {
-    other_items: ['rental_car', 'phone'], cards: ['card_alpha'],
-    umbrella_limit: 'not_sure', auto_liability: '100_300', home_liability: '300k', umbrella_ext_um: 'no',
-    supplements: ['accident'], supplement_cost: 'under_50',
-  },
+const FIX_ALL = ans(['auto', 'home', 'health', 'umbrella', 'rental_car', 'phone'], {
+  cards: ['card_alpha'],
+  umbrella_limit: 'not_sure', auto_liability: '100_300', home_liability: '300k', umbrella_ext_um: 'no',
+  supplements: ['accident'], supplement_cost: 'under_50',
 });
 
 suite('actionListHtml: the insurer action list (fixture catalog)', (t) => {
@@ -299,7 +352,7 @@ suite('actionListHtml: the insurer action list (fixture catalog)', (t) => {
   const html = actionListHtml(vm);
 
   t('is one labelled section with its own heading, a count line, an intro, the not-advice note, and the privacy line', () => {
-    assert.equal(html.startsWith('<section class="actionlist" id="actionlist" aria-labelledby="al-h"><h2 id="al-h">Your insurer action list</h2>'), true);
+    assert.equal(html.startsWith('<section class="actionlist" id="actionlist" aria-labelledby="al-h"><h2 id="al-h" tabindex="-1" data-focus>Your insurer action list</h2>'), true);
     assert.equal(html.includes('<p>' + vm.total + ' items to take to your insurer: 3 Raise, 2 Drop, 3 Question.</p>'), true);
     assert.equal(html.includes(esc(LIST_INTRO)), true);
     assert.equal(html.includes('<p class="small al-note">' + esc(INFO_NOTE) + '</p>'), true);
@@ -386,7 +439,7 @@ suite('actionListHtml: the insurer action list (fixture catalog)', (t) => {
 });
 
 suite('actionListHtml: the honest empty state', (t) => {
-  const vm = actionListViewModel(host(), FIXTURE);
+  const vm = actionListViewModel({}, FIXTURE);
   const html = actionListHtml(vm);
 
   t('says nothing was flagged, in the view-model wording, and is not an all-clear', () => {

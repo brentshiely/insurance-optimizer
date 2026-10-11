@@ -6,17 +6,17 @@ The same plan exists as data in `tests/fixtures/flagPlan.mjs`. `tests/data/quest
 
 ## 1. How to read answers
 
-Flags read the pruned, frozen `ctx` (ARCHITECTURE "Context"). Reading a question that is hidden or unanswered returns `undefined` or `false`; it never throws. Policies come from `ctx.holds(policyId)`, never from a question.
+Flags read the pruned, frozen `ctx` (ARCHITECTURE "Context"). Reading a question that is hidden or unanswered returns `undefined` or `false`; it never throws. Which policies the user has comes from Q1, the asked question `policies`; read it with `ctx.holds(policyId)`. A flag that calls `ctx.holds` lists `policies` first among its questions.
 
 ```js
-ctx.holds('auto')                              // derived policy
+ctx.holds('auto')                              // ticked in Q1 (the `policies` question)
 ctx.is('auto_financing', 'paid_off')           // single question
 ctx.includes('health_supplemental', 'cancer')  // multi question
 ctx.isNotSure('home_flood_policy')             // true for 'not_sure' (single) or an array containing it (multi)
 ctx.option('emergency_cushion').value          // { min, max } of the chosen option; undefined if unanswered
 ```
 
-**Not sure.** Check `ctx.isNotSure(qid)` before reading `.value`: the Not sure option has no value. A Raise flag never fires on Not sure (it cannot assert a gap it does not know about); each Raise in the plan has a Question twin that fires on Not sure, or says so in its trigger. A Drop flag fires only on something the user said they have (a ticked extra, or a "yes"). Most questions say Not sure is allowed; the few that do not (`other_items`, `side_business`, `auto_financing`, `renters_for`, `cards`) are listed with reasons in DECISIONS S5-8.
+**Not sure.** Check `ctx.isNotSure(qid)` before reading `.value`: the Not sure option has no value. A Raise flag never fires on Not sure (it cannot assert a gap it does not know about); each Raise in the plan has a Question twin that fires on Not sure, or says so in its trigger. A Drop flag fires only on something the user said they have (a ticked extra, or a "yes"). Most questions say Not sure is allowed; the few that do not (`policies`, `side_business`, `auto_financing`, `renters_for`, `cards`) are listed with reasons in DECISIONS S5-8.
 
 **Hidden questions.** Every question carries its own complete gate, so a flag may read it without re-checking the gate. A flag should still name the policy it is about with `ctx.holds(...)`, so the condition reads clearly and the flag cannot fire for someone who does not hold it.
 
@@ -44,17 +44,17 @@ const umbrellaNotLargerThanExposure = (umbrellaDollars, exposure) => umbrellaDol
 
 ## 2. Sections
 
-The wizard groups questions into sections, one screen each, in this order. `SECTIONS` in `questions/index.mjs` also holds each section's `title`, `reason` (tied to what the user already told us) and `showIf`. A section shows exactly when at least one of its questions is visible; the test checks that for 1,280 policy and extras combinations.
+The wizard groups questions into sections, one screen each, in this order. `SECTIONS` in `questions/index.mjs` also holds each section's `title`, `reason` (tied to what the user already told us) and `showIf`. A section shows exactly when at least one of its questions is visible; the test checks that for all 8,192 combinations of the thirteen Q1 ticks.
 
 <!-- section-table:start -->
 | Section | Questions | Title | Shown when |
 |---|---|---|---|
-| `extras` | 1 | Extras you may be paying for | always |
+| `start` | 1 | Your policies | always |
 | `umbrella_stack` | 5 | What sits under your umbrella | holds `umbrella` |
 | `umbrella_vehicles` | 4 | Your motorcycle or boat under the umbrella | holds `umbrella` and (holds `motorcycle` or holds `boat`) |
 | `umbrella_scope` | 3 | What your umbrella covers | holds `umbrella` |
 | `auto_gaps` | 7 | A closer look at your auto policy | holds `auto` |
-| `renters` | 2 | Your renters policy | holds `renters` or `other_items` includes `renters_with_home` |
+| `renters` | 2 | Your renters policy | holds `renters` |
 | `health` | 4 | Your health insurance and the extras around it | holds `health` |
 | `home_exclusions` | 2 | What your home policy leaves out | holds `home` |
 | `deductible` | 4 | What you would pay first | holds `auto` or holds `home` or holds `health` |
@@ -69,7 +69,7 @@ Display order. "Option ids" lists every id including `not_sure` where the questi
 <!-- question-table:start -->
 | Question | Section | Type | Option ids | Shown when | Read by |
 |---|---|---|---|---|---|
-| `other_items` | `extras` | multi | `rental_car`, `towing`, `travel`, `phone`, `warranty`, `accidental_death`, `renters_with_home`, `none` | always | `other-rental-car-waiver`, `other-towing-roadside-duplicate`, `other-vehicle-towing-check`, `other-travel-insurance-overlap`, `other-phone-insurance-card`, `other-extended-warranty-overlap`, `other-add-on-term-life` |
+| `policies` | `start` | multi | `auto`, `home`, `renters`, `umbrella`, `health`, `motorcycle`, `boat`, `rental_car`, `towing`, `travel`, `phone`, `warranty`, `accidental_death`, `none` | always | `umbrella-home-below-required-min`, `umbrella-auto-below-required-min`, `umbrella-primary-liability-overbought`, `umbrella-limits-unconfirmed`, `umbrella-motorcycle-below-required-min`, `umbrella-boat-below-required-min`, `umbrella-smaller-than-exposure`, `umbrella-size-unconfirmed`, `umbrella-um-uim-extension`, `umbrella-scope-exclusions`, `auto-um-uim-check`, `auto-gap-coverage-missing`, `auto-gap-coverage-confirm`, `auto-rental-reimbursement-check`, `auto-collision-older-car`, `home-sewer-backup-missing`, `home-flood-no-separate-policy`, `renters-child-vs-parents-home`, `health-auto-medpay-overlap`, `health-supplemental-boltons`, `health-hsa-nudge`, `health-short-term-plan-alongside`, `deductible-exceeds-cushion-auto`, `deductible-exceeds-cushion-home`, `deductible-exceeds-cushion-health`, `other-rental-car-waiver`, `other-towing-roadside-duplicate`, `other-vehicle-towing-check`, `other-travel-insurance-overlap`, `other-phone-insurance-card`, `other-extended-warranty-overlap`, `other-add-on-term-life` |
 | `umbrella_limit` | `umbrella_stack` | single | `1m`, `2m`, `5m`, `not_sure` | holds `umbrella` | `umbrella-smaller-than-exposure`, `umbrella-size-unconfirmed` |
 | `auto_liability` | `umbrella_stack` | single | `lower`, `100_300`, `250_500`, `500_500`, `not_sure` | holds `umbrella` and holds `auto` | `umbrella-auto-below-required-min`, `umbrella-primary-liability-overbought`, `umbrella-limits-unconfirmed` |
 | `umbrella_min_auto` | `umbrella_stack` | single | `100_300`, `250_500`, `500_500`, `not_sure` | holds `umbrella` and holds `auto` | `umbrella-auto-below-required-min`, `umbrella-primary-liability-overbought`, `umbrella-limits-unconfirmed` |
@@ -89,7 +89,7 @@ Display order. "Option ids" lists every id including `not_sure` where the questi
 | `auto_um_uim` | `auto_gaps` | single | `yes`, `no`, `not_sure` | holds `auto` | `auto-um-uim-check` |
 | `auto_um_uim_limit` | `auto_gaps` | single | `lower`, `100_300`, `250_500`, `500_500`, `not_sure` | holds `auto` and `auto_um_uim` is `yes` | `auto-um-uim-check` |
 | `auto_rental_reimbursement` | `auto_gaps` | single | `yes`, `no`, `not_sure` | holds `auto` | `auto-rental-reimbursement-check` |
-| `renters_for` | `renters` | single | `me`, `child_away` | holds `renters` or `other_items` includes `renters_with_home` | `renters-child-vs-parents-home` |
+| `renters_for` | `renters` | single | `me`, `child_away` | holds `renters` | `renters-child-vs-parents-home` |
 | `renters_child_housing` | `renters` | single | `dorm`, `off_campus`, `not_sure` | holds `home` and `renters_for` is `child_away` | `renters-child-vs-parents-home` |
 | `auto_medpay` | `health` | single | `yes`, `no`, `not_sure` | holds `health` and holds `auto` | `health-auto-medpay-overlap` |
 | `health_hsa` | `health` | single | `hdhp_hsa`, `hdhp_only`, `neither`, `not_sure` | holds `health` | `health-hsa-nudge` |
@@ -114,49 +114,49 @@ Notes on the questions that need them:
 - `umbrella_min_auto`, `umbrella_min_motorcycle`, `umbrella_min_boat` are additions to the SPEC's home minimum so every underlying limit has a requirement to be compared against (DECISIONS S5-2). Each insurer sets its own, so Not sure is expected.
 - `auto_*` gate questions are about the user's newest car (DECISIONS S5-4). `auto_collision` is asked only for a paid-off car worth under $3,000; `auto_gap_coverage` only for a loan or lease.
 - `renters_child_housing`, `auto_medpay`, `health_hsa`'s middle option and `card_usual_payment` go beyond the brief's list and are justified in DECISIONS S5-6.
-- `renters_with_home` is an `other_items` answer, not a policy: the adapter folds only the six Other-bucket ids into `policies`, so `ctx.holds('renters')` is still true only when the host says rent or both. It is how a parent who owns their home and pays for a child's renters policy reaches `renters_for`, the SPEC's headline Renters + Homeowners case (DECISIONS S5-15). A flag about that case reads `ctx.holds('home')` and `renters_for`, never `ctx.holds('renters')`.
+- Renters in Q1 also covers a renters policy a homeowner pays for so a child at college has coverage, so a parent who owns their home reaches `renters_for`, the SPEC's headline Renters + Homeowners case, by ticking Home and Renters (DECISIONS S5-15, R1-4). A flag about that case reads `ctx.holds('home')` and `renters_for`; `renters_for` is visible exactly when Renters is ticked.
 - Not covered: a student's own renters policy against their parents' home policy (a student who rents and answers `me` is not asked about their parents). See OPEN-ITEMS S5-5.
-- Not asked on purpose: a renters liability limit, RV/ATV/jet ski (DECISIONS D11), a third property-damage number, premiums, anything the host derives.
+- Not asked on purpose: a renters liability limit, RV/ATV/jet ski (DECISIONS D11), a third property-damage number, premiums, anything Q1 already asks.
 
 ## 4. Planned flags
 
-32 flags. `Questions read` are asked questions; `Policies held` are derived policy ids read with `ctx.holds`. `Status` `conditional` means the flag cannot ship until its condition (in its block) is met. Priorities are unique across the plan and lower sorts first inside a bucket.
+32 flags. `Questions read` are asked questions; `Policies held` are policy ids read with `ctx.holds` (ticked in Q1). `Status` `conditional` means the flag cannot ship until its condition (in its block) is met. Priorities are unique across the plan and lower sorts first inside a bucket.
 
 <!-- flag-table:start -->
 | Flag | Story | File | Bucket | Kind | Domain | Priority | Status | Questions read | Policies held |
 |---|---|---|---|---|---|---|---|---|---|
-| `umbrella-home-below-required-min` | S6 | `umbrella` | raise | cross-policy | umbrella | 10 | planned | `home_liability`, `umbrella_min_home` | `umbrella`, `home` |
-| `umbrella-auto-below-required-min` | S6 | `umbrella` | raise | cross-policy | umbrella | 20 | planned | `auto_liability`, `umbrella_min_auto` | `umbrella`, `auto` |
-| `umbrella-primary-liability-overbought` | S6 | `umbrella` | question | cross-policy | umbrella | 50 | planned | `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home` | `umbrella` |
-| `umbrella-limits-unconfirmed` | S6 | `umbrella` | question | cross-policy | umbrella | 60 | planned | `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home`, `motorcycle_liability`, `umbrella_min_motorcycle`, `boat_liability`, `umbrella_min_boat` | `umbrella` |
-| `umbrella-motorcycle-below-required-min` | S6 | `vehicles` | raise | cross-policy | vehicles | 30 | planned | `motorcycle_liability`, `umbrella_min_motorcycle` | `umbrella`, `motorcycle` |
-| `umbrella-boat-below-required-min` | S6 | `vehicles` | raise | cross-policy | vehicles | 40 | planned | `boat_liability`, `umbrella_min_boat` | `umbrella`, `boat` |
-| `umbrella-smaller-than-exposure` | S7 | `umbrellaScope` | raise | cross-policy | umbrella | 110 | planned | `umbrella_limit`, `umbrella_exposure` | `umbrella` |
-| `umbrella-size-unconfirmed` | S7 | `umbrellaScope` | question | education | umbrella | 120 | planned | `umbrella_limit`, `umbrella_exposure` | `umbrella` |
-| `umbrella-um-uim-extension` | S7 | `umbrellaScope` | question | within-policy | umbrella | 130 | planned | `umbrella_um_uim` | `umbrella`, `auto` |
-| `umbrella-scope-exclusions` | S7 | `umbrellaScope` | question | within-policy | umbrella | 140 | planned | `side_business` | `umbrella` |
-| `auto-um-uim-check` | S8 | `auto` | question | within-policy | auto | 210 | planned | `auto_um_uim`, `auto_um_uim_limit` | `auto` |
-| `auto-gap-coverage-missing` | S8 | `auto` | raise | within-policy | auto | 220 | planned | `auto_financing`, `auto_value`, `auto_gap_coverage` | `auto` |
-| `auto-gap-coverage-confirm` | S8 | `auto` | question | within-policy | auto | 230 | planned | `auto_financing`, `auto_value`, `auto_gap_coverage` | `auto` |
-| `auto-rental-reimbursement-check` | S8 | `auto` | question | within-policy | auto | 240 | planned | `auto_rental_reimbursement` | `auto` |
-| `auto-collision-older-car` | S8 | `auto` | drop | within-policy | auto | 250 | planned | `auto_financing`, `auto_value`, `auto_collision` | `auto` |
-| `home-sewer-backup-missing` | S9 | `home` | question | within-policy | home | 310 | planned | `home_sewer_backup` | `home` |
-| `home-flood-no-separate-policy` | S9 | `home` | question | within-policy | home | 320 | planned | `home_flood_policy` | `home` |
-| `renters-child-vs-parents-home` | S9 | `renters` | question | cross-policy | renters | 330 | planned | `renters_for`, `renters_child_housing` | `home` |
-| `health-auto-medpay-overlap` | S10 | `health` | question | cross-policy | health | 410 | planned | `auto_medpay` | `health`, `auto` |
-| `health-supplemental-boltons` | S10 | `health` | question | cross-policy | health | 420 | planned | `health_supplemental`, `emergency_cushion` | `health` |
-| `health-hsa-nudge` | S10 | `health` | question | education | health | 430 | planned | `health_hsa` | `health` |
-| `health-short-term-plan-alongside` | S10 | `health` | question | cross-policy | health | 440 | planned | `health_short_term` | `health` |
-| `deductible-exceeds-cushion-auto` | S10 | `deductible` | question | cross-policy | deductible | 450 | planned | `deductible_auto`, `emergency_cushion`, `auto_collision` | `auto` |
-| `deductible-exceeds-cushion-home` | S10 | `deductible` | question | cross-policy | deductible | 460 | planned | `deductible_home`, `emergency_cushion` | `home` |
-| `deductible-exceeds-cushion-health` | S10 | `deductible` | question | cross-policy | deductible | 470 | planned | `deductible_health`, `emergency_cushion` | `health` |
-| `other-rental-car-waiver` | S11 | `other` | drop | cross-policy | other | 510 | planned | `other_items`, `cards`, `card_usual_payment`, `auto_collision` | `rental_car`, `auto` |
-| `other-towing-roadside-duplicate` | S11 | `other` | drop | cross-policy | other | 520 | planned | `other_items`, `roadside_sources`, `cards` | `towing` |
-| `other-vehicle-towing-check` | S11 | `other` | question | cross-policy | other | 530 | planned | `other_items`, `towing_vehicle_policy`, `roadside_sources` | `towing`, `motorcycle`, `boat` |
-| `other-travel-insurance-overlap` | S11 | `other` | drop | cross-policy | other | 540 | planned | `other_items`, `cards`, `card_usual_payment` | `travel` |
-| `other-phone-insurance-card` | S11 | `other` | question | cross-policy | other | 550 | planned | `other_items`, `phone_bill_on_card`, `cards` | `phone`, `home`, `renters` |
-| `other-extended-warranty-overlap` | S11 | `other` | drop | cross-policy | other | 560 | planned | `other_items`, `cards`, `card_usual_payment` | `warranty` |
-| `other-add-on-term-life` | S11 | `other` | question | cross-policy | other | 570 | planned | `other_items`, `term_life` | `accidental_death`, `travel` |
+| `umbrella-home-below-required-min` | S6 | `umbrella` | raise | cross-policy | umbrella | 10 | planned | `policies`, `home_liability`, `umbrella_min_home` | `umbrella`, `home` |
+| `umbrella-auto-below-required-min` | S6 | `umbrella` | raise | cross-policy | umbrella | 20 | planned | `policies`, `auto_liability`, `umbrella_min_auto` | `umbrella`, `auto` |
+| `umbrella-primary-liability-overbought` | S6 | `umbrella` | question | cross-policy | umbrella | 50 | planned | `policies`, `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home` | `umbrella` |
+| `umbrella-limits-unconfirmed` | S6 | `umbrella` | question | cross-policy | umbrella | 60 | planned | `policies`, `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home`, `motorcycle_liability`, `umbrella_min_motorcycle`, `boat_liability`, `umbrella_min_boat` | `umbrella` |
+| `umbrella-motorcycle-below-required-min` | S6 | `vehicles` | raise | cross-policy | vehicles | 30 | planned | `policies`, `motorcycle_liability`, `umbrella_min_motorcycle` | `umbrella`, `motorcycle` |
+| `umbrella-boat-below-required-min` | S6 | `vehicles` | raise | cross-policy | vehicles | 40 | planned | `policies`, `boat_liability`, `umbrella_min_boat` | `umbrella`, `boat` |
+| `umbrella-smaller-than-exposure` | S7 | `umbrellaScope` | raise | cross-policy | umbrella | 110 | planned | `policies`, `umbrella_limit`, `umbrella_exposure` | `umbrella` |
+| `umbrella-size-unconfirmed` | S7 | `umbrellaScope` | question | education | umbrella | 120 | planned | `policies`, `umbrella_limit`, `umbrella_exposure` | `umbrella` |
+| `umbrella-um-uim-extension` | S7 | `umbrellaScope` | question | within-policy | umbrella | 130 | planned | `policies`, `umbrella_um_uim` | `umbrella`, `auto` |
+| `umbrella-scope-exclusions` | S7 | `umbrellaScope` | question | within-policy | umbrella | 140 | planned | `policies`, `side_business` | `umbrella` |
+| `auto-um-uim-check` | S8 | `auto` | question | within-policy | auto | 210 | planned | `policies`, `auto_um_uim`, `auto_um_uim_limit` | `auto` |
+| `auto-gap-coverage-missing` | S8 | `auto` | raise | within-policy | auto | 220 | planned | `policies`, `auto_financing`, `auto_value`, `auto_gap_coverage` | `auto` |
+| `auto-gap-coverage-confirm` | S8 | `auto` | question | within-policy | auto | 230 | planned | `policies`, `auto_financing`, `auto_value`, `auto_gap_coverage` | `auto` |
+| `auto-rental-reimbursement-check` | S8 | `auto` | question | within-policy | auto | 240 | planned | `policies`, `auto_rental_reimbursement` | `auto` |
+| `auto-collision-older-car` | S8 | `auto` | drop | within-policy | auto | 250 | planned | `policies`, `auto_financing`, `auto_value`, `auto_collision` | `auto` |
+| `home-sewer-backup-missing` | S9 | `home` | question | within-policy | home | 310 | planned | `policies`, `home_sewer_backup` | `home` |
+| `home-flood-no-separate-policy` | S9 | `home` | question | within-policy | home | 320 | planned | `policies`, `home_flood_policy` | `home` |
+| `renters-child-vs-parents-home` | S9 | `renters` | question | cross-policy | renters | 330 | planned | `policies`, `renters_for`, `renters_child_housing` | `home` |
+| `health-auto-medpay-overlap` | S10 | `health` | question | cross-policy | health | 410 | planned | `policies`, `auto_medpay` | `health`, `auto` |
+| `health-supplemental-boltons` | S10 | `health` | question | cross-policy | health | 420 | planned | `policies`, `health_supplemental`, `emergency_cushion` | `health` |
+| `health-hsa-nudge` | S10 | `health` | question | education | health | 430 | planned | `policies`, `health_hsa` | `health` |
+| `health-short-term-plan-alongside` | S10 | `health` | question | cross-policy | health | 440 | planned | `policies`, `health_short_term` | `health` |
+| `deductible-exceeds-cushion-auto` | S10 | `deductible` | question | cross-policy | deductible | 450 | planned | `policies`, `deductible_auto`, `emergency_cushion`, `auto_collision` | `auto` |
+| `deductible-exceeds-cushion-home` | S10 | `deductible` | question | cross-policy | deductible | 460 | planned | `policies`, `deductible_home`, `emergency_cushion` | `home` |
+| `deductible-exceeds-cushion-health` | S10 | `deductible` | question | cross-policy | deductible | 470 | planned | `policies`, `deductible_health`, `emergency_cushion` | `health` |
+| `other-rental-car-waiver` | S11 | `other` | drop | cross-policy | other | 510 | planned | `policies`, `cards`, `card_usual_payment`, `auto_collision` | `rental_car`, `auto` |
+| `other-towing-roadside-duplicate` | S11 | `other` | drop | cross-policy | other | 520 | planned | `policies`, `roadside_sources`, `cards` | `towing` |
+| `other-vehicle-towing-check` | S11 | `other` | question | cross-policy | other | 530 | planned | `policies`, `towing_vehicle_policy`, `roadside_sources` | `towing`, `motorcycle`, `boat` |
+| `other-travel-insurance-overlap` | S11 | `other` | drop | cross-policy | other | 540 | planned | `policies`, `cards`, `card_usual_payment` | `travel` |
+| `other-phone-insurance-card` | S11 | `other` | question | cross-policy | other | 550 | planned | `policies`, `phone_bill_on_card`, `cards` | `phone`, `home`, `renters` |
+| `other-extended-warranty-overlap` | S11 | `other` | drop | cross-policy | other | 560 | planned | `policies`, `cards`, `card_usual_payment` | `warranty` |
+| `other-add-on-term-life` | S11 | `other` | question | cross-policy | other | 570 | planned | `policies`, `term_life` | `accidental_death`, `travel` |
 <!-- flag-table:end -->
 
 ### Ownership
@@ -181,7 +181,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-home-below-required-min`
 
 - Bucket and kind: raise, cross-policy (domain umbrella, priority 10, file `umbrella`, planned)
-- Reads: questions `home_liability`, `umbrella_min_home`; policies `umbrella`, `home`
+- Reads: questions `policies`, `home_liability`, `umbrella_min_home`; policies `umbrella`, `home`
 - Trigger: Fires when both answers are known and the home liability limit is below the umbrella's required home minimum (for example 300,000 against a 500,000 minimum, or "Lower than $300,000" against any minimum); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.
 - Facts: `umbrella-attaches-after-underlying-exhausted`, `umbrella-underlying-minimums-typical`, `umbrella-underlying-requirements-insurer-specific`, `home-liability-typical-amounts`
 - Sources: `iii-should-i-purchase-umbrella`, `iii-what-is-umbrella-liability-policy`, `iii-homebuyers-handbook`
@@ -190,7 +190,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-auto-below-required-min`
 
 - Bucket and kind: raise, cross-policy (domain umbrella, priority 20, file `umbrella`, planned)
-- Reads: questions `auto_liability`, `umbrella_min_auto`; policies `umbrella`, `auto`
+- Reads: questions `policies`, `auto_liability`, `umbrella_min_auto`; policies `umbrella`, `auto`
 - Trigger: Fires when both answers are known and the auto liability limit is below the umbrella's required auto minimum (for example 100/300 against 250/500, or "Lower than 100/300" against any minimum); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.
 - Facts: `umbrella-underlying-minimums-typical`, `umbrella-underlying-requirements-insurer-specific`, `auto-liability-limit-format`, `auto-state-minimums-vary`
 - Sources: `iii-should-i-purchase-umbrella`, `iii-what-is-umbrella-liability-policy`, `naic-auto-shopping-tool`
@@ -199,7 +199,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-primary-liability-overbought`
 
 - Bucket and kind: question, cross-policy (domain umbrella, priority 50, file `umbrella`, planned)
-- Reads: questions `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home`; policies `umbrella`
+- Reads: questions `policies`, `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home`; policies `umbrella`
 - Trigger: Fires when a known auto or home liability limit is above the umbrella's known required minimum (for example 500/500 against 250/500, or 1 million against 500,000); asks whether the extra primary liability is worth its premium; never fires on Not sure.
 - Facts: `higher-underlying-limits-lower-umbrella-cost`, `umbrella-underlying-minimums-typical`
 - Sources: `iii-homebuyers-handbook`, `iii-should-i-purchase-umbrella`
@@ -208,7 +208,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-limits-unconfirmed`
 
 - Bucket and kind: question, cross-policy (domain umbrella, priority 60, file `umbrella`, planned)
-- Reads: questions `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home`, `motorcycle_liability`, `umbrella_min_motorcycle`, `boat_liability`, `umbrella_min_boat`; policies `umbrella`
+- Reads: questions `policies`, `auto_liability`, `umbrella_min_auto`, `home_liability`, `umbrella_min_home`, `motorcycle_liability`, `umbrella_min_motorcycle`, `boat_liability`, `umbrella_min_boat`; policies `umbrella`
 - Trigger: Fires when the user holds an umbrella and any visible limit or required-minimum question in the stack is Not sure, so a Raise could not be decided; asks them to get the umbrella's required-underlying schedule from their agent.
 - Facts: `umbrella-underlying-requirements-insurer-specific`, `umbrella-attaches-after-underlying-exhausted`
 - Sources: `iii-should-i-purchase-umbrella`, `iii-homebuyers-handbook`
@@ -217,7 +217,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-motorcycle-below-required-min`
 
 - Bucket and kind: raise, cross-policy (domain vehicles, priority 30, file `vehicles`, planned)
-- Reads: questions `motorcycle_liability`, `umbrella_min_motorcycle`; policies `umbrella`, `motorcycle`
+- Reads: questions `policies`, `motorcycle_liability`, `umbrella_min_motorcycle`; policies `umbrella`, `motorcycle`
 - Trigger: Fires when both answers are known and the motorcycle liability limit is below the umbrella's required motorcycle minimum (a "Lower than 100/300" limit is below every minimum offered); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.
 - Facts: `specialty-vehicles-need-their-own-policies`, `umbrella-underlying-requirements-insurer-specific`
 - Sources: `naic-what-does-auto-insurance-cover`, `iii-motorcycle-insurance`, `iii-should-i-purchase-umbrella`
@@ -226,7 +226,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-boat-below-required-min`
 
 - Bucket and kind: raise, cross-policy (domain vehicles, priority 40, file `vehicles`, planned)
-- Reads: questions `boat_liability`, `umbrella_min_boat`; policies `umbrella`, `boat`
+- Reads: questions `policies`, `boat_liability`, `umbrella_min_boat`; policies `umbrella`, `boat`
 - Trigger: Fires when both answers are known and the boat liability limit is below the umbrella's required boat minimum (a "Lower than 100/300" limit is below every minimum offered); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.
 - Facts: `boats-need-own-liability-and-sit-under-umbrella`, `umbrella-underlying-requirements-insurer-specific`
 - Sources: `iii-boat-insurance-and-safety`, `naic-summer-safety-insured`, `iii-should-i-purchase-umbrella`
@@ -237,7 +237,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-smaller-than-exposure`
 
 - Bucket and kind: raise, cross-policy (domain umbrella, priority 110, file `umbrellaScope`, planned)
-- Reads: questions `umbrella_limit`, `umbrella_exposure`; policies `umbrella`
+- Reads: questions `policies`, `umbrella_limit`, `umbrella_exposure`; policies `umbrella`
 - Trigger: Fires when both are answered and the umbrella amount is at or below the lower edge of the exposure band (umbrella value <= exposure min), so 1 million against 1 to 3 million or over 3 million fires and 2 million against 1 to 3 million does not (S7 may refine the edge rule in its own DECISIONS entry); if either is Not sure it does not fire and umbrella-size-unconfirmed covers it.
 - Facts: `umbrella-sizing-by-assets`, `lawsuit-exposure-factors`, `umbrella-typical-limit-1m-or-more`
 - Sources: `iii-homebuyers-handbook`, `iii-should-i-purchase-umbrella`, `naic-homeowners-shopping-tool`
@@ -246,7 +246,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-size-unconfirmed`
 
 - Bucket and kind: question, education (domain umbrella, priority 120, file `umbrellaScope`, planned)
-- Reads: questions `umbrella_limit`, `umbrella_exposure`; policies `umbrella`
+- Reads: questions `policies`, `umbrella_limit`, `umbrella_exposure`; policies `umbrella`
 - Trigger: Fires when the user holds an umbrella and either the umbrella amount or the exposure band is Not sure: suggests the asset test (do your savings, investments and property add up to more than your liability limits) and asking the agent.
 - Facts: `umbrella-sizing-by-assets`, `lawsuit-exposure-factors`
 - Sources: `iii-homebuyers-handbook`, `iii-should-i-purchase-umbrella`
@@ -255,7 +255,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-um-uim-extension`
 
 - Bucket and kind: question, within-policy (domain umbrella, priority 130, file `umbrellaScope`, planned)
-- Reads: questions `umbrella_um_uim`; policies `umbrella`, `auto`
+- Reads: questions `policies`, `umbrella_um_uim`; policies `umbrella`, `auto`
 - Trigger: Fires when umbrella_um_uim is no (ask whether it can be added) or Not sure (ask whether the umbrella extends uninsured and underinsured motorist coverage); silent on yes.
 - Facts: `um-uim-is-auto-policy-coverage`, `umbrella-is-liability-only`
 - Sources: `naic-auto-shopping-tool`, `iii-protect-yourself-uninsured-motorists`, `naic-what-does-auto-insurance-cover`, `naic-whats-umbrella-policy`, `iii-what-is-umbrella-liability-policy`
@@ -264,7 +264,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `umbrella-scope-exclusions`
 
 - Bucket and kind: question, within-policy (domain umbrella, priority 140, file `umbrellaScope`, planned)
-- Reads: questions `side_business`; policies `umbrella`
+- Reads: questions `policies`, `side_business`; policies `umbrella`
 - Trigger: Fires for everyone who holds an umbrella (ask what it excludes); emphasis is strong when side_business is yes. The question has no Not sure option.
 - Facts: `umbrella-business-activity-excluded`, `umbrella-not-own-property-or-punitive`, `umbrella-intentional-acts-excluded`, `umbrella-personal-injury-coverage-varies`
 - Sources: `iii-business-vehicle-insurance`, `iii-insuring-home-business`, `naic-jir-social-media-underwriting`, `naic-whats-umbrella-policy`, `iii-what-is-umbrella-liability-policy`
@@ -275,7 +275,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `auto-um-uim-check`
 
 - Bucket and kind: question, within-policy (domain auto, priority 210, file `auto`, planned)
-- Reads: questions `auto_um_uim`, `auto_um_uim_limit`; policies `auto`
+- Reads: questions `policies`, `auto_um_uim`, `auto_um_uim_limit`; policies `auto`
 - Trigger: Fires when auto_um_uim is no or Not sure, or when it is yes and auto_um_uim_limit is lower than 100/300 or Not sure; silent for yes with 100/300 or higher.
 - Facts: `um-uim-what-they-pay`, `um-uim-requirements-vary-by-state`, `uninsured-share-latest-irc`, `um-property-damage-separate`
 - Sources: `naic-consumers-guide-auto-2022`, `naic-shopping-tool-auto-2023`, `iii-protect-yourself-uninsured-motorists`, `irc-2025-one-in-three-uninsured-underinsured`, `iii-compulsory-auto-uninsured-motorists`, `naic-uninsured-motorists`
@@ -284,7 +284,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `auto-gap-coverage-missing`
 
 - Bucket and kind: raise, within-policy (domain auto, priority 220, file `auto`, planned)
-- Reads: questions `auto_financing`, `auto_value`, `auto_gap_coverage`; policies `auto`
+- Reads: questions `policies`, `auto_financing`, `auto_value`, `auto_gap_coverage`; policies `auto`
 - Trigger: Fires when the newest car is leased or financed, auto_gap_coverage is no, and auto_value is not under_3000 (a Not sure value still fires); never fires for an owned-outright car; a Not sure gap answer is handled by auto-gap-coverage-confirm.
 - Facts: `gap-what-it-covers`, `gap-when-it-matters`, `gap-lease-and-lender-requirements`, `gap-where-to-buy-and-cautions`
 - Sources: `iii-what-is-gap-insurance`, `cfpb-what-is-gap-insurance`, `cfpb-gap-required-by-lender`, `naic-shopping-tool-auto-2023`
@@ -293,7 +293,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `auto-gap-coverage-confirm`
 
 - Bucket and kind: question, within-policy (domain auto, priority 230, file `auto`, planned)
-- Reads: questions `auto_financing`, `auto_value`, `auto_gap_coverage`; policies `auto`
+- Reads: questions `policies`, `auto_financing`, `auto_value`, `auto_gap_coverage`; policies `auto`
 - Trigger: Fires when the newest car is leased or financed, auto_value is not under_3000, and auto_gap_coverage is Not sure: ask the lender, dealer, lease paperwork or agent whether gap coverage is in place.
 - Facts: `gap-what-it-covers`, `gap-when-it-matters`, `gap-lease-and-lender-requirements`
 - Sources: `iii-what-is-gap-insurance`, `cfpb-what-is-gap-insurance`, `cfpb-gap-required-by-lender`
@@ -302,7 +302,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `auto-rental-reimbursement-check`
 
 - Bucket and kind: question, within-policy (domain auto, priority 240, file `auto`, planned)
-- Reads: questions `auto_rental_reimbursement`; policies `auto`
+- Reads: questions `policies`, `auto_rental_reimbursement`; policies `auto`
 - Trigger: Fires for every answer with text by answer: yes (check the daily and total caps), no (ask whether it is worth adding), Not sure (ask whether you have it and what the caps are).
 - Facts: `rental-reimbursement-what-it-pays`, `rental-reimbursement-limit-example`, `optional-coverages-priced-separately`
 - Sources: `naic-shopping-tool-auto-2023`, `naic-what-does-auto-insurance-cover`, `naic-consumer-insight-right-protection`, `naic-consumers-guide-auto-2022`
@@ -311,7 +311,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `auto-collision-older-car`
 
 - Bucket and kind: drop, within-policy (domain auto, priority 250, file `auto`, planned)
-- Reads: questions `auto_financing`, `auto_value`, `auto_collision`; policies `auto`
+- Reads: questions `policies`, `auto_financing`, `auto_value`, `auto_collision`; policies `auto`
 - Trigger: Fires when the newest car is owned outright, auto_value is under_3000 and auto_collision is yes; a Not sure collision answer produces no flag (it cannot support a Drop).
 - Facts: `collision-comp-ten-times-premium-rule`, `collision-comp-pays-market-value-only`, `collision-comp-lender-requirement`, `collision-comp-drop-loss-caution`, `deductible-trade-off-alternative`, `dropping-collision-comp-affects-rental-coverage`
 - Sources: `iii-nine-ways-lower-auto-costs`, `naic-consumers-guide-auto-2022`, `naic-shopping-tool-auto-2023`, `iii-how-much-auto-coverage`, `naic-consumer-insight-right-protection`, `iii-collision-comprehensive`, `iii-rental-car-insurance`
@@ -322,7 +322,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `home-sewer-backup-missing`
 
 - Bucket and kind: question, within-policy (domain home, priority 310, file `home`, planned)
-- Reads: questions `home_sewer_backup`; policies `home`
+- Reads: questions `policies`, `home_sewer_backup`; policies `home`
 - Trigger: Fires when home_sewer_backup is no or Not sure (DECISIONS D8); silent for yes so informed users are not nagged.
 - Facts: `water-backup-excluded-standard`, `water-backup-policies-vary`, `water-backup-add-by-endorsement`, `water-backup-flood-policy-nuance`, `sump-pump-overflow-mold-excluded`
 - Sources: `iii-disasters-covered-homeowners`, `iii-water-damage-protection`, `iii-sewer-backups`, `naic-homeowners-topic`, `naic-endorsement-rider`, `floodsmart-home`, `naic-homeowners-shopping-tips`
@@ -331,7 +331,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `home-flood-no-separate-policy`
 
 - Bucket and kind: question, within-policy (domain home, priority 320, file `home`, planned)
-- Reads: questions `home_flood_policy`; policies `home`
+- Reads: questions `policies`, `home_flood_policy`; policies `home`
 - Trigger: Fires when home_flood_policy is no or Not sure (DECISIONS D8); silent for yes.
 - Facts: `flood-excluded-homeowners`, `flood-nfip-and-private`, `flood-waiting-period`, `flood-claims-outside-high-risk`
 - Sources: `iii-flood-insurance`, `naic-flood-insurance`, `floodsmart-home`, `fema-nfip-waiting-period`, `floodsmart-flood-risk`, `iii-disasters-covered-homeowners`
@@ -340,8 +340,8 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `renters-child-vs-parents-home`
 
 - Bucket and kind: question, cross-policy (domain renters, priority 330, file `renters`, planned)
-- Reads: questions `renters_for`, `renters_child_housing`; policies `home`
-- Trigger: Fires when renters_for is child_away and the user holds a home policy. renters_for is asked of anyone the host derives a renters policy for (rent or both) and of a homeowner who ticked renters_with_home in other_items, which is how a parent who owns their home and pays for a child's policy is reached (DECISIONS S5-15); do not require ctx.holds('renters'). Dorm asks whether the home policy already covers the child's belongings (the renters policy may be redundant), off_campus says the home policy likely does not reach and asks them to confirm the renters policy is still right, Not sure asks both; never a Drop.
+- Reads: questions `policies`, `renters_for`, `renters_child_housing`; policies `home`
+- Trigger: Fires when renters_for is child_away and the user holds a home policy. renters_for is asked of anyone who ticked Renters in Q1, which includes a homeowner who ticked Home as well and pays for a child's policy (DECISIONS S5-15, R1-4); the flag reads the home policy and renters_for. Dorm asks whether the home policy already covers the child's belongings (the renters policy may be redundant), off_campus says the home policy likely does not reach and asks them to confirm the renters policy is still right, Not sure asks both; never a Drop.
 - Facts: `student-dorm-covered-by-parents`, `student-dorm-limit`, `student-off-campus-not-covered`, `school-landlord-insurance-not-covering-belongings`, `student-renters-decision-factors`
 - Sources: `iii-college-student-losses`, `naic-renters-college-2024`, `naic-renters-college-students`, `iii-am-i-covered`, `iii-renters-insurance`
 - Wording: Use "generally" and "may" (S3a-home-4). Never state 10 percent as a rule (it is one undated brochure). Never a Drop; a separate renters policy is a thing to confirm.
@@ -351,7 +351,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `health-auto-medpay-overlap`
 
 - Bucket and kind: question, cross-policy (domain health, priority 410, file `health`, planned)
-- Reads: questions `auto_medpay`; policies `health`, `auto`
+- Reads: questions `policies`, `auto_medpay`; policies `health`, `auto`
 - Trigger: Fires when auto_medpay is yes or Not sure; silent for no. Asks both insurers how the two work together after a crash and whether the auto coverage is still needed.
 - Facts: `auto-medpay-pip-definition`, `auto-medpay-coordination-of-benefits-model`, `medpay-health-insurance-coordination`, `home-medical-payments-to-others-guests-only`
 - Sources: `naic-what-does-auto-insurance-cover`, `iii-auto-insurance-basics`, `naic-coordination-of-benefits-model-regulation`, `iii-standard-homeowners-coverage`
@@ -360,7 +360,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `health-supplemental-boltons`
 
 - Bucket and kind: question, cross-policy (domain health, priority 420, file `health`, planned)
-- Reads: questions `health_supplemental`, `emergency_cushion`; policies `health`
+- Reads: questions `policies`, `health_supplemental`, `emergency_cushion`; policies `health`
 - Trigger: Fires when health_supplemental includes accident, critical_illness, hospital_indemnity or cancer; emphasis strong when emergency_cushion is 5000_plus; a Not sure answer fires a softer check of paycheck deductions; silent for none.
 - Facts: `fixed-indemnity-not-substitute-for-comprehensive-coverage`, `supplemental-product-types-federal-categories`, `limited-benefit-plans-marketed-as-comprehensive`, `hsa-compatible-with-limited-supplemental-coverage`
 - Sources: `cms-stldi-fixed-indemnity-fact-sheet-2024`, `dol-aca-faqs-part-72`, `ftc-open-enrollment-scams-2025`, `irs-pub-969-2025`
@@ -369,7 +369,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `health-hsa-nudge`
 
 - Bucket and kind: question, education (domain health, priority 430, file `health`, planned)
-- Reads: questions `health_hsa`; policies `health`
+- Reads: questions `policies`, `health_hsa`; policies `health`
 - Trigger: Fires when health_hsa is hdhp_hsa (a light nudge about the HSA's tax advantages and carryover) or hdhp_only (ask whether the plan is HSA-eligible and an HSA can be opened); silent for neither and for Not sure.
 - Facts: `hsa-eligibility-requires-hdhp`, `hsa-tax-advantages`, `hsa-vs-health-fsa`, `hsa-hdhp-thresholds-2026-2027`
 - Sources: `irs-pub-969-2025`, `healthcare-gov-glossary-hsa`, `irs-rev-proc-2026-24`, `irs-rev-proc-2025-19`
@@ -378,7 +378,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `health-short-term-plan-alongside`
 
 - Bucket and kind: question, cross-policy (domain health, priority 440, file `health`, planned)
-- Reads: questions `health_short_term`; policies `health`
+- Reads: questions `policies`, `health_short_term`; policies `health`
 - Trigger: Fires when health_short_term is yes; silent for no and for Not sure.
 - Facts: `stldi-lacks-federal-aca-protections`, `marketplace-plans-cover-preexisting-conditions-and-ehb`, `stldi-state-variation`, `stldi-2025-enforcement-pause`
 - Sources: `naic-stldi-topic`, `cms-stldi-fixed-indemnity-fact-sheet-2024`, `healthcare-gov-pre-existing-conditions`, `healthcare-gov-what-marketplace-plans-cover`, `dol-stldi-agencies-statement-2025`
@@ -387,7 +387,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `deductible-exceeds-cushion-auto`
 
 - Bucket and kind: question, cross-policy (domain deductible, priority 450, file `deductible`, planned)
-- Reads: questions `deductible_auto`, `emergency_cushion`, `auto_collision`; policies `auto`
+- Reads: questions `policies`, `deductible_auto`, `emergency_cushion`, `auto_collision`; policies `auto`
 - Trigger: Fires when the deductible band's lower edge is above the top of the cushion band (deductible min > cushion max; a 5000_plus cushion never fires); a Not sure deductible never fires; a Not sure cushion fires at normal emphasis when the deductible's lower edge is 1000 or more; it stays silent when auto_collision is no, because without collision there is no collision deductible.
 - Facts: `deductible-premium-tradeoff-and-affordability`, `home-auto-deductible-forms-and-ranges`, `shed-savings-only-largest-expense-2025`, `shed-unexpected-medical-expense-2025`
 - Sources: `iii-understanding-your-insurance-deductibles`, `naic-tips-saving-on-auto-insurance`, `fed-shed-2025-savings-and-investments`, `fed-shed-2025-economic-hardships`
@@ -396,7 +396,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `deductible-exceeds-cushion-home`
 
 - Bucket and kind: question, cross-policy (domain deductible, priority 460, file `deductible`, planned)
-- Reads: questions `deductible_home`, `emergency_cushion`; policies `home`
+- Reads: questions `policies`, `deductible_home`, `emergency_cushion`; policies `home`
 - Trigger: Same rule as deductible-exceeds-cushion-auto, using deductible_home: fires when the deductible's lower edge is above the top of the cushion band; a Not sure deductible never fires; a Not sure cushion fires at normal emphasis when the deductible's lower edge is 1000 or more.
 - Facts: `deductible-premium-tradeoff-and-affordability`, `home-auto-deductible-forms-and-ranges`, `shed-savings-only-largest-expense-2025`, `shed-unexpected-medical-expense-2025`
 - Sources: `iii-understanding-your-insurance-deductibles`, `naic-tips-saving-on-auto-insurance`, `fed-shed-2025-savings-and-investments`, `fed-shed-2025-economic-hardships`
@@ -405,7 +405,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `deductible-exceeds-cushion-health`
 
 - Bucket and kind: question, cross-policy (domain deductible, priority 470, file `deductible`, planned)
-- Reads: questions `deductible_health`, `emergency_cushion`; policies `health`
+- Reads: questions `policies`, `deductible_health`, `emergency_cushion`; policies `health`
 - Trigger: Same rule as deductible-exceeds-cushion-auto, using deductible_health: fires when the deductible's lower edge is above the top of the cushion band; a Not sure deductible never fires; a Not sure cushion fires at normal emphasis when the deductible's lower edge is 1000 or more.
 - Facts: `deductible-definition`, `out-of-pocket-maximum-definition`, `shed-savings-only-largest-expense-2025`, `shed-unexpected-medical-expense-2025`
 - Sources: `healthcare-gov-glossary-deductible`, `healthcare-gov-glossary-out-of-pocket-maximum`, `fed-shed-2025-savings-and-investments`, `fed-shed-2025-economic-hardships`
@@ -416,7 +416,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-rental-car-waiver`
 
 - Bucket and kind: drop, cross-policy (domain other, priority 510, file `other`, planned)
-- Reads: questions `other_items`, `cards`, `card_usual_payment`, `auto_collision`; policies `rental_car`, `auto`
+- Reads: questions `policies`, `cards`, `card_usual_payment`, `auto_collision`; policies `rental_car`, `auto`
 - Trigger: Fires when rental_car is held; emphasis strong when a held card has a verified rentalCar benefit (ctx.cardsWith) and card_usual_payment is yes; softer when the user holds no auto policy or auto_collision is no (their own policy may not extend to a rental); Not sure answers never raise emphasis.
 - Facts: `rental-waiver-what-it-is`, `rental-waiver-often-unneeded-if-covered`, `rental-personal-auto-usually-extends`, `rental-decline-without-cover-you-pay`, `rental-card-coverage-usually-secondary`, `rental-card-requires-declining-waiver`
 - Sources: `iii-rental-car-insurance`, `ftc-renting-a-car`, `naic-consumer-auto-insurance`
@@ -425,7 +425,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-towing-roadside-duplicate`
 
 - Bucket and kind: drop, cross-policy (domain other, priority 520, file `other`, planned)
-- Reads: questions `other_items`, `roadside_sources`, `cards`; policies `towing`
+- Reads: questions `policies`, `roadside_sources`, `cards`; policies `towing`
 - Trigger: Fires when towing is held and roadside_sources includes two or more of auto_policy, club, card and car_maker (other and Not sure do not count); a card is named only when the card table supports it; with fewer sources it stays silent.
 - Facts: `roadside-auto-policy-coverage`, `roadside-memberships-may-overlap`, `roadside-towing-what-it-is`, `roadside-overlaps-memberships`
 - Sources: `naic-what-does-auto-insurance-cover`, `naic-consumer-insight-right-protection`, `naic-shopping-tool-auto-2023`
@@ -434,7 +434,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-vehicle-towing-check`
 
 - Bucket and kind: question, cross-policy (domain other, priority 530, file `other`, planned)
-- Reads: questions `other_items`, `towing_vehicle_policy`, `roadside_sources`; policies `towing`, `motorcycle`, `boat`
+- Reads: questions `policies`, `towing_vehicle_policy`, `roadside_sources`; policies `towing`, `motorcycle`, `boat`
 - Trigger: Fires when towing_vehicle_policy is yes or Not sure: asks whether the same help already comes from the car's roadside add-on, a club or a card. A Question, not a Drop (DECISIONS S3a-other-7 overrides the SPEC's Drop for this one).
 - Facts: `roadside-other-vehicles`
 - Sources: `naic-what-does-auto-insurance-cover`, `iii-boat-insurance-and-safety`
@@ -443,7 +443,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-travel-insurance-overlap`
 
 - Bucket and kind: drop, cross-policy (domain other, priority 540, file `other`, planned)
-- Reads: questions `other_items`, `cards`, `card_usual_payment`; policies `travel`
+- Reads: questions `policies`, `cards`, `card_usual_payment`; policies `travel`
 - Trigger: Fires when travel is held; the generic text asks them to compare the policy with what they already have (a card's trip protection, home or renters belongings cover, life insurance for accidental death); emphasis strong only when a held card has a verified tripProtection benefit and card_usual_payment is yes; a Not sure card_usual_payment never raises emphasis.
 - Facts: `travel-coverage-types`, `travel-credit-card-benefits-exist`, `travel-other-existing-coverage`, `travel-exclusions-and-limits`, `travel-accidental-death-duplicate`, `travel-cost-share`
 - Sources: `naic-should-i-get-travel-insurance`, `iii-should-you-buy-travel-insurance`
@@ -452,7 +452,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-phone-insurance-card`
 
 - Bucket and kind: question, cross-policy (domain other, priority 550, file `other`, planned)
-- Reads: questions `other_items`, `phone_bill_on_card`, `cards`; policies `phone`, `home`, `renters`
+- Reads: questions `policies`, `phone_bill_on_card`, `cards`; policies `phone`, `home`, `renters`
 - Trigger: Fires when phone is held and asks whether a card or the home or renters policy already covers the phone; the "route the bill through the card" move (put the bill on the card, then cancel the carrier plan) is stated as an action only when the card table verifies a cellPhone benefit on a held card and phone_bill_on_card is yes, which also makes the emphasis strong (a Not sure phone_bill_on_card never triggers that move); with the real, empty card table the text stays generic.
 - Facts: `off-premises-belongings-covered`, `off-premises-cap-ten-percent`
 - Sources: `iii-standard-homeowners-coverage`, `iii-renters-insurance`
@@ -461,7 +461,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-extended-warranty-overlap`
 
 - Bucket and kind: drop, cross-policy (domain other, priority 560, file `other`, planned)
-- Reads: questions `other_items`, `cards`, `card_usual_payment`; policies `warranty`
+- Reads: questions `policies`, `cards`, `card_usual_payment`; policies `warranty`
 - Trigger: Fires when warranty is held; the generic text uses the FTC value test (does it add anything beyond the warranty you already have, hidden costs, would savings be better); emphasis strong only when a held card has a verified extendedWarranty benefit and card_usual_payment is yes; a Not sure card_usual_payment never raises emphasis.
 - Facts: `warranty-extended-is-separate-and-may-overlap`, `warranty-value-questions`
 - Sources: `ftc-extended-warranties-service-contracts`, `ftc-warranties`
@@ -470,7 +470,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 #### `other-add-on-term-life`
 
 - Bucket and kind: question, cross-policy (domain other, priority 570, file `other`, planned)
-- Reads: questions `other_items`, `term_life`; policies `accidental_death`, `travel`
+- Reads: questions `policies`, `term_life`; policies `accidental_death`, `travel`
 - Trigger: Fires when accidental_death is held and term_life is answered (it stays silent while term_life is unanswered), with text by term_life: own (the term life may already pay for an accidental death, while the AD&D adds a further payout and may pay for non-fatal losses; ask whether the term life already covers what the AD&D is for, what the AD&D pays beyond it and whether that is worth the price), work_only (employer life is often modest and tied to the job; ask whether total coverage is enough), none (accidental death coverage is not a substitute for regular life insurance), Not sure (ask what life coverage exists, then what the AD&D pays beyond it); when travel is also held the text adds that a travel policy's accidental death coverage can duplicate life insurance too; never says "drop it".
 - Facts: `add-definition-accident-only`, `add-rider-pays-extra-for-accident`, `term-life-pays-on-death-in-term`, `add-employer-coverage-ends-with-job`, `employer-life-typical-size`, `travel-accidental-death-duplicate`
 - Sources: `naic-glossary`, `naic-consumer-life-insurance`, `naic-life-insurance-roadmap`, `iii-should-you-buy-travel-insurance`

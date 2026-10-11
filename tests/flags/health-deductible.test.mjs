@@ -5,7 +5,6 @@
 import { suite, assert } from '../harness.mjs';
 import CATALOG from '../../public/js/overlap/data/catalog.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import HEALTH_FLAGS from '../../public/js/overlap/data/flags/health.mjs';
@@ -31,18 +30,9 @@ const BUCKET_NAMES = ['raise', 'drop', 'question'];
 const BANDS = ['under_1000', '1000_4999', '5000_plus'];
 const SUPP_TYPES = ['accident', 'critical_illness', 'hospital_indemnity', 'cancer'];
 
-// The host's own snapshot for a household that holds some of auto, home, health. The derived `policies`
-// array comes from the real adapter, exactly as the wizard builds it.
-function snapshot(held, o) {
-  return {
-    a: Object.assign({}, held.includes('home') ? { home: 'Own' } : {}, held.includes('auto') ? { veh: '2' } : {}),
-    extras: [],
-    q: held.includes('health') ? { health: 'Yes' } : {},
-    p: {},
-    o: o || {},
-  };
-}
-const answersFor = (held, o) => deriveAnswers(snapshot(held, o));
+// Plain answers for a household that holds some of auto, home, health: Q1 (`policies`) holds the ticks, every
+// other key is the user's own tap on a closed list.
+const answersFor = (held, o) => ({ ...(o || {}), policies: held.slice() });
 const run = (held, o) => evaluate(answersFor(held, o));
 
 function findFlag(result, id) {
@@ -294,15 +284,9 @@ suite('health-auto-medpay-overlap', (t) => {
     }
   });
 
-  t('consistent with the existing app\'s MedPay findings: where the app says the coverage cannot be dropped and can be coordinated, the flag only asks about both', () => {
-    // The app's no-fault finding (public/js/app.js) says injury coverage "can't be dropped" in a no-fault state and
-    // to ask the insurer about "coordinating it with your health plan". The flag is state-neutral and must not
-    // contradict that: it says the user may not be able to drop it where required, and asks about coordination.
-    if (typeof read === 'function') {
-      const app = read('public/js/app.js');
-      assert.match(app, /can't be dropped/, 'the existing finding this flag is checked against');
-      assert.match(app, /coordinating it with your health plan/, 'the existing finding this flag is checked against');
-    }
+  t('the MedPay flag only asks about both insurers: where the coverage is required it says the user may not be able to drop it, and it asks about coordinating it', () => {
+    // The flag is state-neutral, so it cannot say which states require the coverage: it says the user may not be able
+    // to drop it, and asks the insurer about coordination, without telling anyone to drop it.
     const f = flagFor(MEDPAY, ['health', 'auto'], { auto_medpay: 'yes' });
     assert.match(f.background, /may not be able to drop it/i);
     assert.match(f.ask, /coordinate/i);
@@ -873,7 +857,7 @@ suite('determinism and purity', (t) => {
   });
 });
 
-suite('end to end: the real catalog, the real adapter and real answers', (t) => {
+suite('end to end: the real catalog and real answers', (t) => {
   const idsIn = (r, bucket) => mineIn(r, bucket);
 
   t(`${MEDPAY}: a household with a car and a health plan that has MedPay`, () => {
@@ -952,11 +936,11 @@ suite('end to end: the real catalog, the real adapter and real answers', (t) => 
     for (const bucket of BUCKET_NAMES) assert.deepEqual(idsIn(r, bucket), []);
   });
 
-  t('the flags never read the host\'s policy-screen numbers or state: the snapshot\'s p and state change nothing', () => {
-    const base = snapshot(['auto', 'health'], { auto_medpay: 'yes' });
+  t('the flags read only questions: keys that are not questions (policy-screen numbers, a state) change nothing', () => {
+    const base = answersFor(['auto', 'health'], { auto_medpay: 'yes' });
     const noisy = copy(base);
     noisy.p = { auto: { medpay: 5000, collDed: 2500, liability: 250 }, health: { deductible: 9999 } };
     noisy.state = 'CA';
-    assert.deepEqual(evaluate(deriveAnswers(noisy)), evaluate(deriveAnswers(base)));
+    assert.deepEqual(evaluate(noisy), evaluate(base));
   });
 });

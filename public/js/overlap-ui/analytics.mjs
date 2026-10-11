@@ -2,9 +2,9 @@
 //
 // What leaves the page, when a provider is switched on: an event NAME from a fixed list and, for two of the
 // events, a LABEL that is an id from the question and flag catalog ("auto_liability=250_500", or a flag id).
-// Nothing else: no identifier, no timestamp, no count of taps, no free text, no typed figure, nothing from the
-// host app's own telemetry panel, and nothing from the host's policy screens or state picker. The page sets no
-// cookies and uses no browser storage (tests/ui/analytics.test.mjs scans the whole page for both).
+// Nothing else: no identifier, no timestamp, no count of taps, no timings, no free text and no figure (the page
+// has nothing to type; every answer is a pick from a closed list). The page sets no cookies and uses no browser
+// storage (tests/ui/analytics.test.mjs scans the whole page for both).
 //
 // Two layers, both in this file:
 //

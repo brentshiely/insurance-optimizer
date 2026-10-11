@@ -1,32 +1,34 @@
-// View-models for the overlap screens and the insurer action list (Story S13, step A). PURE: no DOM, no
-// Node APIs, no storage, no timers, no clock, no randomness. Runs unchanged under macOS jsc, Node and
-// browsers. The DOM code in this folder (step B) turns these plain objects into markup and clicks back
+// View-models for the overlap screens and the insurer action list (Story S13, step A; R1 step A moved them onto
+// plain answers). PURE: no DOM, no Node APIs, no storage, no timers, no clock, no randomness. Runs unchanged under
+// macOS jsc, Node and browsers. The DOM code in this folder turns these plain objects into markup and clicks back
 // into calls to applyAnswer; nothing here knows about elements.
 //
-// The host keeps its state `S`; every function takes a SNAPSHOT of it, `{ a, extras, q, p, o }` (plain
-// copies of S.a, S.extras, S.q, S.p and S.o; `state` is deliberately not part of it, see
-// engine/adapter.mjs). `o` holds the overlap answers, `{ [questionId]: optionId | optionId[] }`.
-// Every function also takes an optional last argument `catalog` (default: the real catalog) so tests can
+// Every function takes the ANSWERS object, `{ [questionId]: optionId | optionId[] }`, the same thing `evaluate()`
+// takes. Q1 is an ordinary entry in it: `answers.policies` is the list of ticked policies (docs/ARCHITECTURE.md
+// "Answers"). Every function also takes an optional last argument `catalog` (default: the real catalog) so tests can
 // run against a fixture; the UI never passes one.
 //
-//   overlapSections(snapshot)               ordered wizard sections that have at least one visible question
-//   overlapScreenIds(snapshot)              ['ovl:<sectionId>', ..., 'actions']
-//   applyAnswer(snapshot, qid, optionId)    new `o` with that tap applied and stale answers pruned
-//   actionListViewModel(snapshot)           Raise / Drop / Question groups with the rendered flag text
-//   actionListText(vm)                      plain text of that list for the clipboard
-//   liabilityStackModel(snapshot)           the engine's umbrella/limits model (Story S14), or null without an umbrella
-//   stackForScreen(snapshot, screenId)      that model on the screens that draw it, else null
+//   overlapSections(answers)               ordered wizard sections that have at least one visible question
+//   overlapScreenIds(answers)              ['ovl:<sectionId>', ..., 'actions']
+//   screenIds(answers)                     every screen of the wizard: ['entry', 'ovl:<sectionId>', ..., 'actions']
+//   progressPercent(ids, index)            width of the progress bar for the screen at `index`
+//   policiesSummary(answers)               the policies ticked in Q1, for the "Your policies" panel
+//   applyAnswer(answers, qid, optionId)    new answers with that tap applied and stale answers pruned
+//   actionListViewModel(answers)           Raise / Drop / Question groups with the rendered flag text
+//   actionListText(vm)                     plain text of that list for the clipboard
+//   liabilityStackModel(answers)           the engine's umbrella/limits model (Story S14), or null without an umbrella
+//   stackForScreen(answers, screenId)      that model on the screens that draw it, else null
 //
 // Results are fresh plain objects (never the engine's or the catalog's own), so callers may edit them.
 // Identical input gives byte-identical output. Inputs are never mutated.
 import CATALOG from '../overlap/data/catalog.mjs';
 import { SECTIONS } from '../overlap/data/questions/index.mjs';
 import { createSession } from '../overlap/engine/session.mjs';
-import { deriveAnswers } from '../overlap/engine/adapter.mjs';
 import { evaluate, createContext } from '../overlap/engine/evaluate.mjs';
-import { NOT_SURE, POLICIES_KEY } from '../overlap/engine/constants.mjs';
+import { NOT_SURE, POLICIES_QUESTION_ID } from '../overlap/engine/constants.mjs';
 
-/** Screen ids the host adds to its order(): one `ovl:<sectionId>` per section, then `actions` last. */
+/** Screen ids for the page's screen order: the entry screen, one `ovl:<sectionId>` per section, then `actions` last. */
+export const ENTRY_SCREEN_ID = 'entry';
 export const OVERLAP_SCREEN_PREFIX = 'ovl:';
 export const ACTIONS_SCREEN_ID = 'actions';
 
@@ -118,21 +120,22 @@ function questionView(question, answers) {
  *   [{ id, title, reason, questions: [{ id, prompt, help, kind, options: [{ id, label, selected }],
  *                                        answered, allAnswered }], complete }]
  *
- * A section appears only when at least one of its questions is visible for the snapshot (the engine's
- * transitive visibility, over the answers pruned to what is asked). `kind` is 'multi' for tick-many
+ * A section appears only when at least one of its questions is visible for the answers (the engine's
+ * transitive visibility, over the answers pruned to what is asked). With nothing answered that is the first section
+ * only: Q1, "Which policies do you have?". `kind` is 'multi' for tick-many
  * questions, 'yesno' for Yes / No (/ Not sure) questions and 'single' for any other pick-one question;
  * Not sure, when offered, is always the last option. `answered` / `allAnswered` say the question has a
  * valid answer (a multi question counts once anything, including "None of these", is ticked). `complete`
  * says every visible question of the section is answered; the wizard should not block on it, because every
  * flag handles a missing answer.
  */
-export function overlapSections(snapshot, catalog = DEFAULT_CATALOG) {
+export function overlapSections(answers, catalog = DEFAULT_CATALOG) {
   const session = createSession(catalog);
-  const answers = session.prune(deriveAnswers(snapshot));
-  const visible = session.visibleQuestions(answers);
+  const pruned = session.prune(answers);
+  const visible = session.visibleQuestions(pruned);
   const out = [];
   for (const section of sectionList(catalog)) {
-    const questions = visible.filter((q) => q.section === section.id).map((q) => questionView(q, answers));
+    const questions = visible.filter((q) => q.section === section.id).map((q) => questionView(q, pruned));
     if (questions.length === 0) continue;
     out.push({
       id: section.id,
@@ -145,15 +148,60 @@ export function overlapSections(snapshot, catalog = DEFAULT_CATALOG) {
   return out;
 }
 
-/** Screen ids for the host's order(): `ovl:<sectionId>` for each section with a visible question, then 'actions'. */
-export function overlapScreenIds(snapshot, catalog = DEFAULT_CATALOG) {
-  return overlapSections(snapshot, catalog).map((s) => OVERLAP_SCREEN_PREFIX + s.id).concat([ACTIONS_SCREEN_ID]);
+/** Screen ids for the page's screen order: `ovl:<sectionId>` for each section with a visible question, then 'actions'. */
+export function overlapScreenIds(answers, catalog = DEFAULT_CATALOG) {
+  return overlapSections(answers, catalog).map((s) => OVERLAP_SCREEN_PREFIX + s.id).concat([ACTIONS_SCREEN_ID]);
 }
 
 /**
- * One tap on an option, as a new `o` (the overlap answers). The first argument is the whole snapshot, not just
- * `o`, because which questions are still asked depends on the policies the host derives from `a`, `extras`, `q`
- * and `p` (an umbrella answered on the umbrella screen, the vehicles, own or rent, and so on).
+ * Every screen of the wizard, in order: the entry screen, Q1's screen (`ovl:start`), one `ovl:<sectionId>` for each
+ * other section that has a visible question for these answers, and `actions` (the insurer action list) last.
+ * Nothing answered gives ['entry', 'ovl:start', 'actions']; ticking policies in Q1 adds the sections that apply.
+ */
+export function screenIds(answers, catalog = DEFAULT_CATALOG) {
+  return [ENTRY_SCREEN_ID].concat(overlapScreenIds(answers, catalog));
+}
+
+/**
+ * How far along the progress bar is on the screen at `index` of `ids` (from screenIds), 0 to 100 with one decimal.
+ * The entry screen and Q1 are 0, because how many screens follow Q1 depends on what is ticked there, and a bar that
+ * jumped around while you tick would mislead; the action list is 100; the screens between are spread evenly.
+ */
+export function progressPercent(ids, index) {
+  const last = Array.isArray(ids) ? ids.length - 1 : 0;
+  if (last < 2 || !Number.isInteger(index) || index <= 1) return 0;
+  if (index >= last) return 100;
+  return Math.round(((index - 1) / (last - 1)) * 1000) / 10;
+}
+
+/**
+ * The policies ticked in Q1 for the "Your policies" panel.
+ *
+ *   { answered, none, held: [{ id, label }] }
+ *
+ * `answered` is true once Q1 has an answer; `none` is true when it is "None of these"; `held` lists the ticked
+ * policies in Q1's order, each with a short label: the option's label up to its first comma ("Auto insurance,
+ * for a car or truck you drive" gives "Auto insurance"), so a new Q1 option needs nothing added here.
+ */
+export function policiesSummary(answers, catalog = DEFAULT_CATALOG) {
+  const session = createSession(catalog);
+  const q1 = session.getQuestion(POLICIES_QUESTION_ID);
+  const pruned = session.prune(answers);
+  const picked = q1 && Array.isArray(pruned[POLICIES_QUESTION_ID]) ? pruned[POLICIES_QUESTION_ID] : [];
+  const held = [];
+  let none = false;
+  if (q1) {
+    for (const o of q1.options) {
+      if (!picked.includes(o.id)) continue;
+      if (o.exclusive === true) none = true;
+      else held.push({ id: o.id, label: o.label.split(',')[0] });
+    }
+  }
+  return { answered: picked.length > 0, none, held };
+}
+
+/**
+ * One tap on an option, as a new answers object.
  *
  *   single question   the tapped option replaces the answer (tapping the chosen option keeps it)
  *   multi question    the tapped option is added, or removed if it was ticked; an exclusive option ("None of
@@ -162,25 +210,19 @@ export function overlapScreenIds(snapshot, catalog = DEFAULT_CATALOG) {
  *
  * Then every answer to a question that is no longer asked is dropped, and so is anything that is not a
  * question, so the result holds only valid answers to visible questions, in catalog order (multi answers in
- * option order). A tap on a question that is not asked is therefore not stored. Throws on an unknown question
+ * option order). Q1 is one of them: ticking "Umbrella" opens the umbrella questions, unticking it drops their
+ * answers. A tap on a question that is not asked is therefore not stored. Throws on an unknown question
  * or option id (a programming error, not a user action).
  */
-export function applyAnswer(snapshot, qid, optionId, catalog = DEFAULT_CATALOG) {
+export function applyAnswer(answers, qid, optionId, catalog = DEFAULT_CATALOG) {
   const session = createSession(catalog);
-  const snap = isObject(snapshot) ? snapshot : {};
-  const current = isObject(snap.o) ? snap.o : {};
+  const current = isObject(answers) ? answers : {};
   const question = session.getQuestion(qid);
   if (!question) throw new Error(`Unknown question "${qid}"`);
   const next = question.type === 'multi'
     ? session.toggleOption(current, qid, optionId)
     : session.setAnswer(current, qid, optionId);
-  const derived = deriveAnswers({ a: snap.a, extras: snap.extras, q: snap.q, p: snap.p, o: next });
-  const kept = session.prune(derived);
-  const out = {};
-  for (const key of Object.keys(kept)) {
-    if (key !== POLICIES_KEY) out[key] = kept[key];
-  }
-  return out;
+  return session.prune(next);
 }
 
 function itemView(flag) {
@@ -196,7 +238,7 @@ function itemView(flag) {
 }
 
 /**
- * The insurer action list for the snapshot.
+ * The insurer action list for the answers.
  *
  *   { groups: [{ bucket: 'raise'|'drop'|'question', label, description,
  *                items: [{ id, title, background, ask, reason, emphasis, sources: [{ publisher, title, url, lastVerified }] }],
@@ -207,8 +249,8 @@ function itemView(flag) {
  * order (priority, then id). When nothing fired, `groups` is empty, `empty` is true and `emptyTitle` /
  * `emptyMessage` hold the honest empty-state wording (both are null otherwise).
  */
-export function actionListViewModel(snapshot, catalog = DEFAULT_CATALOG) {
-  const results = evaluate(deriveAnswers(snapshot), catalog);
+export function actionListViewModel(answers, catalog = DEFAULT_CATALOG) {
+  const results = evaluate(answers, catalog);
   const groups = [];
   let total = 0;
   for (const bucket of BUCKET_ORDER) {
@@ -229,12 +271,12 @@ export function actionListViewModel(snapshot, catalog = DEFAULT_CATALOG) {
 }
 
 /**
- * The engine's LiabilityStack for the snapshot (docs/ARCHITECTURE.md "LiabilityStack"), as a fresh plain object, or
+ * The engine's LiabilityStack for the answers (docs/ARCHITECTURE.md "LiabilityStack"), as a fresh plain object, or
  * null when no umbrella is held. Only the stack is built (no flags are evaluated). stackView.mjs turns it into
- * what the page draws; nothing else is read from the snapshot for that.
+ * what the page draws; nothing else is read from the answers for that.
  */
-export function liabilityStackModel(snapshot, catalog = DEFAULT_CATALOG) {
-  const stack = createContext(deriveAnswers(snapshot), catalog).stack;
+export function liabilityStackModel(answers, catalog = DEFAULT_CATALOG) {
+  const stack = createContext(answers, catalog).stack;
   return stack === null ? null : JSON.parse(JSON.stringify(stack));
 }
 
@@ -242,10 +284,10 @@ export function liabilityStackModel(snapshot, catalog = DEFAULT_CATALOG) {
  * The stack for one overlap screen: the model on the screens listed in STACK_SECTION_IDS (when an umbrella is
  * held), null on every other screen id. The screens call this after every tap, so the drawing follows the answers.
  */
-export function stackForScreen(snapshot, screenId, catalog = DEFAULT_CATALOG) {
+export function stackForScreen(answers, screenId, catalog = DEFAULT_CATALOG) {
   if (typeof screenId !== 'string' || screenId.indexOf(OVERLAP_SCREEN_PREFIX) !== 0) return null;
   if (STACK_SECTION_IDS.indexOf(screenId.slice(OVERLAP_SCREEN_PREFIX.length)) < 0) return null;
-  return liabilityStackModel(snapshot, catalog);
+  return liabilityStackModel(answers, catalog);
 }
 
 function sourceLine(s) {

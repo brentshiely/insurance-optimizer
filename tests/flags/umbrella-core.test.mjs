@@ -8,7 +8,6 @@ import VEHICLE_FLAGS from '../../public/js/overlap/data/flags/vehicles.mjs';
 import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import PLAN from '../fixtures/flagPlan.mjs';
 import umbrellaResearch from '../../research/umbrella-liability-stack.mjs';
 import { deepFreeze, copy } from '../helpers/purity.mjs';
@@ -479,67 +478,59 @@ suite('umbrella core flags: no flag fires without an umbrella', (t) => {
 });
 
 // ======================================================================================================
-suite('umbrella core flags: end to end from the host app\'s state (adapter, derived policies, real catalog)', (t) => {
-  // A host snapshot like the wizard's: S.a, S.extras, S.q, S.p, S.o. The umbrella comes from the host's own "Do you
-  // carry an umbrella policy?" screen; the limits come from the engine's own closed-list questions in S.o.
-  const snapshot = (over) => ({
-    state: 'XX',
-    a: { home: 'Own', veh: '2', dep: 'Yes' },
-    extras: [],
-    q: { health: 'No' },
-    p: { umbrella: { hasUmbrella: 'Yes', limit: 1000000 }, auto: { liability: 999 }, home: { liability: 999 } },
-    o: {},
-    ...over,
-  });
-  const e2e = (over) => run(deriveAnswers(snapshot(over)));
+suite('umbrella core flags: end to end from plain answers (Q1 ticks, real catalog)', (t) => {
+  // Answers like the page's: Q1 (`policies`) holds the ticks, the limits come from the engine's own closed-list
+  // questions. By default the household ticked Auto, Home and Umbrella.
+  const e2e = (o, held) => run({ ...o, policies: held || ['auto', 'home', 'umbrella'] });
 
-  t('the derived policies drive the branch: auto and home under an umbrella', () => {
-    const answers = deriveAnswers(snapshot({ o: { umbrella_limit: '1m' } }));
-    assert.deepEqual(answers.policies, ['auto', 'home', 'umbrella']);
+  t('the ticks drive the branch: auto and home under an umbrella', () => {
+    const answers = { policies: ['auto', 'home', 'umbrella'], umbrella_limit: '1m' };
+    assert.equal(createContext(answers).holds('umbrella'), true);
+    assert.deepEqual(run(answers).stack.layers.map((l) => l.id), ['auto', 'home']);
   });
   t(ID.home + ' end to end', () => {
-    const r = e2e({ o: { umbrella_limit: '1m', home_liability: 'lower', umbrella_min_home: '500k', auto_liability: '250_500', umbrella_min_auto: '250_500' } });
+    const r = e2e({ umbrella_limit: '1m', home_liability: 'lower', umbrella_min_home: '500k', auto_liability: '250_500', umbrella_min_auto: '250_500' });
     assert.deepEqual(firedS6(r), [ID.home]);
     assert.equal(flagOf(r, ID.home).emphasis, 'strong');
     assert.equal(r.stack.layers.find((l) => l.id === 'home').status, 'below_required');
   });
   t(ID.auto + ' end to end', () => {
-    const r = e2e({ o: { umbrella_limit: '2m', auto_liability: '100_300', umbrella_min_auto: '250_500', home_liability: '500k', umbrella_min_home: '500k' } });
+    const r = e2e({ umbrella_limit: '2m', auto_liability: '100_300', umbrella_min_auto: '250_500', home_liability: '500k', umbrella_min_home: '500k' });
     assert.deepEqual(firedS6(r), [ID.auto]);
     assert.equal(r.stack.umbrella.limit, 2000000);
   });
   t(ID.motorcycle + ' end to end', () => {
-    const r = e2e({ extras: ['Motorcycle'], o: { umbrella_limit: '1m', motorcycle_liability: '100_300', umbrella_min_motorcycle: '250_500', auto_liability: '250_500', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: '300k' } });
+    const r = e2e({ umbrella_limit: '1m', motorcycle_liability: '100_300', umbrella_min_motorcycle: '250_500', auto_liability: '250_500', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: '300k' }, ['auto', 'home', 'motorcycle', 'umbrella']);
     assert.deepEqual(firedS6(r), [ID.motorcycle]);
     assert.deepEqual(r.stack.layers.map((l) => l.id), ['auto', 'home', 'motorcycle']);
   });
   t(ID.boat + ' end to end', () => {
-    const r = e2e({ extras: ['Boat'], o: { umbrella_limit: '1m', boat_liability: 'lower', umbrella_min_boat: '100_300', auto_liability: '250_500', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: '300k' } });
+    const r = e2e({ umbrella_limit: '1m', boat_liability: 'lower', umbrella_min_boat: '100_300', auto_liability: '250_500', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: '300k' }, ['auto', 'home', 'boat', 'umbrella']);
     assert.deepEqual(firedS6(r), [ID.boat]);
   });
   t(ID.over + ' end to end', () => {
-    const r = e2e({ o: { umbrella_limit: '5m', auto_liability: '500_500', umbrella_min_auto: '250_500', home_liability: '1m', umbrella_min_home: '500k' } });
+    const r = e2e({ umbrella_limit: '5m', auto_liability: '500_500', umbrella_min_auto: '250_500', home_liability: '1m', umbrella_min_home: '500k' });
     assert.deepEqual(firedS6(r), [ID.over]);
     assert.equal(flagOf(r, ID.over).title, 'Ask whether your extra auto and home liability is worth keeping');
   });
   t(ID.unconfirmed + ' end to end, with the answer left at Not sure', () => {
-    const r = e2e({ o: { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: 'not_sure', home_liability: 'not_sure', umbrella_min_home: '300k' } });
+    const r = e2e({ umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: 'not_sure', home_liability: 'not_sure', umbrella_min_home: '300k' });
     assert.deepEqual(firedS6(r), [ID.unconfirmed]);
     assert.equal(r.stack.counts.unknown, 2);
   });
-  t('the host\'s policy-screen numbers and state have no effect (the engine reads only its own answers)', () => {
+  t('keys that are not questions (policy-screen numbers, a state) have no effect (the engine reads only its own answers)', () => {
     const o = { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500', home_liability: '1m', umbrella_min_home: '500k' };
-    const a = e2e({ o });
-    const b = e2e({ o, state: 'ZZ', p: { umbrella: { hasUmbrella: 'Yes', limit: 5 }, auto: { liability: 1000000 }, home: { liability: 1 } } });
+    const a = e2e(o);
+    const b = e2e({ ...o, state: 'ZZ', p: { umbrella: { hasUmbrella: 'Yes', limit: 5 }, auto: { liability: 1000000 }, home: { liability: 1 } } });
     assert.deepEqual(a, b);
   });
-  t('answering "No" to the host\'s umbrella screen removes the whole branch, whatever is left in S.o', () => {
-    const r = e2e({ p: { umbrella: { hasUmbrella: 'No' } }, o: { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' } });
+  t('unticking Umbrella in Q1 removes the whole branch, whatever answers are left behind', () => {
+    const r = e2e({ umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' }, ['auto', 'home']);
     assert.deepEqual(firedS6(r), []);
     assert.equal(r.stack, null);
   });
   t('a household with no auto policy is not asked about auto and gets no auto flag', () => {
-    const r = e2e({ a: { home: 'Own', veh: '0', dep: 'No' }, o: { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: '500k' } });
+    const r = e2e({ umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: '500k' }, ['home', 'umbrella']);
     assert.deepEqual(firedS6(r), [ID.home]);
     assert.deepEqual(r.stack.layers.map((l) => l.id), ['home']);
   });
@@ -605,7 +596,7 @@ suite('umbrella core flags: copy rules', (t) => {
       assert.equal(/[.]$/.test(f.reason), true, `${id} reason ends with a full stop`);
     }
   });
-  t('no flag names a state, counts states, or mentions the host app\'s state picker', () => {
+  t('no flag names a state or counts states', () => {
     for (const [id, answers] of SCENARIOS) {
       const f = flagOf(run(answers), id);
       const text = `${f.title} ${f.background} ${f.ask} ${f.reason}`;

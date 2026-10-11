@@ -6,8 +6,8 @@
 //   umbrella-um-uim-extension        question  the umbrella may not extend uninsured / underinsured motorist cover
 //   umbrella-scope-exclusions        question  ask what the umbrella excludes; strong with a side business
 //
-// Everything runs against the REAL catalog and the real engine. Answers come through the real adapter
-// (deriveAnswers), so the derived `policies` array is the one the wizard would build. Other stories add flags to
+// Everything runs against the REAL catalog and the real engine. Answers are plain answers: Q1 (`policies`) holds
+// the ticked policies, as the page stores them. Other stories add flags to
 // the same catalog in parallel, so these tests look up the four S7 flags by id and never assert the size or
 // the full contents of a result bucket. Runs under jsc and Node; nothing here uses URL, console or timers.
 import { suite, assert } from '../harness.mjs';
@@ -17,7 +17,6 @@ import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
 import { createSession } from '../../public/js/overlap/engine/session.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { resolveText } from '../../public/js/overlap/engine/render.mjs';
 import { BUCKETS } from '../../public/js/overlap/engine/constants.mjs';
 import PLAN from '../fixtures/flagPlan.mjs';
@@ -34,17 +33,17 @@ const TEXT_FIELDS = ['title', 'background', 'ask', 'reason'];
 const flagById = (id) => S7_FLAGS.find((f) => f.id === id);
 const session = createSession(CATALOG);
 
-// ---- answers through the real adapter ------------------------------------------------------------------
-// A host-like snapshot: an owner with a car and a home, with or without an umbrella, plus the user's own
-// overlap answers (`o`). The derived `policies` array comes from deriveAnswers, never from the test.
-function snapshot({ umbrella = true, auto = true, home = true, o = {} } = {}) {
-  const snap = { a: {}, extras: [], q: {}, p: {}, o: { ...o } };
-  if (auto) snap.a.veh = '2';
-  if (home) snap.a.home = 'Own';
-  snap.p.umbrella = { hasUmbrella: umbrella ? 'Yes' : 'No' };
-  return snap;
+// ---- plain answers ------------------------------------------------------------------------------------
+// A household that, by default, owns a car and a home and has an umbrella: Q1 (`policies`) holds those ticks, and
+// `o` is the user's own answers to the other questions. `opts` turns a tick off ({ umbrella: false } and so on).
+function answersFor(o, opts) {
+  const { umbrella = true, auto = true, home = true } = opts || {};
+  const policies = [];
+  if (auto) policies.push('auto');
+  if (home) policies.push('home');
+  if (umbrella) policies.push('umbrella');
+  return { ...o, policies };
 }
-const answersFor = (o, opts) => deriveAnswers(snapshot({ ...(opts || {}), o }));
 
 // applies() on a real context (the engine prunes first, exactly as evaluate does). false/null -> null.
 function applied(id, o, opts) {
@@ -626,7 +625,7 @@ suite('S7 flags: copy quality across every text branch', (t) => {
 });
 
 // ======================================================================================================
-suite('S7 flags: end to end through evaluate() on the real catalog with real adapter answers', (t) => {
+suite('S7 flags: end to end through evaluate() on the real catalog with plain answers', (t) => {
   t('umbrella-smaller-than-exposure: a 1 million umbrella and an over-3-million exposure produce a strong Raise', () => {
     const answers = answersFor({ umbrella_limit: '1m', umbrella_exposure: 'over_3m' });
     assert.includes(answers.policies, 'umbrella');

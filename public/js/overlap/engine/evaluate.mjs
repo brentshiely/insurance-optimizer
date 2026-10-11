@@ -12,9 +12,10 @@
 // deep-equal results.
 import CATALOG from '../data/catalog.mjs';
 import { createSession } from './session.mjs';
+import { holdsPolicy } from './conditions.mjs';
 import { resolveText } from './render.mjs';
 import { computeLiabilityStack } from './liabilityStack.mjs';
-import { BUCKETS, EMPHASES, CARDS_QUESTION_ID, BENEFIT_PRESENT, NOT_SURE, POLICIES_KEY } from './constants.mjs';
+import { BUCKETS, EMPHASES, CARDS_QUESTION_ID, BENEFIT_PRESENT, NOT_SURE } from './constants.mjs';
 import { isPlainObject, hasOwn, clonePlain, deepFreeze, compareStrings, describe } from './util.mjs';
 
 const DEFAULT_PRIORITY = 100;
@@ -24,7 +25,6 @@ const TEXT_FIELDS = ['title', 'background', 'ask', 'reason'];
 // `answers` must already be pruned; it is frozen here.
 function buildContext(session, answers, catalog) {
   deepFreeze(answers);
-  const policies = Array.isArray(answers[POLICIES_KEY]) ? answers[POLICIES_KEY] : [];
   const cardTable = isPlainObject(catalog.cards) ? catalog.cards : {};
 
   // The question, but only when it has an answer (pruned answers exist only for visible questions).
@@ -53,7 +53,7 @@ function buildContext(session, answers, catalog) {
   };
 
   const ctx = {
-    holds: (policyId) => policies.includes(policyId),
+    holds: (policyId) => holdsPolicy(answers, policyId),
     answer: (qid) => (answered(qid) ? answers[qid] : undefined),
     is: (qid, optionId) => answered(qid) !== undefined && answers[qid] === optionId,
     includes: (qid, optionId) => answered(qid) !== undefined && Array.isArray(answers[qid]) && answers[qid].includes(optionId),

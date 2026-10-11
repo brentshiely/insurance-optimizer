@@ -4,26 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="author" content="Brent Shiely">
-<title>Coverage Check Prototype</title>
+<meta name="description" content="See where your insurance overlaps and where it leaves gaps, and get a list of what to raise, drop or ask your insurer about. No name, no email, nothing to upload.">
+<title>Coverage Check</title>
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <div class="shell">
-  <div class="brand"><b>Coverage Check</b><span>Prototype. Editable sample data. The numbers you type never leave this page.</span></div>
+  <div class="brand"><b>Coverage Check</b><span>Where your insurance overlaps, and where it leaves gaps.</span></div>
   <main class="card">
-    <div class="bar"><i id="bar" style="width:0"></i></div>
+    <div class="bar" id="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="bar"></i></div>
     <div class="pad" id="stage" aria-live="polite"></div>
   </main>
   <aside>
     <div class="panel">
-      <h3>What we know</h3>
-      <dl id="known"></dl>
+      <h3>Your policies</h3>
+      <ul class="known" id="known"></ul>
       <p class="small">No name. No address. No email.</p>
-    </div>
-    <div class="panel">
-      <h3>Prototype telemetry</h3>
-      <table id="tele"></table>
-      <p class="small">Seconds per screen, shown only on this page and never sent. This is the drop-off instrument.</p>
     </div>
   </aside>
 </div>

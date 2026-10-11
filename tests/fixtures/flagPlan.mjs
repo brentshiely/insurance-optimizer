@@ -15,8 +15,8 @@
 //   priority    inside the story's range (see `ranges`); lower sorts first within a bucket
 //   status      planned | conditional (conditional = cannot ship until its condition is met)
 //   questions   asked question ids the flag reads (ctx.answer / is / includes / option / isNotSure / cards)
-//   holds       derived policy ids it reads (ctx.holds); other_items is listed in `questions` as well when
-//               an Other-bucket policy id is in `holds`, because those ids come from that question
+//   holds       policy ids it reads (ctx.holds); `policies` (Q1, the question those ids are ticked in) is listed
+//               first in `questions` whenever `holds` is not empty
 //   trigger     when it fires, in one sentence, including Not sure handling
 //   factIds     research fact ids the copy may rest on (research/*.mjs)
 //   sourceIds   registry source ids to cite (each must be a source of at least one listed fact)
@@ -47,7 +47,7 @@ export default {
     {
       id: 'umbrella-home-below-required-min',
       story: 'S6', file: 'umbrella', bucket: 'raise', kind: 'cross-policy', domain: 'umbrella', priority: 10, status: 'planned',
-      questions: ['home_liability', 'umbrella_min_home'],
+      questions: ['policies', 'home_liability', 'umbrella_min_home'],
       holds: ['umbrella', 'home'],
       trigger: 'Fires when both answers are known and the home liability limit is below the umbrella\'s required home minimum (for example 300,000 against a 500,000 minimum, or "Lower than $300,000" against any minimum); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.',
       factIds: ['umbrella-attaches-after-underlying-exhausted', 'umbrella-underlying-minimums-typical', 'umbrella-underlying-requirements-insurer-specific', 'home-liability-typical-amounts'],
@@ -57,7 +57,7 @@ export default {
     {
       id: 'umbrella-auto-below-required-min',
       story: 'S6', file: 'umbrella', bucket: 'raise', kind: 'cross-policy', domain: 'umbrella', priority: 20, status: 'planned',
-      questions: ['auto_liability', 'umbrella_min_auto'],
+      questions: ['policies', 'auto_liability', 'umbrella_min_auto'],
       holds: ['umbrella', 'auto'],
       trigger: 'Fires when both answers are known and the auto liability limit is below the umbrella\'s required auto minimum (for example 100/300 against 250/500, or "Lower than 100/300" against any minimum); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.',
       factIds: ['umbrella-underlying-minimums-typical', 'umbrella-underlying-requirements-insurer-specific', 'auto-liability-limit-format', 'auto-state-minimums-vary'],
@@ -67,7 +67,7 @@ export default {
     {
       id: 'umbrella-primary-liability-overbought',
       story: 'S6', file: 'umbrella', bucket: 'question', kind: 'cross-policy', domain: 'umbrella', priority: 50, status: 'planned',
-      questions: ['auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home'],
+      questions: ['policies', 'auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home'],
       holds: ['umbrella'],
       trigger: 'Fires when a known auto or home liability limit is above the umbrella\'s known required minimum (for example 500/500 against 250/500, or 1 million against 500,000); asks whether the extra primary liability is worth its premium; never fires on Not sure.',
       factIds: ['higher-underlying-limits-lower-umbrella-cost', 'umbrella-underlying-minimums-typical'],
@@ -77,7 +77,7 @@ export default {
     {
       id: 'umbrella-limits-unconfirmed',
       story: 'S6', file: 'umbrella', bucket: 'question', kind: 'cross-policy', domain: 'umbrella', priority: 60, status: 'planned',
-      questions: ['auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home', 'motorcycle_liability', 'umbrella_min_motorcycle', 'boat_liability', 'umbrella_min_boat'],
+      questions: ['policies', 'auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home', 'motorcycle_liability', 'umbrella_min_motorcycle', 'boat_liability', 'umbrella_min_boat'],
       holds: ['umbrella'],
       trigger: 'Fires when the user holds an umbrella and any visible limit or required-minimum question in the stack is Not sure, so a Raise could not be decided; asks them to get the umbrella\'s required-underlying schedule from their agent.',
       factIds: ['umbrella-underlying-requirements-insurer-specific', 'umbrella-attaches-after-underlying-exhausted'],
@@ -87,7 +87,7 @@ export default {
     {
       id: 'umbrella-motorcycle-below-required-min',
       story: 'S6', file: 'vehicles', bucket: 'raise', kind: 'cross-policy', domain: 'vehicles', priority: 30, status: 'planned',
-      questions: ['motorcycle_liability', 'umbrella_min_motorcycle'],
+      questions: ['policies', 'motorcycle_liability', 'umbrella_min_motorcycle'],
       holds: ['umbrella', 'motorcycle'],
       trigger: 'Fires when both answers are known and the motorcycle liability limit is below the umbrella\'s required motorcycle minimum (a "Lower than 100/300" limit is below every minimum offered); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.',
       factIds: ['specialty-vehicles-need-their-own-policies', 'umbrella-underlying-requirements-insurer-specific'],
@@ -97,7 +97,7 @@ export default {
     {
       id: 'umbrella-boat-below-required-min',
       story: 'S6', file: 'vehicles', bucket: 'raise', kind: 'cross-policy', domain: 'vehicles', priority: 40, status: 'planned',
-      questions: ['boat_liability', 'umbrella_min_boat'],
+      questions: ['policies', 'boat_liability', 'umbrella_min_boat'],
       holds: ['umbrella', 'boat'],
       trigger: 'Fires when both answers are known and the boat liability limit is below the umbrella\'s required boat minimum (a "Lower than 100/300" limit is below every minimum offered); if either is Not sure it does not fire and umbrella-limits-unconfirmed covers it.',
       factIds: ['boats-need-own-liability-and-sit-under-umbrella', 'umbrella-underlying-requirements-insurer-specific'],
@@ -109,7 +109,7 @@ export default {
     {
       id: 'umbrella-smaller-than-exposure',
       story: 'S7', file: 'umbrellaScope', bucket: 'raise', kind: 'cross-policy', domain: 'umbrella', priority: 110, status: 'planned',
-      questions: ['umbrella_limit', 'umbrella_exposure'],
+      questions: ['policies', 'umbrella_limit', 'umbrella_exposure'],
       holds: ['umbrella'],
       trigger: 'Fires when both are answered and the umbrella amount is at or below the lower edge of the exposure band (umbrella value <= exposure min), so 1 million against 1 to 3 million or over 3 million fires and 2 million against 1 to 3 million does not (S7 may refine the edge rule in its own DECISIONS entry); if either is Not sure it does not fire and umbrella-size-unconfirmed covers it.',
       factIds: ['umbrella-sizing-by-assets', 'lawsuit-exposure-factors', 'umbrella-typical-limit-1m-or-more'],
@@ -119,7 +119,7 @@ export default {
     {
       id: 'umbrella-size-unconfirmed',
       story: 'S7', file: 'umbrellaScope', bucket: 'question', kind: 'education', domain: 'umbrella', priority: 120, status: 'planned',
-      questions: ['umbrella_limit', 'umbrella_exposure'],
+      questions: ['policies', 'umbrella_limit', 'umbrella_exposure'],
       holds: ['umbrella'],
       trigger: 'Fires when the user holds an umbrella and either the umbrella amount or the exposure band is Not sure: suggests the asset test (do your savings, investments and property add up to more than your liability limits) and asking the agent.',
       factIds: ['umbrella-sizing-by-assets', 'lawsuit-exposure-factors'],
@@ -129,7 +129,7 @@ export default {
     {
       id: 'umbrella-um-uim-extension',
       story: 'S7', file: 'umbrellaScope', bucket: 'question', kind: 'within-policy', domain: 'umbrella', priority: 130, status: 'planned',
-      questions: ['umbrella_um_uim'],
+      questions: ['policies', 'umbrella_um_uim'],
       holds: ['umbrella', 'auto'],
       trigger: 'Fires when umbrella_um_uim is no (ask whether it can be added) or Not sure (ask whether the umbrella extends uninsured and underinsured motorist coverage); silent on yes.',
       factIds: ['um-uim-is-auto-policy-coverage', 'umbrella-is-liability-only'],
@@ -139,7 +139,7 @@ export default {
     {
       id: 'umbrella-scope-exclusions',
       story: 'S7', file: 'umbrellaScope', bucket: 'question', kind: 'within-policy', domain: 'umbrella', priority: 140, status: 'planned',
-      questions: ['side_business'],
+      questions: ['policies', 'side_business'],
       holds: ['umbrella'],
       trigger: 'Fires for everyone who holds an umbrella (ask what it excludes); emphasis is strong when side_business is yes. The question has no Not sure option.',
       factIds: ['umbrella-business-activity-excluded', 'umbrella-not-own-property-or-punitive', 'umbrella-intentional-acts-excluded', 'umbrella-personal-injury-coverage-varies'],
@@ -151,7 +151,7 @@ export default {
     {
       id: 'auto-um-uim-check',
       story: 'S8', file: 'auto', bucket: 'question', kind: 'within-policy', domain: 'auto', priority: 210, status: 'planned',
-      questions: ['auto_um_uim', 'auto_um_uim_limit'],
+      questions: ['policies', 'auto_um_uim', 'auto_um_uim_limit'],
       holds: ['auto'],
       trigger: 'Fires when auto_um_uim is no or Not sure, or when it is yes and auto_um_uim_limit is lower than 100/300 or Not sure; silent for yes with 100/300 or higher.',
       factIds: ['um-uim-what-they-pay', 'um-uim-requirements-vary-by-state', 'uninsured-share-latest-irc', 'um-property-damage-separate'],
@@ -161,7 +161,7 @@ export default {
     {
       id: 'auto-gap-coverage-missing',
       story: 'S8', file: 'auto', bucket: 'raise', kind: 'within-policy', domain: 'auto', priority: 220, status: 'planned',
-      questions: ['auto_financing', 'auto_value', 'auto_gap_coverage'],
+      questions: ['policies', 'auto_financing', 'auto_value', 'auto_gap_coverage'],
       holds: ['auto'],
       trigger: 'Fires when the newest car is leased or financed, auto_gap_coverage is no, and auto_value is not under_3000 (a Not sure value still fires); never fires for an owned-outright car; a Not sure gap answer is handled by auto-gap-coverage-confirm.',
       factIds: ['gap-what-it-covers', 'gap-when-it-matters', 'gap-lease-and-lender-requirements', 'gap-where-to-buy-and-cautions'],
@@ -171,7 +171,7 @@ export default {
     {
       id: 'auto-gap-coverage-confirm',
       story: 'S8', file: 'auto', bucket: 'question', kind: 'within-policy', domain: 'auto', priority: 230, status: 'planned',
-      questions: ['auto_financing', 'auto_value', 'auto_gap_coverage'],
+      questions: ['policies', 'auto_financing', 'auto_value', 'auto_gap_coverage'],
       holds: ['auto'],
       trigger: 'Fires when the newest car is leased or financed, auto_value is not under_3000, and auto_gap_coverage is Not sure: ask the lender, dealer, lease paperwork or agent whether gap coverage is in place.',
       factIds: ['gap-what-it-covers', 'gap-when-it-matters', 'gap-lease-and-lender-requirements'],
@@ -181,7 +181,7 @@ export default {
     {
       id: 'auto-rental-reimbursement-check',
       story: 'S8', file: 'auto', bucket: 'question', kind: 'within-policy', domain: 'auto', priority: 240, status: 'planned',
-      questions: ['auto_rental_reimbursement'],
+      questions: ['policies', 'auto_rental_reimbursement'],
       holds: ['auto'],
       trigger: 'Fires for every answer with text by answer: yes (check the daily and total caps), no (ask whether it is worth adding), Not sure (ask whether you have it and what the caps are).',
       factIds: ['rental-reimbursement-what-it-pays', 'rental-reimbursement-limit-example', 'optional-coverages-priced-separately'],
@@ -191,7 +191,7 @@ export default {
     {
       id: 'auto-collision-older-car',
       story: 'S8', file: 'auto', bucket: 'drop', kind: 'within-policy', domain: 'auto', priority: 250, status: 'planned',
-      questions: ['auto_financing', 'auto_value', 'auto_collision'],
+      questions: ['policies', 'auto_financing', 'auto_value', 'auto_collision'],
       holds: ['auto'],
       trigger: 'Fires when the newest car is owned outright, auto_value is under_3000 and auto_collision is yes; a Not sure collision answer produces no flag (it cannot support a Drop).',
       factIds: ['collision-comp-ten-times-premium-rule', 'collision-comp-pays-market-value-only', 'collision-comp-lender-requirement', 'collision-comp-drop-loss-caution', 'deductible-trade-off-alternative', 'dropping-collision-comp-affects-rental-coverage'],
@@ -203,7 +203,7 @@ export default {
     {
       id: 'home-sewer-backup-missing',
       story: 'S9', file: 'home', bucket: 'question', kind: 'within-policy', domain: 'home', priority: 310, status: 'planned',
-      questions: ['home_sewer_backup'],
+      questions: ['policies', 'home_sewer_backup'],
       holds: ['home'],
       trigger: 'Fires when home_sewer_backup is no or Not sure (DECISIONS D8); silent for yes so informed users are not nagged.',
       factIds: ['water-backup-excluded-standard', 'water-backup-policies-vary', 'water-backup-add-by-endorsement', 'water-backup-flood-policy-nuance', 'sump-pump-overflow-mold-excluded'],
@@ -213,7 +213,7 @@ export default {
     {
       id: 'home-flood-no-separate-policy',
       story: 'S9', file: 'home', bucket: 'question', kind: 'within-policy', domain: 'home', priority: 320, status: 'planned',
-      questions: ['home_flood_policy'],
+      questions: ['policies', 'home_flood_policy'],
       holds: ['home'],
       trigger: 'Fires when home_flood_policy is no or Not sure (DECISIONS D8); silent for yes.',
       factIds: ['flood-excluded-homeowners', 'flood-nfip-and-private', 'flood-waiting-period', 'flood-claims-outside-high-risk'],
@@ -223,9 +223,9 @@ export default {
     {
       id: 'renters-child-vs-parents-home',
       story: 'S9', file: 'renters', bucket: 'question', kind: 'cross-policy', domain: 'renters', priority: 330, status: 'planned',
-      questions: ['renters_for', 'renters_child_housing'],
+      questions: ['policies', 'renters_for', 'renters_child_housing'],
       holds: ['home'],
-      trigger: 'Fires when renters_for is child_away and the user holds a home policy. renters_for is asked of anyone the host derives a renters policy for (rent or both) and of a homeowner who ticked renters_with_home in other_items, which is how a parent who owns their home and pays for a child\'s policy is reached (DECISIONS S5-15); do not require ctx.holds(\'renters\'). Dorm asks whether the home policy already covers the child\'s belongings (the renters policy may be redundant), off_campus says the home policy likely does not reach and asks them to confirm the renters policy is still right, Not sure asks both; never a Drop.',
+      trigger: 'Fires when renters_for is child_away and the user holds a home policy. renters_for is asked of anyone who ticked Renters in Q1, which includes a homeowner who ticked Home as well and pays for a child\'s policy (DECISIONS S5-15, R1-4); the flag reads the home policy and renters_for. Dorm asks whether the home policy already covers the child\'s belongings (the renters policy may be redundant), off_campus says the home policy likely does not reach and asks them to confirm the renters policy is still right, Not sure asks both; never a Drop.',
       factIds: ['student-dorm-covered-by-parents', 'student-dorm-limit', 'student-off-campus-not-covered', 'school-landlord-insurance-not-covering-belongings', 'student-renters-decision-factors'],
       sourceIds: ['iii-college-student-losses', 'naic-renters-college-2024', 'naic-renters-college-students', 'iii-am-i-covered', 'iii-renters-insurance'],
       wording: 'Use "generally" and "may" (S3a-home-4). Never state 10 percent as a rule (it is one undated brochure). Never a Drop; a separate renters policy is a thing to confirm.',
@@ -235,7 +235,7 @@ export default {
     {
       id: 'health-auto-medpay-overlap',
       story: 'S10', file: 'health', bucket: 'question', kind: 'cross-policy', domain: 'health', priority: 410, status: 'planned',
-      questions: ['auto_medpay'],
+      questions: ['policies', 'auto_medpay'],
       holds: ['health', 'auto'],
       trigger: 'Fires when auto_medpay is yes or Not sure; silent for no. Asks both insurers how the two work together after a crash and whether the auto coverage is still needed.',
       factIds: ['auto-medpay-pip-definition', 'auto-medpay-coordination-of-benefits-model', 'medpay-health-insurance-coordination', 'home-medical-payments-to-others-guests-only'],
@@ -245,7 +245,7 @@ export default {
     {
       id: 'health-supplemental-boltons',
       story: 'S10', file: 'health', bucket: 'question', kind: 'cross-policy', domain: 'health', priority: 420, status: 'planned',
-      questions: ['health_supplemental', 'emergency_cushion'],
+      questions: ['policies', 'health_supplemental', 'emergency_cushion'],
       holds: ['health'],
       trigger: 'Fires when health_supplemental includes accident, critical_illness, hospital_indemnity or cancer; emphasis strong when emergency_cushion is 5000_plus; a Not sure answer fires a softer check of paycheck deductions; silent for none.',
       factIds: ['fixed-indemnity-not-substitute-for-comprehensive-coverage', 'supplemental-product-types-federal-categories', 'limited-benefit-plans-marketed-as-comprehensive', 'hsa-compatible-with-limited-supplemental-coverage'],
@@ -255,7 +255,7 @@ export default {
     {
       id: 'health-hsa-nudge',
       story: 'S10', file: 'health', bucket: 'question', kind: 'education', domain: 'health', priority: 430, status: 'planned',
-      questions: ['health_hsa'],
+      questions: ['policies', 'health_hsa'],
       holds: ['health'],
       trigger: 'Fires when health_hsa is hdhp_hsa (a light nudge about the HSA\'s tax advantages and carryover) or hdhp_only (ask whether the plan is HSA-eligible and an HSA can be opened); silent for neither and for Not sure.',
       factIds: ['hsa-eligibility-requires-hdhp', 'hsa-tax-advantages', 'hsa-vs-health-fsa', 'hsa-hdhp-thresholds-2026-2027'],
@@ -265,7 +265,7 @@ export default {
     {
       id: 'health-short-term-plan-alongside',
       story: 'S10', file: 'health', bucket: 'question', kind: 'cross-policy', domain: 'health', priority: 440, status: 'planned',
-      questions: ['health_short_term'],
+      questions: ['policies', 'health_short_term'],
       holds: ['health'],
       trigger: 'Fires when health_short_term is yes; silent for no and for Not sure.',
       factIds: ['stldi-lacks-federal-aca-protections', 'marketplace-plans-cover-preexisting-conditions-and-ehb', 'stldi-state-variation', 'stldi-2025-enforcement-pause'],
@@ -275,7 +275,7 @@ export default {
     {
       id: 'deductible-exceeds-cushion-auto',
       story: 'S10', file: 'deductible', bucket: 'question', kind: 'cross-policy', domain: 'deductible', priority: 450, status: 'planned',
-      questions: ['deductible_auto', 'emergency_cushion', 'auto_collision'],
+      questions: ['policies', 'deductible_auto', 'emergency_cushion', 'auto_collision'],
       holds: ['auto'],
       trigger: 'Fires when the deductible band\'s lower edge is above the top of the cushion band (deductible min > cushion max; a 5000_plus cushion never fires); a Not sure deductible never fires; a Not sure cushion fires at normal emphasis when the deductible\'s lower edge is 1000 or more; it stays silent when auto_collision is no, because without collision there is no collision deductible.',
       factIds: ['deductible-premium-tradeoff-and-affordability', 'home-auto-deductible-forms-and-ranges', 'shed-savings-only-largest-expense-2025', 'shed-unexpected-medical-expense-2025'],
@@ -285,7 +285,7 @@ export default {
     {
       id: 'deductible-exceeds-cushion-home',
       story: 'S10', file: 'deductible', bucket: 'question', kind: 'cross-policy', domain: 'deductible', priority: 460, status: 'planned',
-      questions: ['deductible_home', 'emergency_cushion'],
+      questions: ['policies', 'deductible_home', 'emergency_cushion'],
       holds: ['home'],
       trigger: 'Same rule as deductible-exceeds-cushion-auto, using deductible_home: fires when the deductible\'s lower edge is above the top of the cushion band; a Not sure deductible never fires; a Not sure cushion fires at normal emphasis when the deductible\'s lower edge is 1000 or more.',
       factIds: ['deductible-premium-tradeoff-and-affordability', 'home-auto-deductible-forms-and-ranges', 'shed-savings-only-largest-expense-2025', 'shed-unexpected-medical-expense-2025'],
@@ -295,7 +295,7 @@ export default {
     {
       id: 'deductible-exceeds-cushion-health',
       story: 'S10', file: 'deductible', bucket: 'question', kind: 'cross-policy', domain: 'deductible', priority: 470, status: 'planned',
-      questions: ['deductible_health', 'emergency_cushion'],
+      questions: ['policies', 'deductible_health', 'emergency_cushion'],
       holds: ['health'],
       trigger: 'Same rule as deductible-exceeds-cushion-auto, using deductible_health: fires when the deductible\'s lower edge is above the top of the cushion band; a Not sure deductible never fires; a Not sure cushion fires at normal emphasis when the deductible\'s lower edge is 1000 or more.',
       factIds: ['deductible-definition', 'out-of-pocket-maximum-definition', 'shed-savings-only-largest-expense-2025', 'shed-unexpected-medical-expense-2025'],
@@ -307,7 +307,7 @@ export default {
     {
       id: 'other-rental-car-waiver',
       story: 'S11', file: 'other', bucket: 'drop', kind: 'cross-policy', domain: 'other', priority: 510, status: 'planned',
-      questions: ['other_items', 'cards', 'card_usual_payment', 'auto_collision'],
+      questions: ['policies', 'cards', 'card_usual_payment', 'auto_collision'],
       holds: ['rental_car', 'auto'],
       trigger: 'Fires when rental_car is held; emphasis strong when a held card has a verified rentalCar benefit (ctx.cardsWith) and card_usual_payment is yes; softer when the user holds no auto policy or auto_collision is no (their own policy may not extend to a rental); Not sure answers never raise emphasis.',
       factIds: ['rental-waiver-what-it-is', 'rental-waiver-often-unneeded-if-covered', 'rental-personal-auto-usually-extends', 'rental-decline-without-cover-you-pay', 'rental-card-coverage-usually-secondary', 'rental-card-requires-declining-waiver'],
@@ -317,7 +317,7 @@ export default {
     {
       id: 'other-towing-roadside-duplicate',
       story: 'S11', file: 'other', bucket: 'drop', kind: 'cross-policy', domain: 'other', priority: 520, status: 'planned',
-      questions: ['other_items', 'roadside_sources', 'cards'],
+      questions: ['policies', 'roadside_sources', 'cards'],
       holds: ['towing'],
       trigger: 'Fires when towing is held and roadside_sources includes two or more of auto_policy, club, card and car_maker (other and Not sure do not count); a card is named only when the card table supports it; with fewer sources it stays silent.',
       factIds: ['roadside-auto-policy-coverage', 'roadside-memberships-may-overlap', 'roadside-towing-what-it-is', 'roadside-overlaps-memberships'],
@@ -327,7 +327,7 @@ export default {
     {
       id: 'other-vehicle-towing-check',
       story: 'S11', file: 'other', bucket: 'question', kind: 'cross-policy', domain: 'other', priority: 530, status: 'planned',
-      questions: ['other_items', 'towing_vehicle_policy', 'roadside_sources'],
+      questions: ['policies', 'towing_vehicle_policy', 'roadside_sources'],
       holds: ['towing', 'motorcycle', 'boat'],
       trigger: 'Fires when towing_vehicle_policy is yes or Not sure: asks whether the same help already comes from the car\'s roadside add-on, a club or a card. A Question, not a Drop (DECISIONS S3a-other-7 overrides the SPEC\'s Drop for this one).',
       factIds: ['roadside-other-vehicles'],
@@ -337,7 +337,7 @@ export default {
     {
       id: 'other-travel-insurance-overlap',
       story: 'S11', file: 'other', bucket: 'drop', kind: 'cross-policy', domain: 'other', priority: 540, status: 'planned',
-      questions: ['other_items', 'cards', 'card_usual_payment'],
+      questions: ['policies', 'cards', 'card_usual_payment'],
       holds: ['travel'],
       trigger: 'Fires when travel is held; the generic text asks them to compare the policy with what they already have (a card\'s trip protection, home or renters belongings cover, life insurance for accidental death); emphasis strong only when a held card has a verified tripProtection benefit and card_usual_payment is yes; a Not sure card_usual_payment never raises emphasis.',
       factIds: ['travel-coverage-types', 'travel-credit-card-benefits-exist', 'travel-other-existing-coverage', 'travel-exclusions-and-limits', 'travel-accidental-death-duplicate', 'travel-cost-share'],
@@ -347,7 +347,7 @@ export default {
     {
       id: 'other-phone-insurance-card',
       story: 'S11', file: 'other', bucket: 'question', kind: 'cross-policy', domain: 'other', priority: 550, status: 'planned',
-      questions: ['other_items', 'phone_bill_on_card', 'cards'],
+      questions: ['policies', 'phone_bill_on_card', 'cards'],
       holds: ['phone', 'home', 'renters'],
       trigger: 'Fires when phone is held and asks whether a card or the home or renters policy already covers the phone; the "route the bill through the card" move (put the bill on the card, then cancel the carrier plan) is stated as an action only when the card table verifies a cellPhone benefit on a held card and phone_bill_on_card is yes, which also makes the emphasis strong (a Not sure phone_bill_on_card never triggers that move); with the real, empty card table the text stays generic.',
       factIds: ['off-premises-belongings-covered', 'off-premises-cap-ten-percent'],
@@ -357,7 +357,7 @@ export default {
     {
       id: 'other-extended-warranty-overlap',
       story: 'S11', file: 'other', bucket: 'drop', kind: 'cross-policy', domain: 'other', priority: 560, status: 'planned',
-      questions: ['other_items', 'cards', 'card_usual_payment'],
+      questions: ['policies', 'cards', 'card_usual_payment'],
       holds: ['warranty'],
       trigger: 'Fires when warranty is held; the generic text uses the FTC value test (does it add anything beyond the warranty you already have, hidden costs, would savings be better); emphasis strong only when a held card has a verified extendedWarranty benefit and card_usual_payment is yes; a Not sure card_usual_payment never raises emphasis.',
       factIds: ['warranty-extended-is-separate-and-may-overlap', 'warranty-value-questions'],
@@ -367,7 +367,7 @@ export default {
     {
       id: 'other-add-on-term-life',
       story: 'S11', file: 'other', bucket: 'question', kind: 'cross-policy', domain: 'other', priority: 570, status: 'planned',
-      questions: ['other_items', 'term_life'],
+      questions: ['policies', 'term_life'],
       holds: ['accidental_death', 'travel'],
       trigger: 'Fires when accidental_death is held and term_life is answered (it stays silent while term_life is unanswered), with text by term_life: own (the term life may already pay for an accidental death, while the AD&D adds a further payout and may pay for non-fatal losses; ask whether the term life already covers what the AD&D is for, what the AD&D pays beyond it and whether that is worth the price), work_only (employer life is often modest and tied to the job; ask whether total coverage is enough), none (accidental death coverage is not a substitute for regular life insurance), Not sure (ask what life coverage exists, then what the AD&D pays beyond it); when travel is also held the text adds that a travel policy\'s accidental death coverage can duplicate life insurance too; never says "drop it".',
       factIds: ['add-definition-accident-only', 'add-rider-pays-extra-for-accident', 'term-life-pays-on-death-in-term', 'add-employer-coverage-ends-with-job', 'employer-life-typical-size', 'travel-accidental-death-duplicate'],

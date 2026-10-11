@@ -6,11 +6,12 @@
 //   s.prune(answers)              // answers restricted to visible questions and known option ids
 //
 // A question is visible iff its `showIf` holds AND every question that `showIf` references is itself
-// visible (transitive). Reading is always done on a sanitized view of the answers (unknown option ids
+// visible (transitive). A `{ holds }` condition reads Q1, the ordinary asked question `policies`, so it counts as
+// a reference to that question. Reading is always done on a sanitized view of the answers (unknown option ids
 // and wrong shapes removed), so visibility and prune() can never disagree.
-import { NOT_SURE, POLICIES_KEY } from './constants.mjs';
+import { NOT_SURE, POLICIES_QUESTION_ID } from './constants.mjs';
 import { evaluateCondition, checkCondition, conditionRefs } from './conditions.mjs';
-import { isPlainObject, hasOwn, clonePlain, deepFreeze, compareStrings, describe } from './util.mjs';
+import { isPlainObject, hasOwn, clonePlain, deepFreeze, describe } from './util.mjs';
 
 const NOT_SURE_LABEL = 'Not sure';
 
@@ -38,7 +39,10 @@ export function createSession(catalog) {
     if (q.showIf) {
       const errors = checkCondition(q.showIf);
       if (errors.length > 0) throw new Error(`Malformed condition in showIf of question "${q.id}": ${errors.join('; ')}`);
-      refs.set(q.id, conditionRefs(q.showIf).answers.map((r) => r.qid));
+      const found = conditionRefs(q.showIf);
+      const ids = found.answers.map((r) => r.qid);
+      if (found.holds.length > 0 && !ids.includes(POLICIES_QUESTION_ID)) ids.push(POLICIES_QUESTION_ID);
+      refs.set(q.id, ids);
     } else {
       refs.set(q.id, []);
     }
@@ -65,16 +69,7 @@ export function createSession(catalog) {
     return typeof value === 'string' && q.options.some((o) => o.id === value) ? value : undefined;
   }
 
-  function cleanPolicies(list) {
-    const seen = {};
-    const out = [];
-    for (const p of list) {
-      if (typeof p === 'string' && !hasOwn(seen, p)) { seen[p] = true; out.push(p); }
-    }
-    return out.sort(compareStrings);
-  }
-
-  // Sanitized copy: known questions with valid answers, plus the derived policies list.
+  // Sanitized copy: known questions with valid answers (Q1, `policies`, is one of them like any other).
   function normalize(answers) {
     const src = isPlainObject(answers) ? answers : {};
     const out = {};
@@ -83,7 +78,6 @@ export function createSession(catalog) {
       const v = cleanAnswer(q, src[q.id]);
       if (v !== undefined) out[q.id] = v;
     }
-    if (Array.isArray(src[POLICIES_KEY])) out[POLICIES_KEY] = cleanPolicies(src[POLICIES_KEY]);
     return out;
   }
 
@@ -136,7 +130,7 @@ export function createSession(catalog) {
       return questions.filter((q) => vis.get(q.id) === true);
     },
 
-    /** New answers object holding only valid answers to visible questions (plus a normalized `policies`). */
+    /** New answers object holding only valid answers to visible questions. */
     prune(answers) {
       const norm = normalize(answers);
       const vis = visibility(norm);
@@ -144,7 +138,6 @@ export function createSession(catalog) {
       for (const q of questions) {
         if (vis.get(q.id) === true && hasOwn(norm, q.id)) out[q.id] = norm[q.id];
       }
-      if (hasOwn(norm, POLICIES_KEY)) out[POLICIES_KEY] = norm[POLICIES_KEY];
       return out;
     },
 

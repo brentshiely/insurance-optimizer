@@ -1,5 +1,5 @@
 // Section "extras_detail": follow-ups on the Other-bucket items, asked ONLY where the answer changes an output
-// (DECISIONS S5-9). Everything else about those items is already known from `other_items` and `cards`.
+// (DECISIONS S5-9). Everything else about those items is already known from Q1 (`policies`) and `cards`.
 //   phone_bill_on_card      a card's phone protection may depend on how the bill is paid (SPEC: "the trim move
 //                           is often stop paying the carrier, route the bill through the card").
 //   roadside_sources        what already gives roadside help: more than one source is the duplicate.

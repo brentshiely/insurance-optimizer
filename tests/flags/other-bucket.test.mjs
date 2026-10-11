@@ -12,7 +12,7 @@
 //   * sweeps over many policy and answer combinations: copy rules (no state, no placeholder, no dash, no
 //     acronym left undefined), no card named without a table, determinism, inputs never mutated, and the questions each flag reads stay inside
 //     the plan;
-//   * one end-to-end evaluate() per flag on the real catalog through the real adapter (derived `policies`).
+//   * one end-to-end evaluate() per flag on the real catalog with plain answers (Q1, `policies`, holds the ticks).
 //
 // Pure data checks; runs under jsc and Node (no URL, console, Date or Intl).
 import { suite, assert } from '../harness.mjs';
@@ -22,7 +22,6 @@ import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { CARDS } from '../../public/js/overlap/data/cards.mjs';
 import { CARD_CHOICES } from '../../public/js/overlap/data/questions/cards.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import PLAN from '../fixtures/flagPlan.mjs';
 import { FIXTURE_CARDS, UNVERIFIED_MARKER, NONE_MARKER } from '../fixtures/otherCards.mjs';
@@ -61,19 +60,20 @@ const nameOf = (optionId) => FIXTURE_CARDS[cardIdOf(optionId)].name;
 const isConfirmed = (optionId, key) => CONFIRMED.includes(statusOf(optionId, key));
 const realCards = (set) => set.filter((c) => c !== 'other_none');
 
-// A host snapshot with sensible defaults (owns a home, one car), turned into engine answers by the real adapter.
-function snapshot({ a = { home: 'Own', veh: '1' }, extras = [], q = {}, p = {}, o = {} } = {}) {
-  return { a, extras, q, p, o };
-}
-const answersFor = (opts) => deriveAnswers(snapshot(opts));
-const run = (opts, catalog = CATALOG) => evaluate(answersFor(opts), catalog);
+// Plain answers. Q1 (`policies`) holds what the user ticked; every other key is the user's own tap on a closed list.
+// By default the household owns a home and has one car (BASE). `rest.base` replaces that list and `rest.plus` adds
+// policies on top of it (for example a motorcycle).
+const BASE = ['auto', 'home'];
+const plain = (policies, more) => ({ policies: policies.slice(), ...(more || {}) });
+const run = (answers, catalog = CATALOG) => evaluate(answers, catalog);
 const allFlags = (r) => [...r.flags.raise, ...r.flags.drop, ...r.flags.question];
 const find = (r, id) => allFlags(r).find((f) => f.id === id);
 const otherIds = (r) => allFlags(r).map((f) => f.id).filter((id) => ALL_IDS.includes(id));
 const textOf = (f) => [f.title, f.background, f.ask, f.reason].join('\n');
 
 // Shorthand scenario builders
-const items = (list, more = {}, rest = {}) => ({ ...rest, o: { other_items: list, ...more } });
+// `list` is the Other-bucket items ticked in Q1 ('none' ticks nothing).
+const items = (list, more = {}, rest = {}) => plain([...(rest.base || BASE), ...(rest.plus || []), ...list.filter((id) => id !== 'none')], more);
 const withCards = (set, usual) => {
   const o = { cards: set };
   if (usual !== undefined && !set.includes('other_none')) o.card_usual_payment = usual;
@@ -224,7 +224,7 @@ suite('other-rental-car-waiver', (t) => {
   });
 
   t('quotes no price (the NAIC per-day figures are undated)', () => {
-    for (const opts of [rental(), rental({}, { a: { veh: '0' } }), rental(withCards([ALPHA], 'yes'))]) {
+    for (const opts of [rental(), rental({}, { base: ['home'] }), rental(withCards([ALPHA], 'yes'))]) {
       assert.equal(/\$|per day|a day/i.test(textOf(find(run(opts, WITH_CARDS), RENTAL))), false);
     }
   });
@@ -234,7 +234,7 @@ suite('other-rental-car-waiver', (t) => {
     assert.includes(withCar.background, 'collision and comprehensive');
     assert.equal(withCar.background.includes('did not tell us about a car insurance policy'), false);
 
-    const noCar = find(run(rental({}, { a: { home: 'Own', veh: '0' } })), RENTAL);
+    const noCar = find(run(rental({}, { base: ['home'] })), RENTAL);
     assert.includes(noCar.background, 'You did not tell us about a car insurance policy');
     assert.includes(noCar.ask, 'find out what would pay');
     assert.includes(noCar.reason, 'what would pay if a rental car were damaged');
@@ -272,7 +272,7 @@ suite('other-rental-car-waiver', (t) => {
       assert.equal(find(run(rental(withCards([ALPHA], usual)), WITH_CARDS), RENTAL).emphasis, 'normal', `usual payment ${usual}`);
     }
     // softer when the user holds no car policy, or says they have no collision on a cheap paid-off car
-    assert.equal(find(run(rental(withCards([ALPHA], 'yes'), { a: { home: 'Own', veh: '0' } }), WITH_CARDS), RENTAL).emphasis, 'normal');
+    assert.equal(find(run(rental(withCards([ALPHA], 'yes'), { base: ['home'] }), WITH_CARDS), RENTAL).emphasis, 'normal');
     assert.equal(find(run(rental({ ...withCards([ALPHA], 'yes'), ...cheapCar('no') }), WITH_CARDS), RENTAL).emphasis, 'normal');
     assert.equal(find(run(rental({ ...withCards([ALPHA], 'yes'), ...cheapCar('yes') }), WITH_CARDS), RENTAL).emphasis, 'strong');
     // Not sure never raises emphasis, and a Not sure collision answer does not lower it either
@@ -352,7 +352,7 @@ suite('other-towing-roadside-duplicate', (t) => {
   });
 
   t('stays silent when towing is not ticked even if the follow-up answer is still in memory', () => {
-    const r = run({ o: { other_items: ['travel'], roadside_sources: ['club', 'card'] } });
+    const r = run(items(['travel'], { roadside_sources: ['club', 'card'] }));
     assert.equal(find(r, TOWING), undefined);
   });
 
@@ -413,10 +413,10 @@ suite('other-towing-roadside-duplicate', (t) => {
 // ---------------------------------------------------------------------------------------------------
 
 suite('other-vehicle-towing-check', (t) => {
-  const MOTO = { extras: ['Motorcycle'] };
-  const BOAT = { extras: ['Boat'] };
-  const BOTH = { extras: ['Motorcycle', 'Boat'] };
-  const scenario = (answer, rest, more = {}) => items(['towing'], { towing_vehicle_policy: answer, ...more }, { a: { home: 'Own', veh: '1' }, ...rest });
+  const MOTO = { plus: ['motorcycle'] };
+  const BOAT = { plus: ['boat'] };
+  const BOTH = { plus: ['motorcycle', 'boat'] };
+  const scenario = (answer, rest, more = {}) => items(['towing'], { towing_vehicle_policy: answer, ...more }, rest);
 
   t('fires on yes and on Not sure, as a Question, for a motorcycle, a boat or both', () => {
     for (const rest of [MOTO, BOAT, BOTH]) {
@@ -570,10 +570,10 @@ suite('other-phone-insurance-card', (t) => {
   });
 
   t('the home and renters sentence follows the policies the user holds', () => {
-    assert.includes(find(run(phone({}, { a: { home: 'Own', veh: '1' } })), PHONE).background, 'Your homeowners policy generally covers your belongings');
-    assert.includes(find(run(phone({}, { a: { home: 'Rent', veh: '1' } })), PHONE).background, 'Your renters policy generally covers your belongings');
-    assert.includes(find(run(phone({}, { a: { home: 'Both', veh: '1' } })), PHONE).background, 'Your homeowners or renters policy generally covers your belongings');
-    assert.equal(find(run(phone({}, { a: { veh: '1' } })), PHONE).background.includes('generally covers your belongings'), false, 'neither policy held');
+    assert.includes(find(run(phone({}, { base: ['auto', 'home'] })), PHONE).background, 'Your homeowners policy generally covers your belongings');
+    assert.includes(find(run(phone({}, { base: ['auto', 'renters'] })), PHONE).background, 'Your renters policy generally covers your belongings');
+    assert.includes(find(run(phone({}, { base: ['auto', 'home', 'renters'] })), PHONE).background, 'Your homeowners or renters policy generally covers your belongings');
+    assert.equal(find(run(phone({}, { base: ['auto'] })), PHONE).background.includes('generally covers your belongings'), false, 'neither policy held');
     const f = find(run(phone()), PHONE);
     assert.includes(f.background, 'Ask whether it covers a phone and what you would pay out of pocket first');
   });
@@ -985,9 +985,9 @@ function scenarios() {
     collision: ['no', 'yes', 'not_sure', undefined],
     financing: ['loan', 'paid_off', 'paid_off'],
     value: ['under_3000', '3000_9999', 'under_3000'],
-    extras: [[], ['Motorcycle'], ['Boat'], ['Motorcycle', 'Boat']],
-    home: ['Own', 'Rent', 'Both', undefined],
-    veh: ['0', '1', '1', '2'],
+    extras: [[], ['motorcycle'], ['boat'], ['motorcycle', 'boat']],
+    home: [['home'], ['renters'], ['home', 'renters'], []],
+    car: [[], ['auto'], ['auto'], ['auto']],
   };
   const out = [];
   let n = 0;
@@ -999,7 +999,7 @@ function scenarios() {
         return list[Math.floor((h / 4294967296) * list.length)];
       };
       const list = names.filter((_, i) => (mask & (1 << i)) !== 0);
-      const o = { other_items: list.length ? list : ['none'] };
+      const o = {};
       const set = pick('cards', 1);
       if (set.length) o.cards = set;
       const optional = { card_usual_payment: pick('usual', 2), roadside_sources: pick('roadside', 3), towing_vehicle_policy: pick('vehicle', 4), phone_bill_on_card: pick('bill', 5), term_life: pick('term', 6), auto_collision: pick('collision', 7) };
@@ -1008,7 +1008,7 @@ function scenarios() {
       o.auto_value = pick('value', 9);
       out.push({
         label: `#${n} ${list.join('+') || 'none'} cards=${JSON.stringify(set)}`,
-        opts: { a: { home: pick('home', 10), veh: pick('veh', 11) }, extras: pick('extras', 12), o },
+        opts: plain([...pick('home', 10), ...pick('car', 11), ...pick('extras', 12), ...list], o),
       });
       n++;
     }
@@ -1034,8 +1034,8 @@ suite('other bucket: organisation names and acronyms are spelled out', (t) => {
     const FTC_DEF = 'the Federal Trade Commission (FTC, a federal consumer protection agency)';
     const bg = (opts, id) => find(run(opts, NO_CARDS), id).background;
     assert.includes(bg(items(['towing'], { roadside_sources: ['auto_policy', 'club'] }), TOWING), NAIC_DEF);
-    assert.includes(bg(items(['towing'], { towing_vehicle_policy: 'yes' }, { extras: ['Motorcycle'] }), VEHICLE), NAIC_DEF);
-    assert.includes(bg(items(['towing'], { towing_vehicle_policy: 'yes' }, { extras: ['Boat'] }), VEHICLE), `The ${TRIPLE_I_DEF}`);
+    assert.includes(bg(items(['towing'], { towing_vehicle_policy: 'yes' }, { plus: ['motorcycle'] }), VEHICLE), NAIC_DEF);
+    assert.includes(bg(items(['towing'], { towing_vehicle_policy: 'yes' }, { plus: ['boat'] }), VEHICLE), `The ${TRIPLE_I_DEF}`);
     assert.includes(bg(items(['travel']), TRAVEL), NAIC_DEF);
     assert.includes(bg(items(['warranty']), WARRANTY), FTC_DEF);
     assert.includes(bg(items(['accidental_death'], { term_life: 'work_only' }), ADD), NAIC_DEF);
@@ -1043,12 +1043,12 @@ suite('other bucket: organisation names and acronyms are spelled out', (t) => {
   });
 
   t('no acronym is left undefined in the title, background, ask or reason of any flag, in any branch, on either catalog', () => {
-    const extras = [[], ['Motorcycle'], ['Boat'], ['Motorcycle', 'Boat']];
+    const extras = [[], ['motorcycle'], ['boat'], ['motorcycle', 'boat']];
     const sets = [];
     for (const list of [['rental_car'], ['towing'], ['travel'], ['phone'], ['warranty'], ['accidental_death'], ['accidental_death', 'travel'], ['towing', 'rental_car', 'travel', 'phone', 'warranty', 'accidental_death']]) {
       for (const term of ['own', 'work_only', 'none', 'not_sure']) {
         for (const x of extras) {
-          sets.push({ extras: x, o: { other_items: list, term_life: term, roadside_sources: ['auto_policy', 'club', 'card'], towing_vehicle_policy: 'yes', phone_bill_on_card: 'yes', cards: [ALPHA, BETA] } });
+          sets.push(items(list, { term_life: term, roadside_sources: ['auto_policy', 'club', 'card'], towing_vehicle_policy: 'yes', phone_bill_on_card: 'yes', cards: [ALPHA, BETA] }, { plus: x }));
         }
       }
     }
@@ -1152,7 +1152,7 @@ suite('other bucket: sweeps over policy and answer combinations', (t) => {
     const frozenFixture = deepFreeze(copy(WITH_CARDS));
     GRID.forEach((s, i) => {
       if (i % 5 !== 0) return;
-      const answers = deepFreeze(copy(answersFor(s.opts)));
+      const answers = deepFreeze(copy(s.opts));
       for (const catalog of [frozenReal, frozenFixture]) {
         const first = evaluate(answers, catalog);
         const second = evaluate(answers, catalog);
@@ -1168,7 +1168,7 @@ suite('other bucket: sweeps over policy and answer combinations', (t) => {
     ALL_IDS.forEach((id) => { read[id] = { q: {}, holds: {} }; });
     for (const s of GRID) {
       for (const catalog of [NO_CARDS, WITH_CARDS]) {
-        const ctx = createContext(answersFor(s.opts), catalog);
+        const ctx = createContext(s.opts, catalog);
         for (const flag of FLAGS) {
           const log = read[flag.id];
           const spy = {
@@ -1202,16 +1202,15 @@ suite('other bucket: sweeps over policy and answer combinations', (t) => {
 });
 
 // ---------------------------------------------------------------------------------------------------
-// 11. End to end: real catalog, real adapter, derived `policies`
+// 11. End to end: real catalog, plain answers (Q1 holds the ticks)
 // ---------------------------------------------------------------------------------------------------
 
 suite('other bucket: end to end on the real catalog', (t) => {
-  // Each scenario is a host snapshot. No card is ticked, so these hold whatever the real card table contains.
+  // Each scenario is a set of plain answers. No card is ticked, so these hold whatever the real card table contains.
   const place = (r, id) => (['raise', 'drop', 'question'].find((b) => r.flags[b].some((f) => f.id === id)));
 
   t('rental car: a homeowner with one car who pays for rental coverage gets a Drop with the generic card wording', () => {
-    const snap = snapshot({ o: { other_items: ['rental_car'] } });
-    const answers = deriveAnswers(snap);
+    const answers = items(['rental_car']);
     assert.includes(answers.policies, 'rental_car');
     const r = evaluate(answers);
     assert.equal(place(r, RENTAL), 'drop');
@@ -1223,61 +1222,54 @@ suite('other bucket: end to end on the real catalog', (t) => {
   });
 
   t('towing: two sources of roadside help give a Drop', () => {
-    const r = evaluate(deriveAnswers(snapshot({ o: { other_items: ['towing'], roadside_sources: ['auto_policy', 'club'], cards: ['other_none'] } })));
+    const r = evaluate(items(['towing'], { roadside_sources: ['auto_policy', 'club'], cards: ['other_none'] }));
     assert.equal(place(r, TOWING), 'drop');
     assert.equal(find(r, TOWING).emphasis, 'normal');
     assert.equal(place(r, VEHICLE), undefined, 'no motorcycle or boat, so the vehicle question is not asked');
   });
 
   t('motorcycle or boat towing: a Question, not a Drop', () => {
-    const r = evaluate(deriveAnswers(snapshot({
-      extras: ['Boat'],
-      o: { other_items: ['towing'], towing_vehicle_policy: 'yes', roadside_sources: ['other'] },
-    })));
+    const r = evaluate(items(['towing'], { towing_vehicle_policy: 'yes', roadside_sources: ['other'] }, { plus: ['boat'] }));
     assert.equal(place(r, VEHICLE), 'question');
     assert.equal(place(r, TOWING), undefined, '"something else" alone is not a duplicate');
     assert.equal(find(r, VEHICLE).title, 'Check where the towing help on your boat comes from');
   });
 
   t('travel: a Drop whose generic text compares what the user already has', () => {
-    const r = evaluate(deriveAnswers(snapshot({ o: { other_items: ['travel'], cards: ['other_none'] } })));
+    const r = evaluate(items(['travel'], { cards: ['other_none'] }));
     assert.equal(place(r, TRAVEL), 'drop');
     assert.equal(find(r, TRAVEL).emphasis, 'normal');
   });
 
   t('phone: a Question that asks about the card and the home policy', () => {
-    const r = evaluate(deriveAnswers(snapshot({ o: { other_items: ['phone'], phone_bill_on_card: 'yes', cards: ['other_none'] } })));
+    const r = evaluate(items(['phone'], { phone_bill_on_card: 'yes', cards: ['other_none'] }));
     assert.equal(place(r, PHONE), 'question');
     assert.includes(find(r, PHONE).background, 'Your homeowners policy generally covers your belongings');
     assert.deepEqual(find(r, PHONE).sources.map((s) => s.id), ['iii-standard-homeowners-coverage', 'iii-renters-insurance']);
   });
 
   t('extended warranty: a Drop built on the FTC value test', () => {
-    const r = evaluate(deriveAnswers(snapshot({ o: { other_items: ['warranty'], cards: ['other_none'] } })));
+    const r = evaluate(items(['warranty'], { cards: ['other_none'] }));
     assert.equal(place(r, WARRANTY), 'drop');
     assert.deepEqual(find(r, WARRANTY).sources.map((s) => s.id), ['ftc-extended-warranties-service-contracts', 'ftc-warranties']);
   });
 
   t('accidental death: a Question that changes with the life insurance answer', () => {
-    const own = evaluate(deriveAnswers(snapshot({ o: { other_items: ['accidental_death'], term_life: 'own' } })));
+    const own = evaluate(items(['accidental_death'], { term_life: 'own' }));
     assert.equal(place(own, ADD), 'question');
-    const work = evaluate(deriveAnswers(snapshot({ o: { other_items: ['accidental_death'], term_life: 'work_only' } })));
+    const work = evaluate(items(['accidental_death'], { term_life: 'work_only' }));
     assert.notEqual(find(own, ADD).ask, find(work, ADD).ask);
     assert.equal(find(own, ADD).sources.length, 4);
   });
 
   t('everything ticked: the Drops come out in priority order, the Questions after, nothing else from this bucket', () => {
-    const r = evaluate(deriveAnswers(snapshot({
-      extras: ['Motorcycle'],
-      o: {
-        other_items: ['rental_car', 'towing', 'travel', 'phone', 'warranty', 'accidental_death'],
-        cards: ['other_none'],
-        roadside_sources: ['auto_policy', 'club'],
-        towing_vehicle_policy: 'not_sure',
-        phone_bill_on_card: 'no',
-        term_life: 'none',
-      },
-    })));
+    const r = evaluate(items(['rental_car', 'towing', 'travel', 'phone', 'warranty', 'accidental_death'], {
+      cards: ['other_none'],
+      roadside_sources: ['auto_policy', 'club'],
+      towing_vehicle_policy: 'not_sure',
+      phone_bill_on_card: 'no',
+      term_life: 'none',
+    }, { plus: ['motorcycle'] }));
     assert.deepEqual(r.flags.drop.filter((f) => ALL_IDS.includes(f.id)).map((f) => f.id), [RENTAL, TOWING, TRAVEL, WARRANTY]);
     assert.deepEqual(r.flags.question.filter((f) => ALL_IDS.includes(f.id)).map((f) => f.id), [VEHICLE, PHONE, ADD]);
     assert.deepEqual(r.flags.raise.filter((f) => ALL_IDS.includes(f.id)), []);
@@ -1285,9 +1277,10 @@ suite('other bucket: end to end on the real catalog', (t) => {
 
   t('nothing ticked: no flag from this bucket', () => {
     for (const list of [[], ['none']]) {
-      const r = evaluate(deriveAnswers(snapshot({ o: { other_items: list } })));
+      const r = evaluate(items(list));
       assert.deepEqual(otherIds(r), []);
     }
-    assert.deepEqual(otherIds(evaluate(deriveAnswers(snapshot()))), [], 'other_items unanswered');
+    assert.deepEqual(otherIds(evaluate(plain(BASE))), [], 'no Other-bucket item ticked');
+    assert.deepEqual(otherIds(evaluate({})), [], 'Q1 unanswered');
   });
 });

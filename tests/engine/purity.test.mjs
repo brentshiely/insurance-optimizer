@@ -4,7 +4,7 @@
 import { suite, assert } from '../harness.mjs';
 
 const ROOT = 'public/js/overlap/';
-const ENGINE = ['adapter', 'conditions', 'constants', 'evaluate', 'liabilityStack', 'render', 'session', 'util', 'validate'].map((n) => `${ROOT}engine/${n}.mjs`);
+const ENGINE = ['conditions', 'constants', 'evaluate', 'liabilityStack', 'render', 'session', 'util', 'validate'].map((n) => `${ROOT}engine/${n}.mjs`);
 
 const FORBIDDEN = /\b(window|document|navigator|location|localStorage|sessionStorage|indexedDB|process|require|Buffer|URL|URLSearchParams|console|setTimeout|setInterval|setImmediate|queueMicrotask|structuredClone|fetch|XMLHttpRequest|globalThis|Intl|Date|performance|eval|Function)\b|Math\.random|import\s*\(/;
 
@@ -134,7 +134,7 @@ suite('purity: source scan of the pure core', (t) => {
     }
   });
 
-  t('no module imports from tests/ or from the host app', () => {
+  t('no module imports from tests/ or from the page (app.js, overlap-ui)', () => {
     if (!canRead) return;
     const { files, sources } = collect();
     for (const f of files) {

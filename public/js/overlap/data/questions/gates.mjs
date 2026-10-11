@@ -6,15 +6,8 @@ const holds = (policyId) => ({ holds: policyId });
 const all = (...list) => ({ all: list });
 const any = (...list) => ({ any: list });
 
-/** True when the user holds this policy (derived `policies`, see the adapter table). */
+/** True when the user ticked this policy in Q1 (the asked question `policies`, read through `holds`). */
 export const gHolds = (policyId) => holds(policyId);
-
-/**
- * A renters policy the user pays for: the host's own (a.home "Rent" or "Both", derived as `holds('renters')`) or one a
- * homeowner ticked in `other_items`. The tick is read as an answer, not as a policy, because the adapter folds only the six
- * Other-bucket ids into `policies` (DECISIONS S5-15). `other_items` is always visible, so reading it never hides anything.
- */
-export const gRentersPolicy = () => any(holds('renters'), { answer: 'other_items', includes: 'renters_with_home' });
 
 /** Umbrella branch: the umbrella plus one underlying policy. */
 export const gUmbrellaAnd = (policyId) => all(holds('umbrella'), holds(policyId));

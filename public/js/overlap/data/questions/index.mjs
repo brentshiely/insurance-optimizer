@@ -3,9 +3,9 @@
 //
 // QUESTIONS is in display order: sections follow SECTIONS order and each section's questions are contiguous.
 // SECTIONS is the ordered list of wizard sections ({ id, title, reason, showIf }) for the UI (Story S13).
-// Do not ask here for anything the host app already derives (own/rent, vehicles, extras, health yes/no,
-// umbrella yes/no): those arrive as the derived `policies` answer (engine/adapter.mjs).
-import extras from './extras.mjs';
+// The first question is Q1, `policies` ("Which policies do you have?", policies.mjs): an ordinary asked question that
+// every other gate reads through `{ holds }`. Nothing else asks which policies the user has.
+import policies from './policies.mjs';
 import umbrellaStack from './umbrellaStack.mjs';
 import umbrellaVehicles from './umbrellaVehicles.mjs';
 import umbrellaScope from './umbrellaScope.mjs';
@@ -20,7 +20,7 @@ import extrasDetail from './extrasDetail.mjs';
 export { SECTIONS } from './sections.mjs';
 
 export const QUESTIONS = [
-  ...extras,
+  ...policies,
   ...umbrellaStack,
   ...umbrellaVehicles,
   ...umbrellaScope,

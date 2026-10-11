@@ -10,7 +10,8 @@ import { overlapScreenKey } from '../../public/js/overlap-ui/screens.mjs';
 import { overlapSections } from '../../public/js/overlap-ui/viewModel.mjs';
 import { findForbidden, codeOnly, importsOf } from '../helpers/sourceScan.mjs';
 
-const host = (parts = {}) => ({ a: {}, extras: [], q: {}, p: {}, o: {}, ...parts });
+// Plain answers: Q1 (`policies`) holds the ticks, the rest is the user's own taps.
+const ans = (policies, more = {}) => ({ policies, ...more });
 
 // ---------------------------------------------------------------------------------------------------------
 // A stand-in for the rendered screen: just enough of the element API that patchOverlapScreen uses.
@@ -54,13 +55,13 @@ function fakeScreen(sections, screenId) {
 }
 
 suite('patchOverlapScreen: answers update in place', (t) => {
-  const snap0 = host({ a: { home: 'Own', veh: '1' } });
+  const snap0 = ans(['auto', 'home']);
   const sections0 = overlapSections(snap0);
   const sid = 'ovl:auto_gaps';
 
   t('sets pressed state and class from the view-model, enables Continue and hides the hint when complete', () => {
     const o = { auto_financing: 'paid_off', auto_value: 'under_3000', auto_collision: 'yes', auto_um_uim: 'no', auto_rental_reimbursement: 'yes' };
-    const sections = overlapSections(host({ a: { home: 'Own', veh: '1' }, o }));
+    const sections = overlapSections(ans(['auto', 'home'], o));
     const screen = fakeScreen(sections, sid);
     assert.equal(patchOverlapScreen(screen.stage, sections, sid), true);
     const sec = sections.find((s) => 'ovl:' + s.id === sid);
@@ -94,7 +95,7 @@ suite('patchOverlapScreen: answers update in place', (t) => {
 
   t('returns false and changes nothing when the screen has a different shape (a question opened or closed)', () => {
     const screen = fakeScreen(sections0, sid);
-    const loan = overlapSections(host({ a: { home: 'Own', veh: '1' }, o: { auto_financing: 'loan' } }));
+    const loan = overlapSections(ans(['auto', 'home'], { auto_financing: 'loan' }));
     assert.notEqual(overlapScreenKey(loan, sid), overlapScreenKey(sections0, sid));
     assert.equal(patchOverlapScreen(screen.stage, loan, sid), false);
     for (const b of screen.buttons.values()) assert.equal(b.getAttribute('aria-pressed'), 'false');
@@ -103,7 +104,7 @@ suite('patchOverlapScreen: answers update in place', (t) => {
 
   t('returns false when the "N of M" changes (another section opened elsewhere) or the screen is another one', () => {
     const screen = fakeScreen(sections0, sid);
-    const more = overlapSections(host({ a: { home: 'Own', veh: '1' }, q: { health: 'Yes' } }));
+    const more = overlapSections(ans(['auto', 'home', 'health']));
     assert.equal(patchOverlapScreen(screen.stage, more, sid), false);
     assert.equal(patchOverlapScreen(screen.stage, sections0, 'ovl:deductible'), false);
     assert.equal(patchOverlapScreen(screen.stage, sections0, 'summary'), false);

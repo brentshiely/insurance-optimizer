@@ -16,7 +16,6 @@ import other from '../../public/js/overlap/data/flags/other.mjs';
 import { validateCatalog, assertValidCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import { evaluate } from '../../public/js/overlap/engine/evaluate.mjs';
 import { createSession } from '../../public/js/overlap/engine/session.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import FIXTURE from '../fixtures/catalog.mjs';
 
 const FLAG_FILES = { umbrella, umbrellaScope, vehicles, auto, home, renters, health, deductible, other };
@@ -56,7 +55,7 @@ suite('real catalog', (t) => {
   });
   t('a session can be created over the real catalog and evaluate() runs on it', () => {
     const s = createSession(CATALOG);
-    assert.deepEqual(s.visibleQuestions({}).length >= 0, true);
+    assert.deepEqual(s.visibleQuestions({}).map((q) => q.id), ['policies'], 'with nothing answered, only Q1 is asked');
     const r = evaluate({});
     assert.deepEqual(r.flags, { raise: [], drop: [], question: [] });
     assert.equal(r.stack, null);
@@ -67,34 +66,34 @@ suite('real catalog', (t) => {
   });
 });
 
-suite('integration: host snapshot -> adapter -> engine (fixture catalog)', (t) => {
-  const snapshot = {
-    state: 'MN',
-    a: { home: 'Own', veh: '2', dep: 'Yes' },
-    extras: [],
-    q: { health: 'No' },
-    p: { umbrella: { hasUmbrella: 'Yes', limit: 1000000 }, auto: { liability: 999 } },
-    o: { umbrella_limit: '1m', auto_liability: '100_300', home_liability: '300k', umbrella_ext_um: 'no' },
+suite('integration: plain answers -> engine (fixture catalog)', (t) => {
+  // Q1 (`policies`) is an ordinary asked answer; everything else is the user's own tap on a closed list.
+  const answers = {
+    policies: ['auto', 'home', 'umbrella'],
+    umbrella_limit: '1m', auto_liability: '100_300', home_liability: '300k', umbrella_ext_um: 'no',
   };
-  t('derived answers drive the same flags as hand-written answers', () => {
-    const answers = deriveAnswers(snapshot);
-    assert.deepEqual(answers.policies, ['auto', 'home', 'umbrella']);
+  t('answers drive the flags: Q1 opens the umbrella branch, the limits fire the Raise items', () => {
     const r = evaluate(answers, FIXTURE);
     assert.deepEqual(r.flags.raise.map((f) => f.id), ['umbrella-um-missing', 'umbrella-auto-below-attach', 'umbrella-home-below-min']);
   });
-  t('state and policy-screen numbers have no effect on the results', () => {
-    const base = evaluate(deriveAnswers(snapshot), FIXTURE);
-    const other = evaluate(deriveAnswers({ ...snapshot, state: 'FL', p: { umbrella: { hasUmbrella: 'Yes', limit: 5 }, auto: { liability: 1 } } }), FIXTURE);
+  t('keys that are not questions (a state, a stray number, an old-style snapshot) have no effect on the results', () => {
+    const base = evaluate(answers, FIXTURE);
+    const other = evaluate({ ...answers, state: 'FL', p: { umbrella: { hasUmbrella: 'Yes', limit: 5 }, auto: { liability: 1 } }, a: { veh: '9' } }, FIXTURE);
     assert.deepEqual(base, other);
   });
-  t('dropping the umbrella on the host screen silently removes the umbrella branch', () => {
-    const r = evaluate(deriveAnswers({ ...snapshot, p: { umbrella: { hasUmbrella: 'No' } } }), FIXTURE);
+  t('unticking the umbrella in Q1 silently removes the umbrella branch', () => {
+    const r = evaluate({ ...answers, policies: ['auto', 'home'] }, FIXTURE);
     assert.deepEqual(r.flags, { raise: [], drop: [], question: [] });
   });
-  t('Other-bucket selections flow through o.other_items into policies and the cards branch', () => {
-    const answers = deriveAnswers({ o: { other_items: ['rental_car'], cards: ['card_alpha'] } });
-    const r = evaluate(answers, FIXTURE);
+  t('a Q1 tick for an Other-bucket item opens the cards branch', () => {
+    const r = evaluate({ policies: ['rental_car'], cards: ['card_alpha'] }, FIXTURE);
     assert.equal(r.flags.drop[0].id, 'card-rental-duplicate');
     assert.equal(r.flags.drop[0].emphasis, 'strong');
+  });
+  t('"None of these" in Q1 means no policies, so nothing downstream is asked or flagged', () => {
+    const r = evaluate({ ...answers, policies: ['none'] }, FIXTURE);
+    assert.deepEqual(r.flags, { raise: [], drop: [], question: [] });
+    assert.deepEqual(r.meta.visibleQuestionIds, ['policies', 'assets_band']);
+    assert.equal(r.meta.answeredCount, 1);
   });
 });

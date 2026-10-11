@@ -10,9 +10,8 @@ import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import { createSession } from '../../public/js/overlap/engine/session.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { checkCondition, conditionRefs, evaluateCondition } from '../../public/js/overlap/engine/conditions.mjs';
-import { POLICY_IDS, OTHER_ITEM_POLICY_IDS, DOMAINS, BUCKETS, KINDS, CARDS_QUESTION_ID } from '../../public/js/overlap/engine/constants.mjs';
+import { POLICY_IDS, DOMAINS, BUCKETS, KINDS, CARDS_QUESTION_ID } from '../../public/js/overlap/engine/constants.mjs';
 import PLAN from '../fixtures/flagPlan.mjs';
 import umbrellaResearch from '../../research/umbrella-liability-stack.mjs';
 import autoResearch from '../../research/auto-coverages.mjs';
@@ -33,23 +32,13 @@ const optionLabels = (id) => resolved(id).options.map((o) => o.label);
 const sectionOf = (id) => resolved(id).section;
 const visibleIds = (answers) => session.visibleQuestions(answers).map((q) => q.id);
 
-// ---- building host-like snapshots, so the traversals run through the real adapter ----------------------
-function snapshotFor(policies, otherItems) {
-  const has = (p) => policies.includes(p);
-  const snap = { a: {}, extras: [], q: {}, p: {}, o: {} };
-  if (has('auto')) snap.a.veh = '2';
-  if (has('home') && has('renters')) snap.a.home = 'Both';
-  else if (has('home')) snap.a.home = 'Own';
-  else if (has('renters')) snap.a.home = 'Rent';
-  if (has('health')) snap.q.health = 'Yes';
-  if (has('umbrella')) snap.p.umbrella = { hasUmbrella: 'Yes' };
-  if (has('motorcycle')) snap.extras.push('Motorcycle');
-  if (has('boat')) snap.extras.push('Boat');
-  if (otherItems && otherItems.length > 0) snap.o.other_items = otherItems.slice();
-  return snap;
-}
-const answersFor = (policies, otherItems, more) => ({ ...deriveAnswers(snapshotFor(policies, otherItems)), ...(more || {}) });
-const idsFor = (policies, otherItems, more) => visibleIds(answersFor(policies, otherItems, more));
+// ---- plain answers: Q1 (`policies`) is an ordinary asked answer, everything else is the user's own tap ----------
+// The Other-bucket items of Q1, in the SPEC's order.
+const OTHER_ITEMS = ['rental_car', 'towing', 'travel', 'phone', 'warranty', 'accidental_death'];
+// Every policy a user can tick in Q1.
+const ALL_POLICIES = ['auto', 'home', 'renters', 'umbrella', 'health', 'motorcycle', 'boat', ...OTHER_ITEMS];
+const answersFor = (policies, more) => ({ policies: policies.slice(), ...(more || {}) });
+const idsFor = (policies, more) => visibleIds(answersFor(policies, more));
 
 // ======================================================================================================
 suite('questions: the catalog as a whole', (t) => {
@@ -63,12 +52,13 @@ suite('questions: the catalog as a whole', (t) => {
     assert.equal(CATALOG.questions, QUESTIONS);
     assert.equal(new Set(qids).size, qids.length);
     for (const id of qids) assert.match(id, SNAKE, `question id ${id}`);
-    assert.equal(qids.includes('policies'), false, 'policies is derived, never asked');
+    assert.equal(qids[0], 'policies', 'Q1 is the first asked question');
+    assert.equal(qids.includes('other_items'), false, 'other_items is gone: its options live in Q1');
   });
 
   t('the catalog has the expected questions in the expected order', () => {
     assert.deepEqual(qids, [
-      'other_items',
+      'policies',
       'umbrella_limit', 'auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home',
       'motorcycle_liability', 'umbrella_min_motorcycle', 'boat_liability', 'umbrella_min_boat',
       'umbrella_exposure', 'umbrella_um_uim', 'side_business',
@@ -86,7 +76,7 @@ suite('questions: the catalog as a whole', (t) => {
     const counts = {};
     for (const q of QUESTIONS) counts[q.section] = (counts[q.section] || 0) + 1;
     assert.deepEqual(counts, {
-      extras: 1, umbrella_stack: 5, umbrella_vehicles: 4, umbrella_scope: 3, auto_gaps: 7, renters: 2,
+      start: 1, umbrella_stack: 5, umbrella_vehicles: 4, umbrella_scope: 3, auto_gaps: 7, renters: 2,
       health: 4, home_exclusions: 2, deductible: 4, cards: 2, extras_detail: 4,
     });
     assert.equal(QUESTIONS.length, 38);
@@ -126,15 +116,14 @@ suite('questions: the catalog as a whole', (t) => {
     assert.equal(/whoever is at fault/i.test(help), true, 'auto_collision.help says fault does not matter');
   });
 
-  t('nothing the host app already derives is asked again (own/rent, vehicles, extras, health yes/no, umbrella yes/no)', () => {
-    const derivedPolicies = ['auto', 'home', 'renters', 'health', 'umbrella', 'motorcycle', 'boat'];
+  t('which policies the user has is asked once, in Q1, and nowhere else (own/rent, vehicles, extras, health yes/no, umbrella yes/no)', () => {
     for (const q of QUESTIONS) {
-      assert.equal(derivedPolicies.includes(q.id), false, `${q.id} duplicates a derived policy`);
-      assert.equal(/own or rent|do you (own|rent) your|how many (cars|vehicles)|anything else with a motor|do you (carry|have) (an )?umbrella|do you have health insurance/i.test(q.prompt), false, `${q.id} asks something the host derives: ${q.prompt}`);
+      assert.equal(POLICY_IDS.includes(q.id), false, `${q.id} duplicates a policy id`);
+      assert.equal(/own or rent|do you (own|rent) your|how many (cars|vehicles)|anything else with a motor|do you (carry|have) (an )?umbrella|do you have health insurance/i.test(q.prompt), false, `${q.id} asks something Q1 already asks: ${q.prompt}`);
     }
-    // The six Other-bucket policy ids are asked once, in other_items, and nowhere else.
-    const asked = QUESTIONS.filter((q) => q.options.some((o) => OTHER_ITEM_POLICY_IDS.includes(o.id)));
-    assert.deepEqual(asked.map((q) => q.id), ['other_items']);
+    // Every policy id (the six Other-bucket ones included) is an option of exactly one question: Q1.
+    const asked = QUESTIONS.filter((q) => q.options.some((o) => POLICY_IDS.includes(o.id)));
+    assert.deepEqual(asked.map((q) => q.id), ['policies']);
   });
 });
 
@@ -144,7 +133,7 @@ suite('questions: sections', (t) => {
 
   t('SECTIONS is the ordered list [{ id, title, reason, showIf }] with unique snake_case ids', () => {
     assert.deepEqual(sectionIds, [
-      'extras', 'umbrella_stack', 'umbrella_vehicles', 'umbrella_scope', 'auto_gaps', 'renters', 'health',
+      'start', 'umbrella_stack', 'umbrella_vehicles', 'umbrella_scope', 'auto_gaps', 'renters', 'health',
       'home_exclusions', 'deductible', 'cards', 'extras_detail',
     ]);
     assert.equal(new Set(sectionIds).size, sectionIds.length);
@@ -155,11 +144,13 @@ suite('questions: sections', (t) => {
     }
   });
 
-  t('every section carries a reason tied to something the user already told us', () => {
+  t('every section carries a reason; all but the first are tied to something the user already told us in Q1', () => {
     for (const s of SECTIONS) {
       assert.equal(typeof s.reason === 'string' && s.reason.length > 40, true, `${s.id} reason`);
+      if (s.id === 'start') continue; // Q1 itself: nothing has been told yet, so its reason says why we ask
       assert.match(s.reason, /\bYou (have )?told us\b/, `${s.id} reason must refer to what the user told us`);
     }
+    assert.match(SECTIONS[0].reason, /which policies you have/, 'the first section says why Q1 comes first');
   });
 
   t('every question belongs to a defined section, and each section\'s questions are contiguous in display order', () => {
@@ -170,63 +161,49 @@ suite('questions: sections', (t) => {
     for (const s of SECTIONS) assert.equal(QUESTIONS.some((q) => q.section === s.id), true, `${s.id} has questions`);
   });
 
-  t('section gates are well-formed conditions over known policy ids; only the renters section also reads the Q1 answer (S5-15)', () => {
+  t('section gates are well-formed conditions over known policy ids, and read Q1 only (through holds), never another answer', () => {
     for (const s of SECTIONS) {
       if (s.showIf === null) continue;
       assert.deepEqual(checkCondition(s.showIf), [], `${s.id} showIf`);
       const refs = conditionRefs(s.showIf);
       for (const p of refs.holds) assert.includes(POLICY_IDS, p, `${s.id} references unknown policy ${p}`);
-      if (s.id === 'renters') {
-        // The host derives renters from "rent" or "both" alone, so a homeowner's renters policy for a child can only
-        // come from the always-shown other_items question (the Q1 equivalent). No other section may read an answer.
-        assert.deepEqual(refs.answers, [{ qid: 'other_items', form: 'includes', optionIds: ['renters_with_home'] }], 'renters section reads exactly the renters_with_home tick');
-      } else {
-        assert.deepEqual(refs.answers, [], `${s.id}: a section gate reads policies only, never answers`);
-      }
+      assert.deepEqual(refs.answers, [], `${s.id}: a section gate reads the ticked policies only, never an answer`);
     }
+    assert.deepEqual(SECTIONS.find((x) => x.id === 'renters').showIf, { holds: 'renters' }, 'the renters section is the Renters tick');
   });
 
-  t('a section has a visible question exactly when its gate is true (1,280 policy and extras combinations)', () => {
-    const base = ['auto', 'home', 'renters', 'health', 'umbrella', 'motorcycle', 'boat'];
-    const extrasSets = [
-      [], ['rental_car'], ['towing'], ['travel'], ['phone'], ['warranty'], ['accidental_death'], OTHER_ITEM_POLICY_IDS,
-      ['renters_with_home'], [...OTHER_ITEM_POLICY_IDS, 'renters_with_home'],
-    ];
+  t('a section has a visible question exactly when its gate is true (all 8,192 combinations of the thirteen Q1 ticks)', () => {
     let checked = 0;
-    for (let mask = 0; mask < (1 << base.length); mask++) {
-      const policies = base.filter((_, i) => (mask >> i) & 1);
-      for (const extras of extrasSets) {
-        const answers = answersFor(policies, extras);
-        const visible = new Set(visibleIds(answers));
-        for (const s of SECTIONS) {
-          const hasVisible = QUESTIONS.some((q) => q.section === s.id && visible.has(q.id));
-          const gate = s.showIf === null ? true : evaluateCondition(s.showIf, { answers });
-          assert.equal(hasVisible, gate, `section ${s.id} with ${policies.join('+') || 'no policies'} and extras [${extras.join(',')}]`);
-        }
-        checked++;
+    for (let mask = 0; mask < (1 << ALL_POLICIES.length); mask++) {
+      const policies = ALL_POLICIES.filter((_, i) => (mask >> i) & 1);
+      const answers = answersFor(policies);
+      const visible = new Set(visibleIds(answers));
+      for (const s of SECTIONS) {
+        const hasVisible = QUESTIONS.some((q) => q.section === s.id && visible.has(q.id));
+        const gate = s.showIf === null ? true : evaluateCondition(s.showIf, { answers });
+        assert.equal(hasVisible, gate, `section ${s.id} with ${policies.join('+') || 'no policies'}`);
       }
+      checked++;
     }
-    assert.equal(checked, 1280);
+    assert.equal(checked, 8192);
   });
 });
 
 // ======================================================================================================
 suite('questions: presets match the SPEC where it specifies them', (t) => {
-  t('other_items: the six Other-bucket ids the adapter folds into policies, a renters tick for homeowners, and an exclusive "none"', () => {
-    const q = resolved('other_items');
+  t('policies (Q1): the SPEC list in SPEC order, the Other-bucket items among them, and an exclusive "none"', () => {
+    const q = resolved('policies');
     assert.equal(q.type, 'multi');
-    assert.deepEqual(optionIds('other_items'), [...OTHER_ITEM_POLICY_IDS, 'renters_with_home', 'none']);
+    assert.deepEqual(optionIds('policies'), [...ALL_POLICIES, 'none']);
     assert.equal(q.options.find((o) => o.id === 'none').exclusive, true);
     assert.equal(q.showIf, null, 'always shown');
   });
 
-  t('renters_with_home is an answer, never a policy: the adapter does not fold it, so holds("renters") stays host-derived (S5-15)', () => {
-    assert.equal(OTHER_ITEM_POLICY_IDS.includes('renters_with_home'), false);
-    assert.equal(POLICY_IDS.includes('renters_with_home'), false);
-    const out = deriveAnswers({ a: { home: 'Own' }, o: { other_items: ['renters_with_home'] } });
-    assert.deepEqual(out.policies, ['home'], 'a homeowner who ticks the renters policy still does not hold "renters"');
-    assert.deepEqual(out.other_items, ['renters_with_home'], 'the tick is passed through as the answer to other_items');
-    assert.match(optionLabels('other_items').find((l) => /renters/i.test(l)), /home you own/, 'the label says it is for someone who owns their home');
+  t('Renters in Q1 also covers a policy a homeowner pays for so a child at college has coverage, so the SPEC\'s Renters + Homeowners case is reachable by ticking Home and Renters (S5-15, R1-4)', () => {
+    assert.match(optionLabels('policies').find((l) => /^Renters/.test(l)), /child/, 'the label says it covers a child living away from home');
+    assert.equal(optionIds('policies').includes('renters_with_home'), false, 'the old separate tick is gone');
+    const answers = answersFor(['home', 'renters'], { renters_for: 'child_away' });
+    assert.equal(visibleIds(answers).includes('renters_child_housing'), true);
   });
 
   t('auto liability: lower than 100/300, then 100/300, 250/500, 500/500, then not sure (split-limit values)', () => {
@@ -386,9 +363,9 @@ suite('questions: closed lists, no free text, no typed figures, Not sure rules',
 
   t('Not sure is offered everywhere except these questions, each of which has a reason', () => {
     const without = QUESTIONS.filter((q) => !q.allowNotSure).map((q) => q.id);
-    // other_items: unticked means no, and "None of these" is explicit. side_business, auto_financing,
+    // policies (Q1): unticked means no, and "None of these" is explicit. side_business, auto_financing,
     // renters_for: you know the answer. cards: the cards in your wallet; "another card or none" covers the rest.
-    assert.deepEqual(without, ['other_items', 'side_business', 'auto_financing', 'renters_for', 'cards']);
+    assert.deepEqual(without, ['policies', 'side_business', 'auto_financing', 'renters_for', 'cards']);
     for (const q of QUESTIONS) {
       const ids = optionIds(q.id);
       assert.equal(ids.includes('not_sure'), q.allowNotSure, `${q.id} not_sure matches allowNotSure`);
@@ -412,7 +389,7 @@ suite('questions: closed lists, no free text, no typed figures, Not sure rules',
       exclusive[q.id] = q.options.filter((o) => o.exclusive).map((o) => o.id);
     }
     assert.deepEqual(exclusive, {
-      other_items: ['none'],
+      policies: ['none'],
       health_supplemental: ['none', 'not_sure'],
       cards: ['other_none'],
       roadside_sources: ['not_sure'],
@@ -523,7 +500,7 @@ suite('questions: every non-derived question is gated per the SPEC', (t) => {
   const UMB_MOTO = { all: [H('umbrella'), H('motorcycle')] };
   const UMB_BOAT = { all: [H('umbrella'), H('boat')] };
   const GATES = {
-    other_items: null,
+    policies: null,
     umbrella_limit: H('umbrella'),
     auto_liability: UMB_AUTO,
     umbrella_min_auto: UMB_AUTO,
@@ -543,7 +520,7 @@ suite('questions: every non-derived question is gated per the SPEC', (t) => {
     auto_um_uim: H('auto'),
     auto_um_uim_limit: { all: [H('auto'), { answer: 'auto_um_uim', is: 'yes' }] },
     auto_rental_reimbursement: H('auto'),
-    renters_for: { any: [H('renters'), { answer: 'other_items', includes: 'renters_with_home' }] },
+    renters_for: H('renters'),
     renters_child_housing: { all: [H('home'), { answer: 'renters_for', is: 'child_away' }] },
     auto_medpay: { all: [H('health'), H('auto')] },
     health_hsa: H('health'),
@@ -573,8 +550,8 @@ suite('questions: every non-derived question is gated per the SPEC', (t) => {
     });
   }
 
-  t('only other_items is always shown', () => {
-    assert.deepEqual(QUESTIONS.filter((q) => q.showIf === null).map((q) => q.id), ['other_items']);
+  t('only policies (Q1) is always shown', () => {
+    assert.deepEqual(QUESTIONS.filter((q) => q.showIf === null).map((q) => q.id), ['policies']);
   });
 
   t('every gate is well-formed, reads known policies, and references real options of real questions', () => {
@@ -595,20 +572,20 @@ suite('questions: every non-derived question is gated per the SPEC', (t) => {
 suite('questions: the exact visible questions for policy combinations (traversal)', (t) => {
   t('1. auto only', () => {
     assert.deepEqual(idsFor(['auto']), [
-      'other_items', 'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement', 'deductible_auto', 'emergency_cushion',
+      'policies', 'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement', 'deductible_auto', 'emergency_cushion',
     ]);
   });
 
   t('2. auto + home', () => {
     assert.deepEqual(idsFor(['auto', 'home']), [
-      'other_items', 'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement',
+      'policies', 'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement',
       'home_sewer_backup', 'home_flood_policy', 'deductible_auto', 'deductible_home', 'emergency_cushion',
     ]);
   });
 
   t('3. auto + home + umbrella', () => {
     assert.deepEqual(idsFor(['auto', 'home', 'umbrella']), [
-      'other_items',
+      'policies',
       'umbrella_limit', 'auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home',
       'umbrella_exposure', 'umbrella_um_uim', 'side_business',
       'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement',
@@ -617,26 +594,26 @@ suite('questions: the exact visible questions for policy combinations (traversal
   });
 
   t('4. renters only: no deductible, no home questions, no child-housing question', () => {
-    assert.deepEqual(idsFor(['renters']), ['other_items', 'renters_for']);
+    assert.deepEqual(idsFor(['renters']), ['policies', 'renters_for']);
   });
 
   t('5. health only: no MedPay question without an auto policy', () => {
     assert.deepEqual(idsFor(['health']), [
-      'other_items', 'health_hsa', 'health_supplemental', 'health_short_term', 'deductible_health', 'emergency_cushion',
+      'policies', 'health_hsa', 'health_supplemental', 'health_short_term', 'deductible_health', 'emergency_cushion',
     ]);
   });
 
   t('6. motorcycle + boat + umbrella: vehicle limits and minimums appear, auto and home questions do not', () => {
     assert.deepEqual(idsFor(['motorcycle', 'boat', 'umbrella']), [
-      'other_items', 'umbrella_limit',
+      'policies', 'umbrella_limit',
       'motorcycle_liability', 'umbrella_min_motorcycle', 'boat_liability', 'umbrella_min_boat',
       'umbrella_exposure', 'side_business',
     ]);
   });
 
-  t('7. everything (every derived policy and every Other-bucket item)', () => {
-    assert.deepEqual(idsFor(['auto', 'home', 'renters', 'health', 'umbrella', 'motorcycle', 'boat'], OTHER_ITEM_POLICY_IDS), [
-      'other_items',
+  t('7. everything (every policy and every Other-bucket item ticked in Q1)', () => {
+    assert.deepEqual(idsFor(ALL_POLICIES), [
+      'policies',
       'umbrella_limit', 'auto_liability', 'umbrella_min_auto', 'home_liability', 'umbrella_min_home',
       'motorcycle_liability', 'umbrella_min_motorcycle', 'boat_liability', 'umbrella_min_boat',
       'umbrella_exposure', 'umbrella_um_uim', 'side_business',
@@ -649,37 +626,37 @@ suite('questions: the exact visible questions for policy combinations (traversal
   });
 
   t('8. nothing but Other-bucket items (no main policies)', () => {
-    assert.deepEqual(idsFor([], OTHER_ITEM_POLICY_IDS), [
-      'other_items', 'cards', 'phone_bill_on_card', 'roadside_sources', 'term_life',
+    assert.deepEqual(idsFor(OTHER_ITEMS), [
+      'policies', 'cards', 'phone_bill_on_card', 'roadside_sources', 'term_life',
     ]);
   });
 
   t('9. no policies and no items: only the always-shown question', () => {
-    assert.deepEqual(idsFor([]), ['other_items']);
-    assert.deepEqual(idsFor([], ['none']), ['other_items']);
+    assert.deepEqual(idsFor([]), ['policies']);
+    assert.deepEqual(idsFor(['none']), ['policies']);
   });
 
   t('10. auto + health: the MedPay overlap question appears', () => {
     assert.deepEqual(idsFor(['auto', 'health']), [
-      'other_items', 'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement',
+      'policies', 'auto_financing', 'auto_value', 'auto_um_uim', 'auto_rental_reimbursement',
       'auto_medpay', 'health_hsa', 'health_supplemental', 'health_short_term', 'deductible_auto', 'deductible_health', 'emergency_cushion',
     ]);
   });
 
   t('11. each Other-bucket item opens only its own follow-ups (cards only for card-linked items)', () => {
-    assert.deepEqual(idsFor([], ['accidental_death']), ['other_items', 'term_life']);
-    assert.deepEqual(idsFor([], ['travel']), ['other_items', 'cards']);
-    assert.deepEqual(idsFor([], ['warranty']), ['other_items', 'cards']);
-    assert.deepEqual(idsFor([], ['rental_car']), ['other_items', 'cards']);
-    assert.deepEqual(idsFor([], ['phone']), ['other_items', 'cards', 'phone_bill_on_card']);
-    assert.deepEqual(idsFor([], ['towing']), ['other_items', 'cards', 'roadside_sources']);
-    assert.deepEqual(idsFor(['motorcycle'], ['towing']), ['other_items', 'cards', 'roadside_sources', 'towing_vehicle_policy']);
-    assert.deepEqual(idsFor(['boat'], ['towing']), ['other_items', 'cards', 'roadside_sources', 'towing_vehicle_policy']);
-    assert.deepEqual(idsFor(['motorcycle', 'boat'], ['rental_car']), ['other_items', 'cards']);
+    assert.deepEqual(idsFor(['accidental_death']), ['policies', 'term_life']);
+    assert.deepEqual(idsFor(['travel']), ['policies', 'cards']);
+    assert.deepEqual(idsFor(['warranty']), ['policies', 'cards']);
+    assert.deepEqual(idsFor(['rental_car']), ['policies', 'cards']);
+    assert.deepEqual(idsFor(['phone']), ['policies', 'cards', 'phone_bill_on_card']);
+    assert.deepEqual(idsFor(['towing']), ['policies', 'cards', 'roadside_sources']);
+    assert.deepEqual(idsFor(['motorcycle', 'towing']), ['policies', 'cards', 'roadside_sources', 'towing_vehicle_policy']);
+    assert.deepEqual(idsFor(['boat', 'towing']), ['policies', 'cards', 'roadside_sources', 'towing_vehicle_policy']);
+    assert.deepEqual(idsFor(['motorcycle', 'boat', 'rental_car']), ['policies', 'cards']);
   });
 
   t('12. an umbrella with only a boat shows the boat questions only', () => {
-    assert.deepEqual(idsFor(['umbrella', 'boat']), ['other_items', 'umbrella_limit', 'boat_liability', 'umbrella_min_boat', 'umbrella_exposure', 'side_business']);
+    assert.deepEqual(idsFor(['umbrella', 'boat']), ['policies', 'umbrella_limit', 'boat_liability', 'umbrella_min_boat', 'umbrella_exposure', 'side_business']);
   });
 
   t('13. no umbrella means no umbrella questions, even with every underlying policy', () => {
@@ -689,40 +666,39 @@ suite('questions: the exact visible questions for policy combinations (traversal
     }
   });
 
-  t('14. the host\'s own "Both" (own and rent) shows home and renters questions together', () => {
+  t('14. ticking both Home and Renters shows home and renters questions together', () => {
     assert.deepEqual(idsFor(['home', 'renters']), [
-      'other_items', 'renters_for', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
+      'policies', 'renters_for', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
     ]);
   });
 
-  t('15. a homeowner with no renters of their own gets no renters question until they tick the renters policy (S5-15)', () => {
+  t('15. a homeowner who did not tick Renters gets no renters question until they tick it (S5-15)', () => {
     assert.deepEqual(idsFor(['home']), [
-      'other_items', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
+      'policies', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
     ]);
-    assert.deepEqual(idsFor(['home'], ['renters_with_home']), [
-      'other_items', 'renters_for', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
+    assert.deepEqual(idsFor(['home', 'renters']), [
+      'policies', 'renters_for', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
     ]);
   });
 
   t('16. the headline case: a parent who owns their home and pays for a child\'s renters policy reaches the dorm / off-campus question', () => {
-    const parent = (more) => idsFor(['home'], ['renters_with_home'], more);
+    const parent = (more) => idsFor(['home', 'renters'], more);
     assert.deepEqual(parent({ renters_for: 'child_away' }), [
-      'other_items', 'renters_for', 'renters_child_housing', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
+      'policies', 'renters_for', 'renters_child_housing', 'home_sewer_backup', 'home_flood_policy', 'deductible_home', 'emergency_cushion',
     ]);
     // "For me" is a real answer for a homeowner with a renters policy of their own: no parent overlap to ask about.
     assert.equal(parent({ renters_for: 'me' }).includes('renters_child_housing'), false);
     assert.equal(parent({}).includes('renters_child_housing'), false, 'not asked until renters_for is answered');
   });
 
-  t('17. a renter with no home policy never reaches the child-housing question, ticked or not (nothing to overlap with)', () => {
-    assert.deepEqual(idsFor(['renters'], [], { renters_for: 'child_away' }), ['other_items', 'renters_for']);
-    assert.deepEqual(idsFor(['renters'], ['renters_with_home'], { renters_for: 'child_away' }), ['other_items', 'renters_for']);
+  t('17. a renter with no home policy never reaches the child-housing question (nothing to overlap with)', () => {
+    assert.deepEqual(idsFor(['renters'], { renters_for: 'child_away' }), ['policies', 'renters_for']);
   });
 });
 
 // ======================================================================================================
 suite('questions: answer-driven branches (the second level of the tree)', (t) => {
-  const withAuto = (more) => idsFor(['auto'], [], more);
+  const withAuto = (more) => idsFor(['auto'], more);
 
   t('leased or financed newest car: gap coverage is asked, collision is not', () => {
     for (const financing of ['loan', 'lease']) {
@@ -754,28 +730,24 @@ suite('questions: answer-driven branches (the second level of the tree)', (t) =>
     assert.equal(withAuto({}).includes('auto_um_uim_limit'), false);
   });
 
-  t('the child-housing question needs a renters policy (the host\'s or the homeowner\'s tick), a home policy and "for a child"', () => {
+  t('the child-housing question needs the Renters tick, a home policy and "for a child"', () => {
     const child = { renters_for: 'child_away' };
-    // The host\'s own renters policy (a.home "Both"): the one household that held both policies before S5-15.
-    assert.equal(idsFor(['renters', 'home'], [], child).includes('renters_child_housing'), true);
-    assert.equal(idsFor(['renters', 'home'], [], { renters_for: 'me' }).includes('renters_child_housing'), false);
-    // A homeowner (host "Own") who ticks the renters policy: the SPEC\'s main audience, a parent paying for a student.
-    assert.equal(idsFor(['home'], ['renters_with_home'], child).includes('renters_child_housing'), true);
-    assert.equal(idsFor(['home'], ['renters_with_home'], { renters_for: 'me' }).includes('renters_child_housing'), false);
-    // No home policy, so no parent\'s policy to overlap with.
-    assert.equal(idsFor(['renters'], [], child).includes('renters_child_housing'), false);
-    assert.equal(idsFor(['renters'], ['renters_with_home'], child).includes('renters_child_housing'), false);
-    // A homeowner who did not tick the renters policy is never asked who it is for, so a stale answer is pruned.
-    assert.equal(idsFor(['home'], [], child).includes('renters_child_housing'), false, 'no renters policy');
-    assert.equal(idsFor(['home'], [], child).includes('renters_for'), false, 'no renters policy');
+    // Renters and Home both ticked: the SPEC's main audience, a parent who owns their home and pays for a student.
+    assert.equal(idsFor(['renters', 'home'], child).includes('renters_child_housing'), true);
+    assert.equal(idsFor(['renters', 'home'], { renters_for: 'me' }).includes('renters_child_housing'), false);
+    // No home policy, so no parent's policy to overlap with.
+    assert.equal(idsFor(['renters'], child).includes('renters_child_housing'), false);
+    // A homeowner who did not tick Renters is never asked who it is for, so a stale answer is pruned.
+    assert.equal(idsFor(['home'], child).includes('renters_child_housing'), false, 'no renters policy');
+    assert.equal(idsFor(['home'], child).includes('renters_for'), false, 'no renters policy');
   });
 
-  t('unticking the renters policy removes the renters questions and prunes their answers (a homeowner flips the tick back)', () => {
-    const on = { ...answersFor(['home'], ['renters_with_home']), renters_for: 'child_away', renters_child_housing: 'dorm' };
+  t('unticking Renters removes the renters questions and prunes their answers (a homeowner flips the tick back)', () => {
+    const on = { ...answersFor(['home', 'renters']), renters_for: 'child_away', renters_child_housing: 'dorm' };
     const kept = session.prune(on);
     assert.equal(kept.renters_for, 'child_away');
     assert.equal(kept.renters_child_housing, 'dorm');
-    const off = { ...on, other_items: ['none'] };
+    const off = { ...on, policies: ['home'] };
     const gone = session.prune(off);
     assert.equal('renters_for' in gone, false);
     assert.equal('renters_child_housing' in gone, false);
@@ -783,15 +755,15 @@ suite('questions: answer-driven branches (the second level of the tree)', (t) =>
   });
 
   t('the card-payment question needs a card from the list; "another card, or no credit card" skips it', () => {
-    const ctx = ['rental_car', 'travel'];
-    assert.equal(idsFor([], ctx).includes('card_usual_payment'), false, 'cards not answered yet');
-    assert.equal(idsFor([], ctx, { cards: ['chase_sapphire_preferred'] }).includes('card_usual_payment'), true);
-    assert.equal(idsFor([], ctx, { cards: ['citi_double_cash', 'amex_gold'] }).includes('card_usual_payment'), true);
-    assert.equal(idsFor([], ctx, { cards: ['other_none'] }).includes('card_usual_payment'), false);
+    const held = ['rental_car', 'travel'];
+    assert.equal(idsFor(held).includes('card_usual_payment'), false, 'cards not answered yet');
+    assert.equal(idsFor(held, { cards: ['chase_sapphire_preferred'] }).includes('card_usual_payment'), true);
+    assert.equal(idsFor(held, { cards: ['citi_double_cash', 'amex_gold'] }).includes('card_usual_payment'), true);
+    assert.equal(idsFor(held, { cards: ['other_none'] }).includes('card_usual_payment'), false);
   });
 
   t('stale answers are pruned when a gate flips (loan to paid off drops the gap answer)', () => {
-    const before = { ...answersFor(['auto'], []), auto_financing: 'loan', auto_value: '10000_24999', auto_gap_coverage: 'no' };
+    const before = { ...answersFor(['auto']), auto_financing: 'loan', auto_value: '10000_24999', auto_gap_coverage: 'no' };
     assert.equal(session.prune(before).auto_gap_coverage, 'no');
     const after = { ...before, auto_financing: 'paid_off' };
     assert.equal('auto_gap_coverage' in session.prune(after), false);
@@ -799,7 +771,7 @@ suite('questions: answer-driven branches (the second level of the tree)', (t) =>
   });
 
   t('removing a policy removes its questions and answers (umbrella off drops the umbrella branch)', () => {
-    const on = { ...answersFor(['auto', 'umbrella'], []), auto_liability: '100_300', umbrella_limit: '1m' };
+    const on = { ...answersFor(['auto', 'umbrella']), auto_liability: '100_300', umbrella_limit: '1m' };
     assert.equal(session.prune(on).umbrella_limit, '1m');
     const off = { ...on, policies: ['auto'] };
     const kept = session.prune(off);
@@ -808,15 +780,16 @@ suite('questions: answer-driven branches (the second level of the tree)', (t) =>
   });
 
   t('nextUnanswered walks a section in order', () => {
-    const answers = answersFor(['auto', 'home', 'umbrella'], []);
-    assert.equal(session.nextUnanswered(answers).id, 'other_items');
+    assert.equal(session.nextUnanswered({}).id, 'policies', 'Q1 comes first');
+    const answers = answersFor(['auto', 'home', 'umbrella']);
+    assert.equal(session.nextUnanswered(answers).id, 'umbrella_limit', 'once Q1 is answered the walk moves on');
     assert.equal(session.nextUnanswered(answers, 'umbrella_stack').id, 'umbrella_limit');
     const next = session.setAnswer(answers, 'umbrella_limit', '1m');
     assert.equal(session.nextUnanswered(next, 'umbrella_stack').id, 'auto_liability');
   });
 
   t('evaluate() on the real catalog reports the same visible questions and answered count', () => {
-    const answers = { ...answersFor(['auto', 'home', 'umbrella'], ['rental_car']), umbrella_limit: '1m', auto_liability: 'not_sure' };
+    const answers = { ...answersFor(['auto', 'home', 'umbrella', 'rental_car']), umbrella_limit: '1m', auto_liability: 'not_sure' };
     const r = evaluate(answers);
     assert.deepEqual(r.meta.visibleQuestionIds, visibleIds(answers));
     assert.equal(r.meta.answeredCount, 3);
@@ -896,13 +869,12 @@ suite('questions: reachability', (t) => {
   t('the union of the hand-written traversals covers every question too (belt and braces)', () => {
     const seen = new Set();
     const add = (ids) => ids.forEach((i) => seen.add(i));
-    add(idsFor(['auto', 'home', 'renters', 'health', 'umbrella', 'motorcycle', 'boat'], OTHER_ITEM_POLICY_IDS));
-    add(idsFor(['auto'], [], { auto_financing: 'loan', auto_value: '10000_24999', auto_um_uim: 'yes' }));
-    add(idsFor(['auto'], [], { auto_financing: 'paid_off', auto_value: 'under_3000' }));
-    add(idsFor(['renters', 'home'], [], { renters_for: 'child_away' }));
-    add(idsFor(['home'], ['renters_with_home'], { renters_for: 'child_away' }));
-    add(idsFor([], ['rental_car'], { cards: ['amex_gold'] }));
-    add(idsFor(['motorcycle'], ['towing']));
+    add(idsFor(ALL_POLICIES));
+    add(idsFor(['auto'], { auto_financing: 'loan', auto_value: '10000_24999', auto_um_uim: 'yes' }));
+    add(idsFor(['auto'], { auto_financing: 'paid_off', auto_value: 'under_3000' }));
+    add(idsFor(['renters', 'home'], { renters_for: 'child_away' }));
+    add(idsFor(['rental_car'], { cards: ['amex_gold'] }));
+    add(idsFor(['motorcycle', 'towing']));
     assert.deepEqual(qids.filter((id) => !seen.has(id)), []);
   });
 });
@@ -1032,9 +1004,10 @@ suite('flag plan: every question is read and every planned flag has what it need
     }
   });
 
-  t('a flag that reads an Other-bucket policy id also lists other_items, the question those ids come from', () => {
+  t('a flag that reads any policy (holds) also lists policies, the Q1 question those reads come from', () => {
     for (const f of FLAGS) {
-      if (f.holds.some((p) => OTHER_ITEM_POLICY_IDS.includes(p))) assert.includes(f.questions, 'other_items', f.id);
+      if (f.holds.length > 0) assert.includes(f.questions, 'policies', f.id);
+      else assert.equal(f.questions.includes('policies'), false, `${f.id} lists policies but reads no policy`);
     }
   });
 
@@ -1049,16 +1022,14 @@ suite('flag plan: every question is read and every planned flag has what it need
     }
   });
 
-  t('the renters-versus-home flag can fire for a parent who owns their home and has no renters policy in the host (S5-15)', () => {
+  t('the renters-versus-home flag can fire for a parent who owns their home and pays for a child\'s renters policy: they tick Home and Renters in Q1 (S5-15, R1-4)', () => {
     const f = FLAGS.find((x) => x.id === 'renters-child-vs-parents-home');
-    const answers = answersFor(['home'], ['renters_with_home'], { renters_for: 'child_away' });
-    assert.equal(answers.policies.includes('renters'), false, 'the host derived no renters policy for an owner');
+    const answers = answersFor(['home', 'renters'], { renters_for: 'child_away' });
     const visible = new Set(visibleIds(answers));
     for (const q of f.questions) assert.equal(visible.has(q), true, `${q} is visible for the parent`);
-    // The flag must read the home policy and the answers, never holds("renters"): the host sets that for rent or both only.
+    // The flag reads the home policy and the answers; renters_for is visible exactly when Renters is ticked.
     assert.deepEqual(f.holds, ['home']);
-    assert.match(f.trigger, /renters_with_home/, 'the trigger says how a homeowner reaches renters_for');
-    assert.match(f.trigger, /do not require ctx\.holds\('renters'\)/);
+    assert.match(f.trigger, /ticked Renters in Q1/, 'the trigger says how a homeowner reaches renters_for');
   });
 
   t('every fact id named exists in research/, and every source id is in the registry and is a source of one of the flag\'s facts', () => {
@@ -1098,7 +1069,7 @@ suite('flag plan: every question is read and every planned flag has what it need
 
   t('every flag whose questions allow Not sure says what happens on Not sure', () => {
     for (const f of FLAGS) {
-      const unsureAllowed = f.questions.some((q) => resolved(q).allowNotSure && q !== 'other_items');
+      const unsureAllowed = f.questions.some((q) => resolved(q).allowNotSure);
       if (!unsureAllowed) continue;
       assert.match(f.trigger, /Not sure|not sure/, `${f.id}: trigger must say how Not sure is handled`);
     }

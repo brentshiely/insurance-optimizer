@@ -1,35 +1,32 @@
 // Story S8: tests for the auto coverage-gap flags (public/js/overlap/data/flags/auto.mjs).
-// Everything runs through the REAL catalog and the REAL adapter: answers are built the way the app builds them
-// (a host snapshot -> deriveAnswers, so the `policies` array is derived, never hand-written), then evaluate().
+// Everything runs through the REAL catalog: answers are plain answers, the way the page builds them (Q1, `policies`,
+// holds what the user ticked; every other key is the user's own tap on a closed list), then evaluate().
 // Other stories' flags live in the same real catalog and may also fire on these answers, so every assertion looks
 // only at the five S8 flags (filtered by id) and never pins what else is in a bucket.
-// Pure data checks; runs under jsc and Node. jsc has no URL/console: nothing here uses them. app.js is read with the
-// jsc global read(), guarded so other runtimes skip only that one check.
+// Pure data checks; runs under jsc and Node. jsc has no URL/console: nothing here uses them.
 import { suite, assert } from '../harness.mjs';
 import AUTO from '../../public/js/overlap/data/flags/auto.mjs';
 import CATALOG from '../../public/js/overlap/data/catalog.mjs';
 import { FLAGS } from '../../public/js/overlap/data/flags/index.mjs';
 import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import PLAN from '../fixtures/flagPlan.mjs';
 import autoResearch from '../../research/auto-coverages.mjs';
 import { deepFreeze, copy } from '../helpers/purity.mjs';
 
-const canRead = typeof read === 'function';
 
 // ---------------------------------------------------------------- the plan rows this story owns
 const PLAN_ROWS = PLAN.flags.filter((f) => f.story === 'S8');
 const MINE = AUTO.map((f) => f.id);
 const flagById = (id) => AUTO.find((f) => f.id === id);
 
-// ---------------------------------------------------------------- building answers like the host does
-// One car, nothing else: policies = ['auto']. `o` holds the user's answers by question id (host S.o).
-const snapshot = (o, extra) => ({ a: { veh: '1' }, extras: [], q: {}, p: {}, o, ...(extra || {}) });
-const answersFor = (o, extra) => deriveAnswers(snapshot(o, extra));
-const run = (o, extra) => evaluate(answersFor(o, extra));
-const ctxFor = (o, extra) => createContext(answersFor(o, extra));
+// ---------------------------------------------------------------- building answers
+// One car, nothing else: Q1 (`policies`) is ['auto']. `o` holds the user's answers by question id; `held` replaces
+// the Q1 ticks (for example [] for a household with no car).
+const answersFor = (o, held = ['auto']) => ({ ...o, policies: held.slice() });
+const run = (o, held) => evaluate(answersFor(o, held));
+const ctxFor = (o, held) => createContext(answersFor(o, held));
 
 /** Only the S8 flags a result contains: { id: ResultFlag }, plus their ids in result order (bucket, priority, id). */
 function mineIn(result) {
@@ -42,8 +39,8 @@ function mineIn(result) {
   }
   return { byId, order };
 }
-const firedIds = (o, extra) => mineIn(run(o, extra)).order;
-const rendered = (id, o, extra) => mineIn(run(o, extra)).byId[id];
+const firedIds = (o, held) => mineIn(run(o, held)).order;
+const rendered = (id, o, held) => mineIn(run(o, held)).byId[id];
 
 /** Drops undefined entries so a matrix can say "unanswered" with undefined. */
 const clean = (pairs) => {
@@ -165,10 +162,13 @@ suite('S8 auto flags: the file matches the plan', (t) => {
 
 // ======================================================================================================
 suite('S8 auto flags: nothing fires without an auto policy or without answers', (t) => {
-  t('derived policies come from the host snapshot, not from the test', () => {
-    assert.deepEqual(answersFor({}).policies, ['auto']);
-    assert.deepEqual(answersFor({}, { a: { veh: '0' } }).policies, []);
-    assert.deepEqual(answersFor({}, { a: { veh: '3+', home: 'Own' } }).policies, ['auto', 'home']);
+  t('the context holds exactly what Q1 says: a car, a car and a home, or nothing', () => {
+    assert.equal(ctxFor({}).holds('auto'), true);
+    assert.equal(ctxFor({}, []).holds('auto'), false);
+    const both = ctxFor({}, ['home', 'auto']);
+    assert.equal(both.holds('auto'), true);
+    assert.equal(both.holds('home'), true);
+    assert.deepEqual(both.answer('policies'), ['auto', 'home'], 'Q1 is stored in option order');
   });
 
   t('a household with a car and no answers gets none of the five flags', () => {
@@ -177,13 +177,13 @@ suite('S8 auto flags: nothing fires without an auto policy or without answers', 
 
   t('answers left over from an auto policy that is gone (no car) are pruned and fire nothing', () => {
     const everything = { auto_financing: 'loan', auto_value: '10000_24999', auto_gap_coverage: 'no', auto_um_uim: 'no', auto_rental_reimbursement: 'no' };
-    assert.deepEqual(firedIds(everything, { a: { veh: '0' } }), []);
-    assert.deepEqual(firedIds({ auto_financing: 'paid_off', auto_value: 'under_3000', auto_collision: 'yes' }, { a: { veh: '0' } }), []);
+    assert.deepEqual(firedIds(everything, []), []);
+    assert.deepEqual(firedIds({ auto_financing: 'paid_off', auto_value: 'under_3000', auto_collision: 'yes' }, []), []);
   });
 
   t('applies() itself requires the auto policy, even when the answers are present in the ctx', () => {
     for (const f of AUTO) {
-      const ctx = ctxFor({}, { a: { veh: '0' } });
+      const ctx = ctxFor({}, []);
       assert.equal(f.applies(ctx), false, f.id);
     }
   });
@@ -475,7 +475,7 @@ suite('S8 auto flags: auto-rental-reimbursement-check (Question)', (t) => {
 
   t('does not fire when the question is unanswered or the household has no car', () => {
     assert.equal(flag.applies(ctxFor({})), false);
-    assert.deepEqual(firedIds({ auto_rental_reimbursement: 'yes' }, { a: { veh: '0' } }), []);
+    assert.deepEqual(firedIds({ auto_rental_reimbursement: 'yes' }, []), []);
   });
 
   t('is independent of the gate questions (financing and value do not change it)', () => {
@@ -767,30 +767,18 @@ suite('S8 auto flags: all five together, ordering and the shared guarantees', (t
 });
 
 // ======================================================================================================
-suite('S8 auto flags: consistent with the existing inline auto findings in the app', (t) => {
-  const app = canRead ? read('public/js/app.js') : '';
-
-  t('the uninsured-driver year in the UM/UIM flag is the year the app\'s own inline finding quotes', () => {
-    if (!canRead) return;
-    const m = /in (\d{4}) more than one in seven drivers/.exec(app);
-    assert.notEqual(m, null, 'the existing UM-versus-liability finding still quotes a year and "more than one in seven"');
+suite('S8 auto flags: the uninsured-driver statistic, and staying in their own lane', (t) => {
+  t('the UM/UIM flag quotes the research statistic\'s year and says "more than one in seven"', () => {
     const stat = autoResearch.designInputs.uninsuredDriverStatistic;
-    assert.equal(Number(m[1]), stat.dataYear);
-    assert.includes(allTexts('auto-um-uim-check'), `in ${m[1]}.`);
+    assert.includes(allTexts('auto-um-uim-check'), `in ${stat.dataYear}.`);
     assert.includes(allTexts('auto-um-uim-check'), 'more than one in seven');
   });
 
-  t('the new flags do not repeat or contradict the inline checks: no matching-limits advice, no roadside, no MedPay, no deductible savings', () => {
+  t('the auto flags stay in their own lane: no matching-limits advice, no roadside, no MedPay, no deductible savings (those belong to other flags)', () => {
     const all = SCENARIOS.map((s) => { const f = rendered(s.flag, s.o); return TEXT_FIELDS.map((k) => f[k]).join(' '); }).join('\n');
     assert.equal(/roadside|towing|medical payments|medpay|health plan|health insurance/i.test(all), false);
     assert.equal(/matching it to your liability|lower than the liability you carry/i.test(all), false);
     assert.equal(/\$\d+-\$\d+ a year/.test(all), false);
   });
-
-  t('the inline checks themselves (UM vs liability, MedPay vs health, roadside, low collision deductible) are still in the app', () => {
-    if (!canRead) return;
-    for (const needle of ['Your uninsured motorist limit (', 'Your health plan already pays for injuries from a crash', 'Roadside help is covered twice', 'deductible is low given the savings you have on hand']) {
-      assert.includes(app, needle);
-    }
-  });
 });
+

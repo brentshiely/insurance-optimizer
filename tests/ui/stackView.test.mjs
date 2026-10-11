@@ -15,7 +15,6 @@ import {
 import { overlapScreenHtml, actionListHtml, stackBodyHtml, stackLiveText } from '../../public/js/overlap-ui/screens.mjs';
 import { patchOverlapScreen } from '../../public/js/overlap-ui/dom.mjs';
 import { createContext } from '../../public/js/overlap/engine/evaluate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { SECTIONS } from '../../public/js/overlap/data/questions/index.mjs';
 import { stackFor, eachCoreCombination, AUTO_LIMITS, AUTO_REQUIREMENTS } from '../snapshots/builders/stackMatrix.mjs';
 import { buildStackViews } from '../snapshots/builders/stackView.mjs';
@@ -141,7 +140,7 @@ suite('stackViewModel: no stack means nothing to draw', (t) => {
     assert.equal(stackBodyHtml(null), '');
     assert.equal(stackBodyHtml(undefined), '');
     assert.equal(stackLiveText(null), '');
-    const vm = actionListViewModel({ a: { home: 'Own', veh: '1' }, extras: [], q: {}, p: {}, o: {} });
+    const vm = actionListViewModel({ policies: ['auto', 'home'] });
     assert.equal(actionListHtml(vm, false, null), actionListHtml(vm));
     assert.equal(actionListHtml(vm, false, null).includes('stk'), false);
   });
@@ -673,23 +672,23 @@ suite('stack view snapshot (tests/snapshots/stack-view.snap.mjs)', (t) => {
 // ---------------------------------------------------------------------------------------------------------
 // How the screens get the model.
 // ---------------------------------------------------------------------------------------------------------
-const host = (parts = {}) => ({ a: {}, extras: [], q: {}, p: {}, o: {}, ...parts });
-const UMB = { umbrella: { hasUmbrella: 'Yes' } };
-const OWNER = { a: { home: 'Own', veh: '1' }, p: UMB };
+// Plain answers: Q1 (`policies`) holds the ticks, the rest is the user's own taps. OWNER ticks Auto, Home and Umbrella.
+const ans = (policies, more = {}) => ({ policies, ...more });
+const OWNER = ['auto', 'home', 'umbrella'];
 
 suite('liabilityStackModel and stackForScreen: the model for the screens', (t) => {
   t('null without an umbrella, the engine\'s own model with one', () => {
-    assert.equal(liabilityStackModel(host({ a: { home: 'Own', veh: '1' } })), null);
-    assert.equal(liabilityStackModel(host()), null);
-    const snap = host({ ...OWNER, o: { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' } });
+    assert.equal(liabilityStackModel(ans(['auto', 'home'])), null);
+    assert.equal(liabilityStackModel({}), null);
+    const snap = ans(OWNER, { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' });
     const model = liabilityStackModel(snap);
     assert.equal(model.umbrella.limitLabel, '$1 million');
     assert.deepEqual(model.layers.map((l) => l.id), ['auto', 'home']);
-    assert.equal(serialize(model), serialize(createContext(deriveAnswers(snap)).stack));
+    assert.equal(serialize(model), serialize(createContext(snap).stack));
   });
 
   t('a fresh plain object each call, so a caller may change it', () => {
-    const snap = host({ ...OWNER, o: { umbrella_limit: '1m' } });
+    const snap = ans(OWNER, { umbrella_limit: '1m' });
     const a = liabilityStackModel(snap);
     a.layers[0].status = 'ok';
     a.umbrella.limitLabel = 'changed';
@@ -699,8 +698,8 @@ suite('liabilityStackModel and stackForScreen: the model for the screens', (t) =
     assert.equal(Object.isFrozen(b), false);
   });
 
-  t('built from the household\'s answers only: the state is never read, and the snapshot is not changed', () => {
-    const snap = host({ ...OWNER, o: { umbrella_limit: '2m', home_liability: '500k', umbrella_min_home: '500k' } });
+  t('built from the household\'s answers only: a state key changes nothing, and the answers are not changed', () => {
+    const snap = ans(OWNER, { umbrella_limit: '2m', home_liability: '500k', umbrella_min_home: '500k' });
     const frozen = deepFreeze(copy(snap));
     const ca = liabilityStackModel({ ...frozen, state: 'CA' });
     const mn = liabilityStackModel({ ...frozen, state: 'MN' });
@@ -714,19 +713,19 @@ suite('liabilityStackModel and stackForScreen: the model for the screens', (t) =
   });
 
   t('stackForScreen gives the model on those two screens only', () => {
-    const snap = host({ ...OWNER, extras: ['Motorcycle'], o: { umbrella_limit: '1m' } });
+    const snap = ans([...OWNER, 'motorcycle'], { umbrella_limit: '1m' });
     assert.equal(stackForScreen(snap, 'ovl:umbrella_stack').umbrella.limitLabel, '$1 million');
     assert.equal(stackForScreen(snap, 'ovl:umbrella_vehicles').layers.some((l) => l.id === 'motorcycle'), true);
-    for (const other of ['ovl:umbrella_scope', 'ovl:extras', 'ovl:auto_gaps', 'ovl:deductible', 'ovl:', 'ovl:nope', 'summary', 'umbrella', 'p:auto', 'actions', '', undefined, null, 5]) {
+    for (const other of ['ovl:umbrella_scope', 'ovl:start', 'ovl:auto_gaps', 'ovl:deductible', 'ovl:', 'ovl:nope', 'summary', 'umbrella', 'p:auto', 'actions', '', undefined, null, 5]) {
       assert.equal(stackForScreen(snap, other), null, String(other));
     }
-    assert.equal(stackForScreen(host({ a: { home: 'Own', veh: '1' } }), 'ovl:umbrella_stack'), null, 'no umbrella, no stack');
+    assert.equal(stackForScreen(ans(['auto', 'home']), 'ovl:umbrella_stack'), null, 'no umbrella, no stack');
   });
 
   t('the stack follows the answers as they are given, one tap at a time (the live update)', () => {
-    let snap = host({ ...OWNER });
+    let snap = ans(OWNER);
     const auto = () => row(stackViewModel(stackForScreen(snap, 'ovl:umbrella_stack')), 'auto');
-    const tap = (q, o) => { snap = { ...snap, o: applyAnswer(snap, q, o) }; };
+    const tap = (q, o) => { snap = applyAnswer(snap, q, o); };
     assert.equal(auto().status, 'unknown');
     assert.equal(auto().limitLabel, 'Not answered yet');
     tap('auto_liability', '100_300');
@@ -746,7 +745,7 @@ suite('liabilityStackModel and stackForScreen: the model for the screens', (t) =
 
 // ---------------------------------------------------------------------------------------------------------
 suite('overlapScreenHtml: the stack on an umbrella question screen', (t) => {
-  const snap = host({ ...OWNER, extras: ['Motorcycle'], o: { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' } });
+  const snap = ans([...OWNER, 'motorcycle'], { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' });
   const sections = overlapSections(snap);
   const vm = stackViewModel(stackForScreen(snap, 'ovl:umbrella_stack'));
   const html = overlapScreenHtml(sections, 'ovl:umbrella_stack', BACK, vm);
@@ -778,7 +777,7 @@ suite('overlapScreenHtml: the stack on an umbrella question screen', (t) => {
   });
 
   t('both umbrella screens of a household with a motorcycle and a boat draw the whole stack', () => {
-    const big = host({ ...OWNER, extras: ['Motorcycle', 'Boat'] });
+    const big = ans([...OWNER, 'motorcycle', 'boat']);
     const secs = overlapSections(big);
     for (const id of STACK_SECTION_IDS) {
       const out = overlapScreenHtml(secs, 'ovl:' + id, BACK, stackViewModel(stackForScreen(big, 'ovl:' + id)));
@@ -844,14 +843,14 @@ suite('actionListHtml: the stack among the umbrella items', (t) => {
   });
 
   t('the real catalog: a household with an umbrella gets the stack in its list, one without does not', () => {
-    const withUmb = host({ ...OWNER, o: { umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500', home_liability: '500k', umbrella_min_home: '500k' } });
+    const withUmb = ans(OWNER, { umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500', home_liability: '500k', umbrella_min_home: '500k' });
     const list = actionListViewModel(withUmb);
     const model = stackViewModel(liabilityStackModel(withUmb));
     const html = actionListHtml(list, false, model);
     assert.equal(count(html, 'class="stk"'), 1);
     assert.equal(list.groups.flatMap((g) => g.items).some((i) => i.id.indexOf('umbrella-') === 0), true, 'an umbrella item fired');
     assert.equal(html.includes(STATUS_SENTENCES.below_required), true);
-    const without = host({ a: { home: 'Own', veh: '1' } });
+    const without = ans(['auto', 'home']);
     assert.equal(actionListHtml(actionListViewModel(without), false, stackViewModel(liabilityStackModel(without))).includes('stk'), false);
   });
 });
@@ -893,8 +892,8 @@ function fakeStage(sections, screenId, withStack) {
 }
 
 suite('patchOverlapScreen: the stack drawing is replaced in place and announced only when it changes', (t) => {
-  const snap1 = host({ ...OWNER, o: { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' } });
-  const snap2 = host({ ...OWNER, o: { umbrella_limit: '1m', auto_liability: '250_500', umbrella_min_auto: '250_500' } });
+  const snap1 = ans(OWNER, { umbrella_limit: '1m', auto_liability: '100_300', umbrella_min_auto: '250_500' });
+  const snap2 = ans(OWNER, { umbrella_limit: '1m', auto_liability: '250_500', umbrella_min_auto: '250_500' });
   const sid = 'ovl:umbrella_stack';
   const vmOf = (snap) => stackViewModel(stackForScreen(snap, sid));
 
@@ -948,7 +947,7 @@ suite('patchOverlapScreen: the stack drawing is replaced in place and announced 
 
   t('a changed screen shape returns false before touching the drawing', () => {
     const screen = fakeStage(overlapSections(snap1), sid, true);
-    const other = host({ ...OWNER, extras: ['Boat'], o: snap1.o });
+    const other = { ...snap1, policies: [...OWNER, 'boat'] };
     const changed = overlapSections(other);
     assert.equal(patchOverlapScreen(screen.stage, changed, sid, vmOf(other)), false, 'a Boat adds a section, so "N of M" changes');
     assert.equal(screen.stackBody.innerHTML, '', 'drawing untouched when the call returns false');

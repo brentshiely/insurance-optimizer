@@ -9,9 +9,11 @@
 // publisher, title, https url and a real YYYY-MM-DD lastVerified; every showIf is well formed and
 // references existing questions, existing option ids (including not_sure only where allowed), policy
 // ids from the known list, a form that matches the question type, and no cycles; options are unique
-// per question and never an explicit not_sure; card entries have the contract's shape.
+// per question and never an explicit not_sure; card entries have the contract's shape. Q1 (the question
+// with id `policies`) is required when any gate uses `holds`, and must be an always-shown multi question
+// without Not sure whose ordinary options are policy ids.
 import {
-  BUCKETS, KINDS, DOMAINS, QUESTION_TYPES, POLICY_IDS, NOT_SURE,
+  BUCKETS, KINDS, DOMAINS, QUESTION_TYPES, POLICY_IDS, NOT_SURE, POLICIES_QUESTION_ID,
   CARD_BENEFIT_KEYS, BENEFIT_STATUSES,
 } from './constants.mjs';
 import { checkCondition, conditionRefs } from './conditions.mjs';
@@ -131,6 +133,11 @@ function validateShowIf(q, byId, errors, edges) {
   for (const pid of refs.holds) {
     if (!POLICY_IDS.includes(pid)) errors.push(`question "${q.id}": showIf references unknown policy id "${pid}" (known: ${POLICY_IDS.join(', ')})`);
   }
+  if (refs.holds.length > 0) {
+    // `holds` reads the answer to Q1, so it is a reference to that question (cycle detection and visibility included).
+    if (byId.has(POLICIES_QUESTION_ID)) edges.get(q.id).push(POLICIES_QUESTION_ID);
+    else errors.push(`question "${q.id}": showIf uses holds, which reads the "${POLICIES_QUESTION_ID}" question (Q1), but the catalog has no such question`);
+  }
   for (const ref of refs.answers) {
     const target = byId.get(ref.qid);
     if (!target) {
@@ -171,6 +178,21 @@ function findCycles(edges, errors) {
   for (const id of edges.keys()) if (!state.has(id)) visit(id);
 }
 
+// Q1 rules: always asked (every gate in the catalog depends on it), a tick list with no Not sure, and ordinary options
+// that are policy ids. An exclusive option (the "None of these" tick) may have any valid option id.
+function validatePoliciesQuestion(q, errors) {
+  const where = `question "${POLICIES_QUESTION_ID}" (Q1)`;
+  if (q.type !== 'multi') errors.push(`${where}: must be a multi question, got ${describe(q.type)}`);
+  if (q.showIf !== undefined && q.showIf !== null) errors.push(`${where}: must be always shown (showIf null); every other gate depends on it`);
+  if (q.allowNotSure === true) errors.push(`${where}: must not offer Not sure (the user knows which policies they have)`);
+  if (Array.isArray(q.options)) {
+    for (const o of q.options) {
+      if (!isPlainObject(o) || typeof o.id !== 'string' || o.exclusive === true) continue;
+      if (!POLICY_IDS.includes(o.id)) errors.push(`${where}: option "${o.id}" is not a policy id (known: ${POLICY_IDS.join(', ')}); only an exclusive option may be anything else`);
+    }
+  }
+}
+
 function validateQuestions(questions, cards, errors) {
   if (!Array.isArray(questions)) {
     errors.push('catalog.questions must be an array');
@@ -191,6 +213,7 @@ function validateQuestions(questions, cards, errors) {
     if (byId.get(q.id) === q) validateShowIf(q, byId, errors, edges);
   }
   findCycles(edges, errors);
+  if (byId.has(POLICIES_QUESTION_ID)) validatePoliciesQuestion(byId.get(POLICIES_QUESTION_ID), errors);
 
   // Options of the cards question that name a card must name one that exists.
   const cardTable = isPlainObject(cards) ? cards : {};

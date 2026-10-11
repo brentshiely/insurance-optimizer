@@ -35,7 +35,7 @@ pre{white-space:pre-wrap;word-break:break-word;border:1px solid var(--line);bord
 //   record=1&post=1 also POST each golden file to tests/browser/record-server.py (dev helper)
 //   only=a,b        run just these scenario ids (a pass is then reported as GOLDEN: PASS-PARTIAL)
 //   app=<url>       app page to load (default ../../public/index.html, must be same-origin)
-//   pool=<n>        scenarios replayed concurrently (default 6)
+//   pool=<n>        scenarios replayed concurrently (default 3)
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const record = params.has("record");

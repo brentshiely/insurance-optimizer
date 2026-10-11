@@ -3,23 +3,23 @@
 //   { id, title, reason, showIf }
 //
 // `id` matches the `section` of its questions. `reason` is the plain-language "why we are asking", tied to
-// something the user already told us (the same job policyReason() does in the host app). `showIf` is the
+// something the user already told us in Q1. The first section, `start`, holds Q1 itself, so its reason says why the
+// question is asked instead. `showIf` is the
 // section-level gate: a Condition (same DSL as questions) or null for always shown. Every question carries
 // its own complete gate, so the engine never needs the sections; sections only group the screens. The rule
 // the tests enforce: a section has at least one visible question exactly when its `showIf` is true.
 //
-// A section gate reads derived policies (`holds`). The one exception is `renters`, which also reads the always-shown
-// `other_items` answer (the Q1 equivalent) so a homeowner who pays for a child's renters policy gets the section
-// (DECISIONS S5-15). A section gate never reads any other question, so the screen list needs only Q1 and the host state.
+// A section gate reads Q1 only, through `holds` (the ticked policies). It never reads any other answer, so the screen
+// list needs nothing but the answer to Q1.
 //
 // The `reason` strings are static text. They name the thing the user already told us ("you told us you
-// have an umbrella"); the host app may add specifics later without changing the contract.
+// have an umbrella"). The one exception is `start`, which is where they tell us.
 
 export const SECTIONS = [
   {
-    id: 'extras',
-    title: 'Extras you may be paying for',
-    reason: 'You have told us about your main policies. Now a quick look at the smaller extras people often pay for twice.',
+    id: 'start',
+    title: 'Your policies',
+    reason: 'Everything after this depends on which policies you have, so we start here and only ask about what you tick.',
     showIf: null,
   },
   {
@@ -50,7 +50,7 @@ export const SECTIONS = [
     id: 'renters',
     title: 'Your renters policy',
     reason: 'You told us you have a renters policy, so we want to know whose belongings it is meant to cover. If it is for a child away from home and you own your home, your own home policy may already reach those belongings.',
-    showIf: { any: [{ holds: 'renters' }, { answer: 'other_items', includes: 'renters_with_home' }] },
+    showIf: { holds: 'renters' },
   },
   {
     id: 'health',

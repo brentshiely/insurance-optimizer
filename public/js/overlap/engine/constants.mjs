@@ -3,8 +3,11 @@
 /** Reserved option id appended to a question when `allowNotSure` is true. */
 export const NOT_SURE = 'not_sure';
 
-/** Key in `answers` that holds the derived set of policy ids (see adapter.mjs). Not a question. */
-export const POLICIES_KEY = 'policies';
+/**
+ * Id of Q1, "Which policies do you have?" (data/questions/policies.mjs). It is an ordinary asked multi question: its
+ * answer is the list of ticked policy ids, and the condition `{ holds: id }` and `ctx.holds(id)` read that answer.
+ */
+export const POLICIES_QUESTION_ID = 'policies';
 
 /** Convention: the multi question that records which credit cards the user carries (ctx.cards()). */
 export const CARDS_QUESTION_ID = 'cards';
@@ -15,14 +18,14 @@ export const EMPHASES = ['normal', 'strong'];
 export const QUESTION_TYPES = ['single', 'multi'];
 export const DOMAINS = ['core', 'umbrella', 'auto', 'home', 'renters', 'health', 'vehicles', 'deductible', 'other', 'cards'];
 
-/** Policy ids that can appear in the derived `policies` answer (ARCHITECTURE adapter table), sorted. */
+/**
+ * The policy ids a user can tick in Q1 (every option of `policies` except the exclusive "None of these"), sorted.
+ * `holds` conditions may name only these.
+ */
 export const POLICY_IDS = [
   'accidental_death', 'auto', 'boat', 'health', 'home', 'motorcycle', 'phone',
   'rental_car', 'renters', 'towing', 'travel', 'umbrella', 'warranty',
 ];
-
-/** The subset of POLICY_IDS the user selects in the `other_items` question (host `o.other_items`). */
-export const OTHER_ITEM_POLICY_IDS = ['rental_car', 'towing', 'travel', 'phone', 'warranty', 'accidental_death'];
 
 /** Benefit keys every card entry must carry (ARCHITECTURE "Card"). */
 export const CARD_BENEFIT_KEYS = ['rentalCar', 'tripProtection', 'cellPhone', 'extendedWarranty', 'purchaseProtection', 'roadside'];

@@ -1,73 +1,42 @@
 // Golden-master engine for the Coverage Check wizard. Loaded by tests/browser/golden.html.
 //
 // It loads the real app in a hidden same-origin iframe, drives it ONLY through DOM events on the
-// elements a user would use, and after every step records (or compares) the normalized visible text
-// of #stage plus #known. See tests/browser/README.md for the full contract.
+// elements a user would use, and after every step records (or compares) the visible text of #stage,
+// #known and the progress value. See tests/browser/README.md for the full contract.
 //
 // Nothing here touches the DOM, the clock or the network at import time, so the pure parts
-// (OPS metadata, normalizeVolatile, diffLines, goldenFileText) can be imported by the jsc unit test
+// (OPS metadata, validateStep, diffLines, goldenFileText) can be imported by the jsc unit test
 // tests/browser/golden-shape.test.mjs.
 
-export const BASE_WAIT_MS = 250;        // wait after every step (the app uses a 140ms timeout on some clicks)
+export const BASE_WAIT_MS = 250;        // wait after every step, so a slow tab cannot capture a half-drawn screen
 export const QUIET_MS = 100;            // ...then also wait until the page has stopped mutating for this long
 export const SETTLE_TIMEOUT_MS = 8000;  // give up on a step that never settles
 export const LOAD_TIMEOUT_MS = 15000;
-export const POOL_SIZE = 6;             // scenarios replayed concurrently (each in its own iframe)
+export const LOAD_ATTEMPTS = 3;         // a static server that drops connections when many modules are fetched at once can leave a page blank; a real load error repeats and still fails
+export const POOL_SIZE = 3;             // scenarios replayed concurrently (each in its own iframe)
 
 // ---------------------------------------------------------------------------------------------
 // Step operations. A scenario step is a plain object { op, ...args }. `need` lists required keys.
-// `run(step, h)` acts on the app through helper `h` (h.click, h.setValue, h.q, h.doc, h.win) and may
-// return { expectChange: true } when the click only navigates after a timer (the screen text must
-// then differ from the pre-step text before the step counts as settled).
+// `run(step, h)` acts on the app through helper `h` (h.click, h.q, h.doc, h.win) and may return
+// { expectChange: true } when the click only navigates after a timer (the screen text must then differ
+// from the pre-step text before the step counts as settled). The wizard navigates synchronously, so only
+// the generic `click` op ever asks for that.
 // ---------------------------------------------------------------------------------------------
 const A = v => String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
 export const OPS = {
-  // click a state tile on the map
-  state: { need: ["code"], run(s, h) { h.click(`button[data-state="${A(s.code)}"]`); } },
-  // choose from the state dropdown (#st); code "" is the "Choose a state..." placeholder
-  pickState: { need: ["code"], run(s, h) { h.setValue("#st", s.code); } },
-  // big answer button on tenure / dep / veh (navigates after the app's 140ms timer)
-  opt: { need: ["q", "v"], run(s, h) { h.click(`button[data-q="${A(s.q)}"][data-v="${A(s.v)}"]`); return { expectChange: true }; } },
-  // chip on the motor-extras screen; x "__none" is the "None of these" chip (navigates after 140ms)
-  extra: { need: ["x"], run(s, h) { h.click(`button[data-x="${A(s.x)}"]`); return { expectChange: s.x === "__none" }; } },
-  // Yes / No / Not sure on the "A few easy ones" screen
-  qual: { need: ["id", "v"], run(s, h) { h.click(`button[data-qual="${A(s.id)}"][data-v="${A(s.v)}"]`); } },
+  // Q1, "Which policies do you have?": taps the listed policy ids in order (each tap ticks or unticks it); "none" is "None of these"
+  policies: { need: ["ids"], run(s, h) { for (const id of s.ids) h.click(`button[data-oq="policies"][data-ov="${A(id)}"]`); } },
+  // any question screen: taps [questionId, optionId] pairs in order, in ONE step; each tap is button[data-oq][data-ov]. A tap updates the
+  // screen synchronously, so a question that an earlier tap in the same list opened (a gated follow-up) is there for the next one.
+  // Continue is a separate `next` step and stays disabled until every visible question on the screen is answered.
+  answer: { need: ["list"], run(s, h) { for (const [q, v] of s.list) h.click(`button[data-oq="${A(q)}"][data-ov="${A(v)}"]`); } },
+  // "Get started" on the entry screen and "Continue" on every question screen
   next: { need: [], run(s, h) { h.click('button[data-act="next"]'); } },
   back: { need: [], run(s, h) { h.click('button[data-act="back"]'); } },
   restart: { need: [], run(s, h) { h.click('button[data-act="restart"]'); } },
-  // a policy-screen field [data-p][data-k]: yes/no toggle (click the button whose data-v is v),
-  // select (set value, input + change), or number input (set value, input + change)
-  field: {
-    need: ["p", "k", "v"],
-    run(s, h) {
-      const sel = `[data-p="${A(s.p)}"][data-k="${A(s.k)}"]`;
-      const first = h.q(sel);
-      if (first.tagName === "BUTTON") h.click(`${sel}[data-v="${A(s.v)}"]`);
-      else h.setValue(sel, s.v);
-    },
-  },
-  // umbrella screen Yes / No toggle [data-umb]
-  umb: { need: ["k", "v"], run(s, h) { h.click(`button[data-umb="${A(s.k)}"][data-v="${A(s.v)}"]`); } },
-  // add a file on a policy screen ("Choose a file" input, or "Take a photo" with via: "cam")
-  scan: {
-    need: ["p", "name"],
-    run(s, h) {
-      const el = h.q(`#${s.via === "cam" ? "cam" : "doc"}_${s.p}`);
-      const file = new h.win.File(["x"], s.name, { type: "application/octet-stream" });
-      const dt = new h.win.DataTransfer();
-      dt.items.add(file);
-      el.files = dt.files;
-      el.dispatchEvent(new h.win.Event("change", { bubbles: true }));
-    },
-  },
-  // overlap question screens (Story S13): taps options in order, all in ONE step. `list` is [[questionId, optionId], ...];
-  // each tap is button[data-oq][data-ov]. A tap updates the screen synchronously, so a question that an earlier tap in the
-  // same list opened (a gated follow-up) is there for the next one. Continue is a separate `next` step.
-  answer: { need: ["list"], run(s, h) { for (const [q, v] of s.list) h.click(`button[data-oq="${A(q)}"][data-ov="${A(v)}"]`); } },
-  // generic escape hatches for screens added by later stories
+  // generic escape hatch for a control the ops above do not cover (Copy my list, a hidden button, ...)
   click: { need: ["sel"], run(s, h) { h.click(s.sel); return { expectChange: !!s.expectChange }; } },
-  set: { need: ["sel", "value"], run(s, h) { h.setValue(s.sel, s.value); } },
 };
 
 export function validateStep(step) {
@@ -76,6 +45,7 @@ export function validateStep(step) {
   if (!def) return `unknown op "${step.op}"`;
   for (const k of def.need) if (step[k] === undefined) return `op "${step.op}" needs "${k}"`;
   if (step.op === "answer" && !(Array.isArray(step.list) && step.list.length > 0 && step.list.every(e => Array.isArray(e) && e.length === 2 && e.every(x => typeof x === "string" && x !== "")))) return 'op "answer" needs a non-empty list of [questionId, optionId] pairs';
+  if (step.op === "policies" && !(Array.isArray(step.ids) && step.ids.length > 0 && step.ids.every(x => typeof x === "string" && x !== ""))) return 'op "policies" needs a non-empty list of policy ids';
   return null;
 }
 
@@ -137,17 +107,14 @@ export function visibleText(root) {
   return out.join("").split("\n").map(collapse).filter(Boolean).join("\n");
 }
 
-// The only volatile text in the app: the summary's "<n> taps, <n> seconds". Nothing else is hidden.
-export function normalizeVolatile(text) {
-  return text.replace(/\b\d+ taps, \d+ seconds\b/g, "N taps, S seconds");
-}
-
+// Nothing on the page changes from run to run (no timer, no tap count, no date), so nothing is normalized: the
+// capture is the page's text as it is. The progress bar is in the capture as its aria-valuenow, a percentage,
+// because the wiring that moves it is page code that no unit test reaches; its width and colour are not (CSS).
 export function snapshotText(doc) {
-  const stage = doc.getElementById("stage"), known = doc.getElementById("known");
-  return normalizeVolatile(
-    "== stage ==\n" + (stage ? visibleText(stage) : "(#stage missing)") +
-    "\n== known ==\n" + (known ? visibleText(known) : "(#known missing)")
-  );
+  const stage = doc.getElementById("stage"), known = doc.getElementById("known"), bar = doc.getElementById("progress");
+  return "== stage ==\n" + (stage ? visibleText(stage) : "(#stage missing)") +
+    "\n== known ==\n" + (known ? visibleText(known) : "(#known missing)") +
+    "\n== progress ==\n" + (bar ? `${bar.getAttribute("aria-valuenow")}%` : "(#progress missing)");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -185,7 +152,7 @@ export function formatDiff(expected, actual, context = 2) {
   return lines.join("\n");
 }
 
-export const GOLDEN_HEADER = "// Golden master recorded from the ORIGINAL inline app. Change only deliberately; see tests/browser/README.md.";
+export const GOLDEN_HEADER = "// Golden master of the Coverage Check wizard, recorded from the page itself. Change only deliberately; see tests/browser/README.md.";
 export function goldenFileText(id, steps) {
   return `${GOLDEN_HEADER}\n// scenario: ${id}\nexport default [\n${steps.map(s => " " + JSON.stringify({ step: s.step, text: s.text })).join(",\n")}\n];\n`;
 }
@@ -269,14 +236,6 @@ function makeHelpers(win, doc) {
       if (el.disabled) throw new Error(`element is disabled: ${sel}`);
       el.dispatchEvent(new win.MouseEvent("click", { bubbles: true, cancelable: true, view: win }));
     },
-    setValue(sel, value) {
-      const el = q(sel);
-      const v = String(value);
-      if (el.tagName === "SELECT" && !Array.from(el.options).some(o => o.value === v)) throw new Error(`${sel} has no option with value "${v}"`);
-      el.value = v;
-      el.dispatchEvent(new win.Event("input", { bubbles: true }));
-      el.dispatchEvent(new win.Event("change", { bubbles: true }));
-    },
   };
 }
 
@@ -287,9 +246,18 @@ export async function runScenario(scn, opts) {
   const fail = (step, message, extra) => { res.ok = false; res.failure = { step, message, ...extra }; };
   let frame = null, observer = null;
   try {
-    frame = await loadFrame(opts.appUrl, scn.id);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        frame = await loadFrame(opts.appUrl, scn.id);
+        const d = frame.contentDocument;
+        await waitFor(() => { const s = d.getElementById("stage"); return s && s.childNodes.length > 0; }, LOAD_TIMEOUT_MS, "the app did not render anything into #stage");
+        break;
+      } catch (e) {
+        if (frame) { frame.remove(); frame = null; }
+        if (attempt >= LOAD_ATTEMPTS) throw e;
+      }
+    }
     const win = frame.contentWindow, doc = frame.contentDocument;
-    await waitFor(() => { const s = doc.getElementById("stage"); return s && s.childNodes.length > 0; }, LOAD_TIMEOUT_MS, "the app did not render anything into #stage");
 
     const errors = [];
     win.addEventListener("error", e => errors.push("error: " + e.message));

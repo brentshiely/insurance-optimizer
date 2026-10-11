@@ -1,7 +1,7 @@
 // Section "umbrella_stack": the auto + home + umbrella core (SPEC "Auto + Home + Umbrella core").
 // Shown only when the user holds an umbrella. The umbrella's required minimum is asked for home (as the
 // SPEC specifies) and also for auto, so each underlying limit has something to be compared against
-// (DECISIONS S5-2). Limits are asked here, never read from the host's policy screens (D10).
+// (DECISIONS S5-2). Limits are asked here, as closed-list answers with Not sure (D10).
 import { gHolds, gUmbrellaAnd } from './gates.mjs';
 import { homeLiabilityOptions, liabilityLimitOptions, liabilityOptions } from './presets.mjs';
 

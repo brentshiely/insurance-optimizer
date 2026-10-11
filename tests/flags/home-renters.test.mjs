@@ -5,8 +5,7 @@
 // What is checked, per flag: it fires when it should and stays silent when it should not, every Not sure fallback,
 // emphasis (strong only where the user's own answer confirms the gap), copy that matches the research wording rules
 // (no price, no 10 percent rule, no state names, no URLs, no unresolved tokens), sources that resolve, determinism,
-// and one end-to-end evaluate() on the real catalog with answers built through the real adapter (so `policies` is
-// the derived array). The flags in the two files must equal the S9 rows of the plan (tests/fixtures/flagPlan.mjs).
+// and one end-to-end evaluate() on the real catalog with plain answers (Q1, `policies`, holds the ticks). The flags in the two files must equal the S9 rows of the plan (tests/fixtures/flagPlan.mjs).
 // Pure data checks; runs under jsc and Node. The flag files are read with the jsc global read(), guarded.
 import { suite, assert } from '../harness.mjs';
 import CATALOG from '../../public/js/overlap/data/catalog.mjs';
@@ -14,7 +13,6 @@ import home from '../../public/js/overlap/data/flags/home.mjs';
 import renters from '../../public/js/overlap/data/flags/renters.mjs';
 import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { evaluate, createContext } from '../../public/js/overlap/engine/evaluate.mjs';
-import { deriveAnswers } from '../../public/js/overlap/engine/adapter.mjs';
 import { validateCatalog } from '../../public/js/overlap/engine/validate.mjs';
 import PLAN from '../fixtures/flagPlan.mjs';
 import homeResearch from '../../research/home-and-renters.mjs';
@@ -31,11 +29,11 @@ const S9_FLAGS = [...home, ...renters];
 const byId = (id) => S9_FLAGS.find((f) => f.id === id);
 const planRow = (id) => PLAN.flags.find((f) => f.id === id);
 
-// ---- answers through the real adapter -------------------------------------------------------------------
-// `hs` is the host's own/rent answer (a.home): 'Own', 'Rent', 'Both' or undefined. `o` holds the user's overlap answers.
-const snapshotFor = (hs, o) => ({ a: hs === undefined ? {} : { home: hs }, extras: [], q: {}, p: {}, o: o || {} });
-const answersFor = (hs, o) => deriveAnswers(snapshotFor(hs, o));
-const ownerWith = (o) => answersFor('Own', o);
+// ---- plain answers ---------------------------------------------------------------------------------------
+// `held` is what the user ticked in Q1: 'home' for a home they own, 'renters' for a renters policy (their own, or one
+// a parent pays for so a child at college has coverage). `o` holds the user's answers to the other questions.
+const answersFor = (held, o) => ({ ...(o || {}), policies: held.slice() });
+const ownerWith = (o) => answersFor(['home'], o);
 
 const allFlags = (result) => [...result.flags.raise, ...result.flags.drop, ...result.flags.question];
 const s9Of = (result) => allFlags(result).filter((f) => S9_IDS.includes(f.id));
@@ -172,7 +170,7 @@ suite('S9 flags: the files match the plan', (t) => {
     for (const f of S9_FLAGS) assert.equal(/earth|quake|sinkhole|landslide|sublimit|sub-limit/i.test(f.id), false, `${f.id}`);
     // The copy of the three flags does not wander into the fast-follow topics either.
     const answers = [
-      ownerWith({ home_sewer_backup: 'no', home_flood_policy: 'no', other_items: ['renters_with_home'], renters_for: 'child_away', renters_child_housing: 'dorm' }),
+      answersFor(['home', 'renters'], { home_sewer_backup: 'no', home_flood_policy: 'no', renters_for: 'child_away', renters_child_housing: 'dorm' }),
       ownerWith({ home_sewer_backup: 'not_sure', home_flood_policy: 'not_sure' }),
     ];
     for (const a of answers) {
@@ -184,10 +182,10 @@ suite('S9 flags: the files match the plan', (t) => {
 // =======================================================================================================
 suite('S9 flags: only the plan\'s questions and policies are read', (t) => {
   const everyAnswer = [
-    ownerWith({ home_sewer_backup: 'no', home_flood_policy: 'no', other_items: ['renters_with_home'], renters_for: 'child_away', renters_child_housing: 'dorm' }),
-    ownerWith({ home_sewer_backup: 'not_sure', home_flood_policy: 'not_sure', other_items: ['renters_with_home'], renters_for: 'child_away', renters_child_housing: 'not_sure' }),
-    answersFor('Both', { home_sewer_backup: 'yes', home_flood_policy: 'yes', renters_for: 'me' }),
-    answersFor('Rent', {}),
+    answersFor(['home', 'renters'], { home_sewer_backup: 'no', home_flood_policy: 'no', renters_for: 'child_away', renters_child_housing: 'dorm' }),
+    answersFor(['home', 'renters'], { home_sewer_backup: 'not_sure', home_flood_policy: 'not_sure', renters_for: 'child_away', renters_child_housing: 'not_sure' }),
+    answersFor(['home', 'renters'], { home_sewer_backup: 'yes', home_flood_policy: 'yes', renters_for: 'me' }),
+    answersFor(['renters'], {}),
   ];
   t('applies() and every text field touch only the plan\'s questions and policies, never cards or the stack', () => {
     for (const f of S9_FLAGS) {
@@ -261,15 +259,15 @@ suite('home-sewer-backup-missing', (t) => {
     assert.equal(fires(ownerWith({ home_flood_policy: 'no' }), SEWER), false, 'an answer to the flood question does not trigger it');
   });
   t('needs a home policy: a renter, or no policy at all, never gets it, even with a stale answer', () => {
-    assert.equal(fires(answersFor('Rent', { home_sewer_backup: 'no' }), SEWER), false);
-    assert.equal(fires(answersFor('Rent', { home_sewer_backup: 'not_sure' }), SEWER), false);
-    assert.equal(fires(answersFor(undefined, { home_sewer_backup: 'no' }), SEWER), false);
+    assert.equal(fires(answersFor(['renters'], { home_sewer_backup: 'no' }), SEWER), false);
+    assert.equal(fires(answersFor(['renters'], { home_sewer_backup: 'not_sure' }), SEWER), false);
+    assert.equal(fires(answersFor([], { home_sewer_backup: 'no' }), SEWER), false);
     assert.equal(fires({ home_sewer_backup: 'no' }, SEWER), false, 'no derived policies at all');
     assert.equal(fires({ policies: [], home_sewer_backup: 'no' }, SEWER), false);
   });
   t('fires for a household that both owns and rents', () => {
-    assert.equal(fires(answersFor('Both', { home_sewer_backup: 'no' }), SEWER), true);
-    assert.equal(fires(answersFor('Both', { home_sewer_backup: 'not_sure' }), SEWER), true);
+    assert.equal(fires(answersFor(['home', 'renters'], { home_sewer_backup: 'no' }), SEWER), true);
+    assert.equal(fires(answersFor(['home', 'renters'], { home_sewer_backup: 'not_sure' }), SEWER), true);
   });
   t('copy follows the research rules: defines the term, names the add-on, says a flood policy is no substitute, gives no price or number', () => {
     for (const answer of ['no', 'not_sure']) {
@@ -307,7 +305,7 @@ suite('home-sewer-backup-missing', (t) => {
     assert.equal(r.meta.visibleQuestionIds.includes('home_sewer_backup'), true);
   });
   t('end to end: Not sure, from a household that both owns and rents', () => {
-    const answers = answersFor('Both', { home_sewer_backup: 'not_sure' });
+    const answers = answersFor(['home', 'renters'], { home_sewer_backup: 'not_sure' });
     assert.deepEqual(answers.policies, ['home', 'renters']);
     const f = find(evaluate(answers), SEWER);
     assert.equal(f.emphasis, 'normal');
@@ -349,13 +347,13 @@ suite('home-flood-no-separate-policy', (t) => {
     assert.equal(fires(ownerWith({ home_sewer_backup: 'no' }), FLOOD), false, 'an answer to the sewer question does not trigger it');
   });
   t('needs a home policy: renters and people with no policy never get it', () => {
-    assert.equal(fires(answersFor('Rent', { home_flood_policy: 'no' }), FLOOD), false);
-    assert.equal(fires(answersFor('Rent', { home_flood_policy: 'not_sure' }), FLOOD), false);
-    assert.equal(fires(answersFor(undefined, { home_flood_policy: 'no' }), FLOOD), false);
+    assert.equal(fires(answersFor(['renters'], { home_flood_policy: 'no' }), FLOOD), false);
+    assert.equal(fires(answersFor(['renters'], { home_flood_policy: 'not_sure' }), FLOOD), false);
+    assert.equal(fires(answersFor([], { home_flood_policy: 'no' }), FLOOD), false);
     assert.equal(fires({ home_flood_policy: 'no' }, FLOOD), false);
   });
   t('fires for a household that both owns and rents', () => {
-    assert.equal(fires(answersFor('Both', { home_flood_policy: 'no' }), FLOOD), true);
+    assert.equal(fires(answersFor(['home', 'renters'], { home_flood_policy: 'no' }), FLOOD), true);
   });
   t('copy: the exclusion is stated as how policies are written, the statistic carries its years, the waiting period is hedged, limits point to floodsmart.gov', () => {
     for (const answer of ['no', 'not_sure']) {
@@ -401,12 +399,12 @@ suite('home-flood-no-separate-policy', (t) => {
 
 // =======================================================================================================
 suite('renters-child-vs-parents-home', (t) => {
-  // A parent who owns the home and pays for a child's renters policy reaches the question through the other_items tick.
-  const parent = (housing, more) => ownerWith({ other_items: ['renters_with_home'], renters_for: 'child_away', ...(housing ? { renters_child_housing: housing } : {}), ...(more || {}) });
+  // A parent who owns the home and pays for a child's renters policy ticks Home and Renters in Q1.
+  const parent = (housing, more) => answersFor(['home', 'renters'], { renters_for: 'child_away', ...(housing ? { renters_child_housing: housing } : {}), ...(more || {}) });
 
-  t('fires for a parent who owns their home, ticked the child policy, and says the child is in a dorm', () => {
+  t('fires for a parent who owns their home, ticked Home and Renters for the child\'s policy, and says the child is in a dorm', () => {
     const answers = parent('dorm');
-    assert.deepEqual(answers.policies, ['home'], 'the host derives no renters policy for this household (DECISIONS S5-15)');
+    assert.deepEqual(answers.policies, ['home', 'renters'], 'Home and Renters are both ticked in Q1 (DECISIONS S5-15, R1-4)');
     const f = get(answers, RENTERS);
     assert.equal(f !== undefined, true);
     assert.equal(f.bucket, 'question');
@@ -414,8 +412,8 @@ suite('renters-child-vs-parents-home', (t) => {
     assert.equal(f.kind, 'cross-policy');
     assert.equal(f.emphasis, 'normal');
   });
-  t('fires for the Both household (own one place, rent another) that pays for a child\'s policy', () => {
-    const answers = answersFor('Both', { renters_for: 'child_away', renters_child_housing: 'off_campus' });
+  t('fires for a household that owns one place and rents another and pays for a child\'s policy', () => {
+    const answers = answersFor(['home', 'renters'], { renters_for: 'child_away', renters_child_housing: 'off_campus' });
     assert.deepEqual(answers.policies, ['home', 'renters']);
     assert.equal(fires(answers, RENTERS), true);
   });
@@ -462,20 +460,20 @@ suite('renters-child-vs-parents-home', (t) => {
     assert.deepEqual(unanswered, notSure);
   });
   t('stays silent when the policy is for the user, and when renters_for is unanswered', () => {
-    assert.equal(fires(answersFor('Both', { renters_for: 'me' }), RENTERS), false);
-    assert.equal(fires(answersFor('Rent', { renters_for: 'me' }), RENTERS), false);
-    assert.equal(fires(ownerWith({ other_items: ['renters_with_home'], renters_for: 'me' }), RENTERS), false);
-    assert.equal(fires(ownerWith({ other_items: ['renters_with_home'] }), RENTERS), false);
-    assert.equal(fires(answersFor('Both', {}), RENTERS), false);
+    assert.equal(fires(answersFor(['home', 'renters'], { renters_for: 'me' }), RENTERS), false);
+    assert.equal(fires(answersFor(['renters'], { renters_for: 'me' }), RENTERS), false);
+    assert.equal(fires(answersFor(['home', 'renters'], { renters_for: 'me' }), RENTERS), false);
+    assert.equal(fires(answersFor(['home', 'renters'], {}), RENTERS), false);
+    assert.equal(fires(answersFor(['home', 'renters'], {}), RENTERS), false);
   });
   t('needs a home policy: a renter who answers child_away has no parent\'s home policy to compare with', () => {
-    assert.equal(fires(answersFor('Rent', { renters_for: 'child_away', renters_child_housing: 'dorm' }), RENTERS), false);
-    assert.equal(fires(answersFor('Rent', { renters_for: 'child_away' }), RENTERS), false);
-    assert.equal(fires(answersFor(undefined, { other_items: ['renters_with_home'], renters_for: 'child_away' }), RENTERS), false);
+    assert.equal(fires(answersFor(['renters'], { renters_for: 'child_away', renters_child_housing: 'dorm' }), RENTERS), false);
+    assert.equal(fires(answersFor(['renters'], { renters_for: 'child_away' }), RENTERS), false);
+    assert.equal(fires(answersFor(['renters'], { renters_for: 'child_away' }), RENTERS), false);
   });
-  t('without the renters tick or a host renters policy, a homeowner is never asked, so the stale answer is pruned and the flag stays silent', () => {
+  t('without the Renters tick, a homeowner is never asked, so the stale answer is pruned and the flag stays silent', () => {
     assert.equal(fires(ownerWith({ renters_for: 'child_away', renters_child_housing: 'dorm' }), RENTERS), false);
-    assert.equal(fires(ownerWith({ other_items: ['none'], renters_for: 'child_away' }), RENTERS), false);
+    assert.equal(fires(ownerWith({ renters_for: 'child_away' }), RENTERS), false);
   });
   t('copy: hedged with "generally", "may" and "likely"; no 10 percent rule, no age number, no cancel advice; every variant is clean', () => {
     for (const housing of ['dorm', 'off_campus', 'not_sure', null]) {
@@ -511,7 +509,7 @@ suite('renters-child-vs-parents-home', (t) => {
     assert.deepEqual(r.meta.visibleQuestionIds.filter((id) => id.startsWith('renters')), ['renters_for', 'renters_child_housing']);
   });
   t('end to end: the Both household with an off-campus child', () => {
-    const r = evaluate(answersFor('Both', { renters_for: 'child_away', renters_child_housing: 'off_campus' }));
+    const r = evaluate(answersFor(['home', 'renters'], { renters_for: 'child_away', renters_child_housing: 'off_campus' }));
     const f = r.flags.question.find((x) => x.id === RENTERS);
     assert.match(f.title, /^Confirm your child's renters policy/);
     assert.deepEqual(s9In(r, 'drop'), []);
@@ -523,21 +521,21 @@ suite('renters-child-vs-parents-home', (t) => {
 });
 
 // =======================================================================================================
-suite('S9 flags: every combination of the questions they read (real catalog, real adapter)', (t) => {
-  const HOST = [undefined, 'Own', 'Rent', 'Both'];
+suite('S9 flags: every combination of the questions they read (real catalog, plain answers)', (t) => {
+  // Every combination of the two Q1 ticks these flags read: no home or renters policy, either one, or both.
+  const HELD = [[], ['home'], ['renters'], ['home', 'renters']];
   const YNN = [undefined, 'yes', 'no', 'not_sure'];
   const FOR = [undefined, 'me', 'child_away'];
   const HOUSING = [undefined, 'dorm', 'off_campus', 'not_sure'];
-  const TICK = [false, true];
 
   // Written independently of the flags: the behaviour the plan describes.
-  function expected(hs, sewer, flood, rf, housing, tick) {
-    const holdsHome = hs === 'Own' || hs === 'Both';
-    const holdsRenters = hs === 'Rent' || hs === 'Both';
+  function expected(held, sewer, flood, rf, housing) {
+    const holdsHome = held.includes('home');
+    const holdsRenters = held.includes('renters');
     const out = [];
     if (holdsHome && (sewer === 'no' || sewer === 'not_sure')) out.push([SEWER, sewer]);
     if (holdsHome && (flood === 'no' || flood === 'not_sure')) out.push([FLOOD, flood]);
-    if (holdsHome && (holdsRenters || tick) && rf === 'child_away') {
+    if (holdsHome && holdsRenters && rf === 'child_away') {
       out.push([RENTERS, housing === 'dorm' || housing === 'off_campus' ? housing : 'unclear']);
     }
     return out;
@@ -555,18 +553,17 @@ suite('S9 flags: every combination of the questions they read (real catalog, rea
   t('exactly the expected flags fire, in priority order, with the expected variant, all in the Question bucket, with clean copy', () => {
     let runs = 0;
     let fired = 0;
-    for (const hs of HOST) for (const sewer of YNN) for (const flood of YNN) for (const rf of FOR) for (const housing of HOUSING) for (const tick of TICK) {
+    for (const held of HELD) for (const sewer of YNN) for (const flood of YNN) for (const rf of FOR) for (const housing of HOUSING) {
       const o = {};
       if (sewer) o.home_sewer_backup = sewer;
       if (flood) o.home_flood_policy = flood;
       if (rf) o.renters_for = rf;
       if (housing) o.renters_child_housing = housing;
-      if (tick) o.other_items = ['renters_with_home'];
-      const answers = answersFor(hs, o);
+      const answers = answersFor(held, o);
       const r = evaluate(answers);
-      const label = JSON.stringify({ hs, sewer, flood, rf, housing, tick });
+      const label = JSON.stringify({ held, sewer, flood, rf, housing });
       const got = s9Of(r);
-      assert.deepEqual(got.map((f) => [f.id, variantOf(f)]), expected(hs, sewer, flood, rf, housing, tick), label);
+      assert.deepEqual(got.map((f) => [f.id, variantOf(f)]), expected(held, sewer, flood, rf, housing), label);
       assert.deepEqual(s9In(r, 'raise'), [], label);
       assert.deepEqual(s9In(r, 'drop'), [], label);
       assert.equal(got.length, s9In(r, 'question').length, label);
@@ -578,7 +575,7 @@ suite('S9 flags: every combination of the questions they read (real catalog, rea
       runs++;
       fired += got.length;
     }
-    assert.equal(runs, 4 * 4 * 4 * 3 * 4 * 2);
+    assert.equal(runs, 4 * 4 * 4 * 3 * 4);
     assert.equal(fired > 0, true);
   });
 
@@ -588,7 +585,7 @@ suite('S9 flags: every combination of the questions they read (real catalog, rea
       assert.equal(s9Of(r).length, 1, `${q} Not sure fires exactly one S9 flag`);
       assert.equal(s9Of(r)[0].bucket, 'question');
     }
-    const r = evaluate(ownerWith({ other_items: ['renters_with_home'], renters_for: 'child_away', renters_child_housing: 'not_sure' }));
+    const r = evaluate(answersFor(['home', 'renters'], { renters_for: 'child_away', renters_child_housing: 'not_sure' }));
     assert.deepEqual(s9Of(r).map((f) => f.id), [RENTERS]);
   });
 });

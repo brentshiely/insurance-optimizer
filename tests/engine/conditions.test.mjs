@@ -11,8 +11,13 @@ const ANSWERS = {
 };
 
 suite('conditions: every form', (t) => {
-  t('holds: true when the derived policies include the id', () => {
+  t('holds: true when the answer to Q1 (policies) includes the id', () => {
     assert.equal(evaluateCondition({ holds: 'auto' }, env(ANSWERS)), true);
+  });
+  t('holds: the exclusive "none" tick of Q1 never counts as holding a policy, and unknown policy ids are false', () => {
+    assert.equal(evaluateCondition({ holds: 'auto' }, env({ policies: ['none'] })), false);
+    assert.equal(evaluateCondition({ holds: 'none' }, env({ policies: ['none'] })), false);
+    assert.equal(evaluateCondition({ holds: 'flood' }, env({ policies: ['flood'] })), false);
   });
   t('holds: false when absent, and false when policies is missing', () => {
     assert.equal(evaluateCondition({ holds: 'boat' }, env(ANSWERS)), false);

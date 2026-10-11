@@ -1,6 +1,6 @@
 // Section "health": the narrow health scope (SPEC "Health medical-rider overlap" and "Health supplemental
-// overlap"). Never plan adequacy: no network, no "is this plan good enough". The host app already derives
-// whether the user has health insurance, so nothing here asks that again.
+// overlap"). Never plan adequacy: no network, no "is this plan good enough". Whether the user has health insurance
+// is Q1 (the Health tick), so nothing here asks that again.
 //   auto_medpay          is asked so the MedPay overlap is raised only for people who may actually have it
 //                        (DECISIONS S5-6); home "medical payments to others" covers guests, so no question.
 //   health_hsa           gate for the HSA nudge (eligibility needs a high-deductible plan, so it is asked,

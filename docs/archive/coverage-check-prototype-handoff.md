@@ -1,3 +1,6 @@
+> **Archived. This document describes the retired Coverage Check prototype** (state picker, editable sample numbers, photo and file buttons, telemetry panel). It is kept for history only.
+> The product is now defined by [docs/SPEC.md](../SPEC.md); see docs/DECISIONS.md D15 for why the prototype was replaced.
+
 # Coverage Check Wizard — Handoff for Claude Code
 
 Sep 19, 2026 · Brent Shiely

@@ -166,6 +166,34 @@ suite('validate: showIf references', (t) => {
   });
 });
 
+suite('validate: Q1, the policies question (R1 step A)', (t) => {
+  rejects('a holds gate in a catalog that has no policies question', (c) => { c.questions = c.questions.filter((x) => x.id !== 'policies'); }, /showIf uses holds, which reads the "policies" question \(Q1\), but the catalog has no such question/);
+  rejects('Q1 that is a single question', (c) => { q(c, 'policies').type = 'single'; }, /question "policies" \(Q1\): must be a multi question/);
+  rejects('Q1 that is gated', (c) => { q(c, 'policies').showIf = { answered: 'assets_band' }; }, /question "policies" \(Q1\): must be always shown/);
+  rejects('Q1 that offers Not sure', (c) => { q(c, 'policies').allowNotSure = true; }, /question "policies" \(Q1\): must not offer Not sure/);
+  rejects('Q1 with an ordinary option that is not a policy id', (c) => { q(c, 'policies').options.splice(1, 0, { id: 'flood', label: 'Flood insurance' }); }, /question "policies" \(Q1\): option "flood" is not a policy id/);
+  t('a holds gate on Q1 itself is reported as both a gated Q1 and a cycle (holds reads Q1)', () => {
+    const r = check((c) => { q(c, 'policies').showIf = { holds: 'auto' }; });
+    assert.ok(r.errors.some((e) => /must be always shown/.test(e)), r.errors.join('\n'));
+    assert.ok(r.errors.some((e) => /condition cycle: policies -> policies/.test(e)), r.errors.join('\n'));
+  });
+  t('Q1 may carry any exclusive option id for its "None of these" tick', () => {
+    const r = check((c) => { q(c, 'policies').options.find((o) => o.exclusive).id = 'nothing_here'; });
+    assert.equal(r.ok, true, r.errors.join('\n'));
+  });
+  t('a catalog with no holds gate needs no Q1', () => {
+    const r = check((c) => {
+      c.questions = c.questions.filter((x) => x.id === 'assets_band');
+      c.questions[0].showIf = null;
+      c.flags = [];
+    });
+    assert.equal(r.ok, true, r.errors.join('\n'));
+  });
+  t('a holds gate counts as an edge to Q1 in cycle detection, and is not a cycle by itself', () => {
+    assert.equal(validateCatalog(FIXTURE).ok, true);
+  });
+});
+
 suite('validate: condition cycles', (t) => {
   rejects('a question that references itself', (c) => { q(c, 'umbrella_ext_um').showIf = { answered: 'umbrella_ext_um' }; }, /condition cycle: umbrella_ext_um -> umbrella_ext_um/);
   rejects('two questions that reference each other', (c) => {

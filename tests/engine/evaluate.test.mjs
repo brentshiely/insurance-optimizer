@@ -26,11 +26,11 @@ const SCENARIO_A = {
 };
 
 suite('evaluate: results shape and content', (t) => {
-  t('empty answers on the fixture produce empty buckets, a null stack, and only unconditional questions', () => {
+  t('empty answers on the fixture produce empty buckets, a null stack, and only Q1 and the unconditional questions', () => {
     assert.deepEqual(ev({}), {
       flags: { raise: [], drop: [], question: [] },
       stack: null,
-      meta: { visibleQuestionIds: ['assets_band'], answeredCount: 0 },
+      meta: { visibleQuestionIds: ['policies', 'assets_band'], answeredCount: 0 },
     });
   });
   t('undefined / null / garbage answers behave like empty answers', () => {
@@ -40,10 +40,10 @@ suite('evaluate: results shape and content', (t) => {
     assert.deepEqual(ev('nope'), empty);
   });
   t('the default catalog is used when none is passed (no answers: only the always-shown question is visible)', () => {
-    // Story S5 filled the question catalog: with no answers the only visible question is the Q1 equivalent.
+    // With no answers the only visible question is Q1, "Which policies do you have?" (R1 step A).
     // Flags and the stack belong to the flag stories (S6 to S11), so only the result's shape is pinned here.
     const r = evaluate({});
-    assert.deepEqual(r.meta, { visibleQuestionIds: ['other_items'], answeredCount: 0 });
+    assert.deepEqual(r.meta, { visibleQuestionIds: ['policies'], answeredCount: 0 });
     assert.deepEqual(Object.keys(r.flags), ['raise', 'drop', 'question']);
     assert.deepEqual(r, evaluate({}, DEFAULT_CATALOG));
   });
@@ -79,8 +79,8 @@ suite('evaluate: results shape and content', (t) => {
   });
   t('meta lists visible question ids in catalog order and counts answered visible questions', () => {
     assert.deepEqual(ev(SCENARIO_A).meta, {
-      visibleQuestionIds: ['umbrella_limit', 'auto_liability', 'home_liability', 'umbrella_ext_um', 'umbrella_um_detail', 'umbrella_side_business'],
-      answeredCount: 4,
+      visibleQuestionIds: ['policies', 'umbrella_limit', 'auto_liability', 'home_liability', 'umbrella_ext_um', 'umbrella_um_detail', 'umbrella_side_business'],
+      answeredCount: 5, // Q1 is an answered question too: the four limit answers plus the policies
     });
   });
   t('not_sure drives a Question flag', () => {
@@ -123,7 +123,7 @@ suite('evaluate: pruning means stale answers never leak into results', (t) => {
     // umbrella_um_detail would fire 'stale-probe', but its gate (ext_um = no) is false here.
     const r = ev({ policies: ['umbrella'], umbrella_limit: '1m', umbrella_ext_um: 'yes', umbrella_um_detail: 'can_add' });
     assert.deepEqual(flagIds(r, 'question'), []);
-    assert.equal(r.meta.answeredCount, 2);
+    assert.equal(r.meta.answeredCount, 3, 'Q1, the umbrella limit and ext_um; the answer to the hidden question is not counted');
   });
   t('the same answer fires the flag once its gate opens', () => {
     const r = ev({ policies: ['umbrella'], umbrella_limit: '1m', umbrella_ext_um: 'no', umbrella_um_detail: 'can_add' });
@@ -132,12 +132,12 @@ suite('evaluate: pruning means stale answers never leak into results', (t) => {
   t('dropping the umbrella removes every umbrella-chain flag even though the answers remain', () => {
     const r = ev({ policies: ['auto'], umbrella_limit: 'not_sure', auto_liability: '100_300', umbrella_ext_um: 'no', umbrella_um_detail: 'can_add' });
     assert.deepEqual(r.flags, { raise: [], drop: [], question: [] });
-    assert.deepEqual(r.meta, { visibleQuestionIds: ['assets_band'], answeredCount: 0 });
+    assert.deepEqual(r.meta, { visibleQuestionIds: ['policies', 'assets_band'], answeredCount: 1 });
   });
   t('unknown option ids are treated as unanswered', () => {
     const r = ev({ policies: ['umbrella', 'auto'], umbrella_limit: '1m', auto_liability: '999_999' });
     assert.deepEqual(flagIds(r, 'raise'), []);
-    assert.equal(r.meta.answeredCount, 1);
+    assert.equal(r.meta.answeredCount, 2, 'Q1 and the umbrella limit; the unknown option id counts as unanswered');
   });
 });
 
@@ -189,13 +189,13 @@ suite('evaluate: ctx helpers', (t) => {
     assert.equal(ctx.holds('umbrella'), true);
     assert.equal(ctx.holds('boat'), false);
   });
-  t('answer: single, multi, and undefined for unanswered / hidden / unknown / policies', () => {
+  t('answer: single, multi (Q1 too), and undefined for unanswered / hidden / unknown', () => {
     assert.equal(ctx.answer('umbrella_limit'), '2m');
     assert.deepEqual(ctx.answer('supplements'), ['accident', 'critical_illness']);
     assert.equal(ctx.answer('home_liability'), undefined, 'visible? no - home not held');
     assert.equal(ctx.answer('umbrella_ext_um'), undefined, 'visible but unanswered');
     assert.equal(ctx.answer('nope'), undefined);
-    assert.equal(ctx.answer('policies'), undefined);
+    assert.deepEqual(ctx.answer('policies'), ['auto', 'umbrella', 'health'], 'Q1 is an ordinary asked question, in option order');
   });
   t('is / includes', () => {
     assert.equal(ctx.is('umbrella_limit', '2m'), true);
@@ -219,7 +219,7 @@ suite('evaluate: ctx helpers', (t) => {
     assert.equal(ctx.option('umbrella_ext_um'), undefined);
   });
   t('reading hidden / unanswered / unknown questions never throws', () => {
-    for (const qid of ['home_liability', 'umbrella_ext_um', 'nope', 'policies', '', undefined, 5]) {
+    for (const qid of ['home_liability', 'umbrella_ext_um', 'nope', 'other_items', '', undefined, 5]) {
       assert.equal(ctx.answer(qid), undefined);
       assert.equal(ctx.is(qid, 'x'), false);
       assert.equal(ctx.includes(qid, 'x'), false);
@@ -237,7 +237,7 @@ suite('evaluate: ctx helpers', (t) => {
   t('values handed to flags cannot be used to alter the catalog', () => {
     assert.throws(() => { ctx.option('umbrella_limit').value = 1; }, /read.?only|frozen|not extensible|Cannot/i);
     assert.throws(() => { ctx.answer('supplements').push('x'); }, /frozen|not extensible|Cannot|read.?only/i);
-    assert.equal(FIXTURE.questions[0].options[1].value, 2000000);
+    assert.equal(FIXTURE.questions.find((q) => q.id === 'umbrella_limit').options[1].value, 2000000);
   });
   t('createContext prunes first', () => {
     const c = createContext({ policies: ['auto'], umbrella_limit: '2m' }, FIXTURE);

@@ -3,10 +3,9 @@
 //
 //   renters-child-vs-parents-home   reads renters_for, renters_child_housing, and holds('home')
 //
-// Who reaches it: anyone the host derives a renters policy for (rent or both) and a homeowner who ticked "a renters
-// policy on top of a home you own" in other_items, which is how a parent who owns their home and pays for a child's
-// policy is reached (DECISIONS S5-15). So the flag reads `renters_for`, never `holds('renters')` or `other_items`: that
-// question is visible exactly when a renters policy exists, and a hidden question reads as unanswered.
+// Who reaches it: anyone who ticked Renters in Q1, which includes a parent who owns their home (Home ticked as well) and
+// pays for a child's policy (DECISIONS S5-15, R1-4). The flag reads `renters_for` and `holds('home')`: `renters_for` is
+// visible exactly when Renters is ticked, and a hidden question reads as unanswered.
 //
 // Copy rules (docs/QUESTION-FLAG-PLAN.md section 5, DECISIONS S3a-home-4):
 //   - always a Question item, never a Drop: whether the renters policy is redundant depends on the parents' contents

@@ -417,10 +417,10 @@ suite('analytics: labels come only from the real catalog\'s ids', (t) => {
     }
   });
 
-  t('the host app\'s own screens are not in the catalog, so none of their fields can be named', () => {
-    for (const hostField of ['state', 'liability', 'premium', 'deductible', 'dwelling', 'hasUmbrella', 'home', 'veh', 'dep', 'assets300', 'health', 'cushion']) {
+  t('the retired prototype\'s fields are not in the catalog, so none of them can be named', () => {
+    for (const field of ['state', 'liability', 'premium', 'deductible', 'dwelling', 'hasUmbrella', 'home', 'veh', 'dep', 'assets300', 'health', 'cushion']) {
       for (const text of ['Yes', 'No', 'Own', '3+', 'CA', '5000', '250000']) {
-        assert.equal(buildEvent('answer', { questionId: hostField, optionId: text }), null, hostField + '=' + text);
+        assert.equal(buildEvent('answer', { questionId: field, optionId: text }), null, field + '=' + text);
       }
     }
   });
@@ -733,11 +733,11 @@ suite('analytics: helpers the page uses to decide when to emit', (t) => {
   });
 
   t('becameSelected: a tick-many option counts when ticked, not when unticked', () => {
-    assert.equal(becameSelected({}, { other_items: ['towing'] }, 'other_items', 'towing'), true);
-    assert.equal(becameSelected({ other_items: ['towing'] }, { other_items: ['towing', 'travel'] }, 'other_items', 'travel'), true);
-    assert.equal(becameSelected({ other_items: ['towing'] }, { other_items: ['towing', 'travel'] }, 'other_items', 'towing'), false, 'already ticked');
-    assert.equal(becameSelected({ other_items: ['towing', 'travel'] }, { other_items: ['travel'] }, 'other_items', 'towing'), false, 'unticked');
-    assert.equal(becameSelected({ other_items: ['towing'] }, { other_items: ['none'] }, 'other_items', 'none'), true, 'an exclusive option replaces the rest');
+    assert.equal(becameSelected({}, { policies: ['towing'] }, 'policies', 'towing'), true);
+    assert.equal(becameSelected({ policies: ['towing'] }, { policies: ['towing', 'travel'] }, 'policies', 'travel'), true);
+    assert.equal(becameSelected({ policies: ['towing'] }, { policies: ['towing', 'travel'] }, 'policies', 'towing'), false, 'already ticked');
+    assert.equal(becameSelected({ policies: ['towing', 'travel'] }, { policies: ['travel'] }, 'policies', 'towing'), false, 'unticked');
+    assert.equal(becameSelected({ policies: ['towing'] }, { policies: ['none'] }, 'policies', 'none'), true, 'an exclusive option replaces the rest');
   });
 
   t('becameSelected copes with anything', () => {
@@ -749,11 +749,9 @@ suite('analytics: helpers the page uses to decide when to emit', (t) => {
   });
 
   t('flagIdsOf lists the ids in the action list, in order', () => {
-    const vm = actionListViewModel({
-      a: { home: 'Own', veh: '1' }, extras: [], q: {}, p: { umbrella: { hasUmbrella: 'Yes' } },
-      o: { umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500' },
-    }, FIXTURE);
+    const vm = actionListViewModel({ policies: ['auto', 'home', 'umbrella'], umbrella_limit: '1m', auto_liability: '100_300', home_liability: '300k', umbrella_ext_um: 'no' }, FIXTURE);
     const ids = flagIdsOf(vm);
+    assert.deepEqual(ids, ['umbrella-um-missing', 'umbrella-auto-below-attach', 'umbrella-home-below-min'], 'the fixture household fires these, Raise first');
     assert.deepEqual(ids, vm.groups.flatMap((g) => g.items.map((i) => i.id)));
     for (const id of ids) assert.notEqual(buildEvent('flag_shown', { flagId: id }, FIXTURE), null, id);
     for (const x of [undefined, null, 5, {}, { groups: 'x' }, { groups: [null, { items: 'x' }, { items: [null, { id: 5 }] }] }]) assert.deepEqual(flagIdsOf(x), []);
@@ -761,10 +759,12 @@ suite('analytics: helpers the page uses to decide when to emit', (t) => {
 
   t('every id the real action list shows is a valid flag_shown label', () => {
     const vm = actionListViewModel({
-      a: { home: 'Both', veh: '3+' }, extras: ['Motorcycle', 'Boat'], q: { health: 'Yes' }, p: { umbrella: { hasUmbrella: 'Yes' } },
-      o: { umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500', home_liability: 'lower', umbrella_min_home: '300k' },
+      policies: ['auto', 'home', 'renters', 'umbrella', 'health', 'motorcycle', 'boat'],
+      umbrella_limit: '1m', auto_liability: 'lower', umbrella_min_auto: '250_500', home_liability: 'lower', umbrella_min_home: '300k',
     });
-    for (const id of flagIdsOf(vm)) assert.notEqual(buildEvent('flag_shown', { flagId: id }), null, id);
+    const ids = flagIdsOf(vm);
+    assert.equal(ids.length > 0, true, 'this household has items, so the check below looks at something');
+    for (const id of ids) assert.notEqual(buildEvent('flag_shown', { flagId: id }), null, id);
   });
 });
 
@@ -869,39 +869,41 @@ suite('page sources: no network calls, no storage, no cookies, no extra resource
     assert.equal(/@font-face/i.test(css), false, 'no web fonts to allow');
   });
 
-  t('app.js hands the counter only overlap answers, flag ids and Copy / Print: never the state, a policy-screen field or a typed number', () => {
+  t('app.js hands the counter only answers to questions, flag ids and Copy / Print: no answers object, no screen index, no clock, nothing typed', () => {
     if (!canRead) return;
     const app = read('public/js/app.js');
     const calls = Array.from(app.matchAll(/analytics\.(\w+)\(([^;\n]*)/g));
     const emitted = new Set();
     for (const [, method, args] of calls) {
-      assert.equal(['emit', 'reset'].includes(method) || method === 'counting', true, 'unexpected analytics.' + method);
+      assert.equal(['emit', 'reset'].includes(method), true, 'unexpected analytics.' + method);
       if (method !== 'emit') continue;
-      const name = /^"(\w+)"/.exec(args);
+      const name = /^'(\w+)'/.exec(args);
       assert.ok(name, 'the event name is a literal: ' + args);
       emitted.add(name[1]);
-      assert.equal(/\bS\./.test(args), false, 'no host state in an event: ' + args);
+      assert.equal(/\banswers\b|\bindex\b|\bDate\b|performance|\.value\b/.test(args), false, 'only ids go into an event: ' + args);
     }
     assert.deepEqual(Array.from(emitted).sort(), ['answer', 'flag_shown', 'list_copied', 'list_printed']);
-    // an answer event is built from the tapped overlap option and nothing else
-    const answerCalls = calls.filter(([, m, a]) => m === 'emit' && /^"answer"/.test(a));
+    // an answer event is built from the tapped option's question id and option id and nothing else ...
+    const answerCalls = calls.filter(([, m, a]) => m === 'emit' && /^'answer'/.test(a));
     assert.equal(answerCalls.length, 1);
-    assert.equal(/questionId:b\.dataset\.oq,optionId:b\.dataset\.ov/.test(answerCalls[0][2]), true);
-    // ... and only inside the branch that handles an overlap question tap
-    const at = app.indexOf('analytics.emit("answer"');
-    const branch = app.lastIndexOf('if(b.dataset.', at);
-    assert.equal(app.slice(branch).startsWith('if(b.dataset.oq){'), true, 'the answer event is inside the overlap-question branch');
+    assert.equal(/^'answer', \{ questionId, optionId \}\)$/.test(answerCalls[0][2].trim()), true, answerCalls[0][2]);
+    // ... inside the one function that handles a tap on a question's option, which is called from nowhere else
+    const at = app.indexOf("analytics.emit('answer'");
+    const start = app.lastIndexOf('function answer(questionId, optionId)', at);
+    assert.equal(start >= 0 && app.slice(start, at).indexOf('\nfunction ') < 0 && app.slice(start, at).indexOf('=>') < 0, true, 'the answer event is inside answer(questionId, optionId)');
+    const callSites = Array.from(app.matchAll(/(?<![\w.])answer\(([^)]*)\)/g)).map((m) => m[1]).filter((a) => a !== 'questionId, optionId');
+    assert.deepEqual(callSites, ['b.dataset.oq, b.dataset.ov'], 'answer() is called only with the tapped button\'s question and option ids');
     // the flag event takes ids from the action list view-model
-    assert.equal(/flagIdsOf\(vm\)\.forEach\(function\(id\)\{analytics\.emit\("flag_shown",\{flagId:id\}\)\}\)/.test(app), true);
+    assert.equal(/flagIdsOf\(vm\)\.forEach\(\(flagId\) => analytics\.emit\('flag_shown', \{ flagId \}\)\)/.test(app), true);
   });
 
   t('the page passes the counting state to the privacy line on both screens that show it', () => {
     if (!canRead) return;
     const app = read('public/js/app.js');
-    assert.equal(app.includes('entryNoteHtml(analytics.counting)'), true);
-    assert.equal(app.includes('actionListHtml(vm,analytics.counting,stk)'), true); // S14 adds the stack drawing as the third argument
+    assert.equal(app.includes('entryScreenHtml(analytics.counting)'), true);
+    assert.equal(app.includes('actionListHtml(vm, analytics.counting, stackFor(ACTIONS_SCREEN_ID))'), true); // S14 adds the stack drawing as the third argument
     assert.equal(app.includes('actionListErrorHtml(analytics.counting)'), true);
-    assert.equal(app.includes('startAnalytics({window:window,document:document},ANALYTICS_CONFIG)'), true);
+    assert.equal(app.includes('startAnalytics({ window, document }, ANALYTICS_CONFIG)'), true);
   });
 });
 
@@ -1066,8 +1068,7 @@ suite('CSP: public/_headers', (t) => {
     for (const bad of ["'unsafe-inline'", "'unsafe-eval'", "'wasm-unsafe-eval'", "'strict-dynamic'", '*', 'https:', 'http:', 'data:', 'blob:']) {
       assert.equal(csp['script-src'].includes(bad), false, 'script-src must not have ' + bad);
     }
-    assert.equal(csp['style-src'].includes("'self'"), true);
-    assert.equal(csp['style-src'].includes("'unsafe-inline'"), true, 'the app writes style attributes (see the next test)');
+    assert.deepEqual(csp['style-src'], ["'self'"], 'the page writes no style attribute and has no style block, so styles may come from its own stylesheet only (DECISIONS R1-8)');
     assert.deepEqual(csp['img-src'].filter((s) => s === "'self'" || s === 'data:' || s.indexOf('https://') === 0), csp['img-src']);
     assert.equal(csp['img-src'].includes("'self'") && csp['img-src'].includes('data:'), true);
     assert.equal(csp['connect-src'].includes("'self'"), true);
@@ -1136,7 +1137,7 @@ suite('page statements: the privacy line and the not-advice note', (t) => {
     assert.match(PRIVACY_LINE_COUNTING, /never who you are/);
     assert.match(PRIVACY_LINE_COUNTING, /no cookies/);
     assert.match(PRIVACY_LINE_COUNTING, /never stored against a person/);
-    assert.match(PRIVACY_LINE_COUNTING, /numbers you type are never sent/);
+    assert.match(PRIVACY_LINE_COUNTING, /You type nothing here, so no names, numbers or other details are sent/);
   });
 
   t('only a real true selects the counting line', () => {
@@ -1157,7 +1158,7 @@ suite('page statements: the privacy line and the not-advice note', (t) => {
   });
 
   t('the action list and its error panel follow the setting too', () => {
-    const vm = actionListViewModel({ a: { home: 'Own', veh: '1' }, extras: [], q: {}, p: {}, o: {} }, FIXTURE);
+    const vm = actionListViewModel({ policies: ['auto', 'home'] }, FIXTURE);
     assert.equal(actionListHtml(vm).includes(esc(PRIVACY_LINE_NONE)), true, 'default');
     assert.equal(actionListHtml(vm, false).includes(esc(PRIVACY_LINE_NONE)), true);
     assert.equal(actionListHtml(vm, true).includes(esc(PRIVACY_LINE_COUNTING)), true);

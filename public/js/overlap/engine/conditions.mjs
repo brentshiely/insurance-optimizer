@@ -1,7 +1,7 @@
 // Condition DSL: evaluation, structural checking, and reference extraction. Pure.
 //
 // Forms (data, serializable):
-//   { holds: 'auto' }                    derived `policies` includes this id
+//   { holds: 'auto' }                    the answer to Q1 (`policies`, an asked multi question) ticks this policy
 //   { answered: 'qid' }                  the question has an answer (including 'not_sure')
 //   { answer: 'qid', is: 'optId' }       single question equals the option
 //   { answer: 'qid', in: ['a','b'] }     single question equals any of the options
@@ -12,6 +12,17 @@
 // Evaluation reads `env.answers` only. Visibility (a question hidden because a question it
 // references is itself hidden) is handled by the session, not here.
 import { isPlainObject, hasOwn, describe } from './util.mjs';
+import { POLICIES_QUESTION_ID, POLICY_IDS } from './constants.mjs';
+
+/**
+ * True when the answers tick this policy in Q1. Only the policy ids Q1 offers count, so the exclusive "None of these"
+ * (option id `none`) never reads as holding a policy called "none". Shared by the condition DSL and `ctx.holds`.
+ */
+export function holdsPolicy(answers, policyId) {
+  if (!isPlainObject(answers) || !POLICY_IDS.includes(policyId)) return false;
+  const ticked = hasOwn(answers, POLICIES_QUESTION_ID) ? answers[POLICIES_QUESTION_ID] : undefined;
+  return Array.isArray(ticked) && ticked.includes(policyId);
+}
 
 /** Returns a list of human-readable problems with `cond` (empty when well-formed). Never throws. */
 export function checkCondition(cond) {
@@ -79,7 +90,7 @@ function isAnswered(v) {
 }
 
 function evalNode(c, answers) {
-  if (hasOwn(c, 'holds')) return Array.isArray(answers.policies) && answers.policies.includes(c.holds);
+  if (hasOwn(c, 'holds')) return holdsPolicy(answers, c.holds);
   if (hasOwn(c, 'answered')) return hasOwn(answers, c.answered) && isAnswered(answers[c.answered]);
   if (hasOwn(c, 'answer')) {
     const v = hasOwn(answers, c.answer) ? answers[c.answer] : undefined;

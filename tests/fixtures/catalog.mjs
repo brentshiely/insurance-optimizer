@@ -1,6 +1,7 @@
 // A small fixture catalog that exercises every engine code path. All content is obviously fake test
 // data (example.org is reserved for documentation); none of it is shown to users.
 //
+//   policies                                                       Q1, the asked question every `holds` reads
 //   umbrella_limit ─┬─ umbrella_ext_um ── umbrella_um_detail      gated chain (holds → answered → is)
 //                   └─ umbrella_side_business                     `in`
 //   auto_liability, home_liability                                 `all` of two `holds`
@@ -53,7 +54,26 @@ export const CARDS = {
 };
 
 
+// Q1, as in the real catalog (id `policies`, a multi question, always shown, no Not sure): the policy ids a
+// `holds` condition accepts in the real option order, then an exclusive "None of these". Exported so engine tests that
+// build a small catalog of their own can include it.
+export const POLICIES_QUESTION = {
+  id: 'policies', domain: 'core', section: 'start', type: 'multi',
+  prompt: 'Which policies do you have?', help: 'Tick everything you have.',
+  options: [
+    { id: 'auto', label: 'Auto' }, { id: 'home', label: 'Home' }, { id: 'renters', label: 'Renters' },
+    { id: 'umbrella', label: 'Umbrella' }, { id: 'health', label: 'Health' }, { id: 'motorcycle', label: 'Motorcycle' },
+    { id: 'boat', label: 'Boat' }, { id: 'rental_car', label: 'Rental car' }, { id: 'towing', label: 'Towing' },
+    { id: 'travel', label: 'Travel' }, { id: 'phone', label: 'Phone' }, { id: 'warranty', label: 'Warranty' },
+    { id: 'accidental_death', label: 'Accidental death' },
+    { id: 'none', label: 'None of these', exclusive: true },
+  ],
+  allowNotSure: false,
+  showIf: null,
+};
+
 export const QUESTIONS = [
+  POLICIES_QUESTION,
   {
     id: 'umbrella_limit', domain: 'umbrella', section: 'umbrella', type: 'single',
     prompt: 'How big is your umbrella policy?', help: 'Look for the "limit" on the umbrella page.',
