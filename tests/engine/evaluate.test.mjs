@@ -246,6 +246,36 @@ suite('evaluate: ctx helpers', (t) => {
   });
 });
 
+suite('evaluate: a flag filed in another bucket for some households (alternateBuckets)', (t) => {
+  // Question by default, a Drop when the answers show something else covers it: the shape the Other-bucket flags use (DECISIONS S12-9).
+  const filed = (extra = {}) => ({
+    ...withFlag({ bucket: 'drop', alternateBuckets: ['question'], priority: 5, applies: (ctx) => ({ bucket: ctx.holds('auto') ? 'drop' : 'question' }), ...extra }),
+  });
+  const placeOf = (r) => ['raise', 'drop', 'question'].filter((b) => flagIds(r, b).includes('probe-flag'));
+
+  t('applies() chooses the bucket per household; without a choice the flag keeps its own bucket', () => {
+    assert.deepEqual(placeOf(ev({ policies: ['auto'] }, filed())), ['drop']);
+    assert.deepEqual(placeOf(ev({ policies: ['home'] }, filed())), ['question']);
+    assert.deepEqual(placeOf(ev({ policies: ['home'] }, filed({ applies: () => ({}) }))), ['drop']);
+    assert.deepEqual(placeOf(ev({ policies: ['home'] }, filed({ applies: () => true }))), ['drop']);
+    // listing the flag's own bucket in applies() is fine too
+    assert.deepEqual(placeOf(ev({}, filed({ applies: () => ({ bucket: 'drop' }) }))), ['drop']);
+  });
+
+  t('the result flag carries the bucket it was filed in, and sorts with that bucket', () => {
+    const cat = filed();
+    cat.flags.push({ ...copy(cat.flags[0]), id: 'other-probe', priority: 1, bucket: 'question', alternateBuckets: undefined, applies: () => true });
+    const r = ev({ policies: ['home'] }, cat);
+    assert.deepEqual(flagIds(r, 'question'), ['other-probe', 'probe-flag']);
+    assert.equal(r.flags.question[1].bucket, 'question');
+    assert.deepEqual(flagIds(r, 'drop'), []);
+  });
+
+  t('evaluating twice gives deep-equal results', () => {
+    assert.deepEqual(ev({ policies: ['home'] }, filed()), ev({ policies: ['home'] }, filed()));
+  });
+});
+
 suite('evaluate: deterministic ordering', (t) => {
   const mk = (id, bucket, priority) => ({
     id, domain: 'core', bucket, kind: 'education', ...(priority === undefined ? {} : { priority }),
@@ -351,6 +381,11 @@ suite('evaluate: authoring errors fail loudly and name the flag', (t) => {
     assert.throws(() => evaluate({}, withFlag({ applies: () => ({ emphasis: 'loud' }) })), /flag "probe-flag".*emphasis/);
     assert.throws(() => evaluate({}, withFlag({ bucket: 'keep' })), /flag "probe-flag".*bucket/);
     assert.throws(() => evaluate({}, withFlag({ applies: () => ({ vars: 'x' }) })), /flag "probe-flag".*vars/);
+  });
+  t('a bucket from applies() the flag does not list in alternateBuckets, or that is not a bucket', () => {
+    assert.throws(() => evaluate({}, withFlag({ applies: () => ({ bucket: 'drop' }) })), /flag "probe-flag".*"drop".*alternateBuckets/);
+    assert.throws(() => evaluate({}, withFlag({ alternateBuckets: ['raise'], applies: () => ({ bucket: 'drop' }) })), /flag "probe-flag".*"drop".*alternateBuckets/);
+    assert.throws(() => evaluate({}, withFlag({ alternateBuckets: ['raise'], applies: () => ({ bucket: 'keep' }) })), /flag "probe-flag".*bucket must be one of raise, drop, question/);
   });
   t('a flag that does not apply is never rendered, so its bad text does not matter', () => {
     const r = evaluate({}, withFlag({ applies: () => false, background: '{{nope}}', sourceIds: ['ghost'] }));

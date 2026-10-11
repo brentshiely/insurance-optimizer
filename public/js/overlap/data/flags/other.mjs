@@ -1,13 +1,16 @@
 // Flags for the "other" domain group: the Other bucket (Story S11). Seven flags, one per planned row in
 // docs/QUESTION-FLAG-PLAN.md section 4 (file `other`, priorities 510 to 570):
 //
-//   other-rental-car-waiver           drop      rental car coverage sold at the counter
+//   other-rental-car-waiver           drop*     rental car coverage sold at the counter
 //   other-towing-roadside-duplicate   drop      two or more sources of roadside help
 //   other-vehicle-towing-check        question  a towing plan on a motorcycle or boat policy
-//   other-travel-insurance-overlap    drop      travel insurance against what you already have
+//   other-travel-insurance-overlap    drop*     travel insurance against what you already have
 //   other-phone-insurance-card        question  a monthly phone protection fee
-//   other-extended-warranty-overlap   drop      extended warranties on electronics or appliances
+//   other-extended-warranty-overlap   drop*     extended warranties on electronics or appliances
 //   other-add-on-term-life            question  accidental death coverage next to regular life insurance
+//
+//   * Drop only when the answers show something that already covers the same thing (see "Drop or Question" below);
+//     otherwise the same flag is filed as a Question (`alternateBuckets`, DECISIONS S12-9).
 //
 // Rules this file follows (see docs/DECISIONS.md S11-*):
 //  * Pure and deterministic: no DOM, no Node APIs, no Date, no Intl.
@@ -180,6 +183,17 @@ function confirmedChoice(ctx, key) {
 // they usually pay with their cards. A Not sure (or missing) payment answer never raises emphasis.
 const strongCard = (ctx, key) => cardView(ctx, key).confirmed.length > 0 && ctx.is('card_usual_payment', 'yes');
 
+// Drop or Question (DECISIONS S12-9). The SPEC defines a Drop as coverage the household is paying for twice, and says
+// travel insurance and extended warranties are a likely Drop only "if yes and paid with a card that includes" the
+// benefit, and rental car when the car policy and/or a card duplicates it. So the three flags that are usually a Drop
+// (rental car, travel, warranty) are filed as one only when the answers show the duplicate; for everyone else they
+// are a Question about what would pay, and may say that buying the cover could be right. A Drop never does.
+//   * travel, warranty: a held card the table confirms has the benefit AND the user usually pays with their cards
+//     (a No or Not sure answer is a reason to ask, not a duplicate): exactly `strongCard`.
+//   * rental car: the user's own car policy (they have not said it lacks collision and comprehensive), or a held card
+//     the table lists as paying first AND the user usually paying with their cards.
+const bucketFor = (isDrop) => (isDrop ? 'drop' : 'question');
+
 // ---------------------------------------------------------------------------------------------------
 // 1. Rental car (drop)
 // ---------------------------------------------------------------------------------------------------
@@ -189,21 +203,36 @@ function rentalState(ctx) {
   const noCollision = hasAuto && ctx.is('auto_collision', 'no');
   const confirmed = cardView(ctx, 'rentalCar').confirmed;
   const pays = ctx.is('card_usual_payment', 'yes');
+  // The user's own policy can be relied on: a car policy that the user has not said lacks collision and comprehensive.
+  const ownPolicy = hasAuto && !noCollision;
+  // Held cards the table lists as paying before the user's own insurance.
+  const firstCards = confirmed.filter((c) => c.benefits.rentalCar.status === 'primary');
+  const cardPaysFirst = pays && firstCards.length > 0;
   return {
     hasAuto,
     noCollision,
+    ownPolicy,
+    firstCards,
+    cardPaysFirst,
+    // Something already covers a rental: their own policy, or a card that pays first and that they use.
+    isDrop: ownPolicy || cardPaysFirst,
     // The user's own policy may not extend to a rental: no car policy at all, or no collision and comprehensive.
-    ownMayNotExtend: !hasAuto || noCollision,
+    ownMayNotExtend: !ownPolicy,
     // Strong needs a confirmed card benefit, the user paying with their cards, and an own policy to rely on.
-    strong: confirmed.length > 0 && pays && hasAuto && !noCollision,
+    strong: confirmed.length > 0 && pays && ownPolicy,
   };
 }
 
 const RENTAL_INTRO = 'The extra coverage a rental company sells at the counter, called a collision or loss damage waiver, is not technically insurance. It relieves you of responsibility if the rental car is damaged or stolen.';
 const RENTAL_OWN_POLICY = "You may already have that protection. If you still carry collision and comprehensive on your own car (collision pays for crash damage, comprehensive for things like theft and hail), the coverage and deductible on your car generally apply to a rental you use for personal trips.";
 const RENTAL_NO_COLLISION = 'You told us you do not carry collision and comprehensive on your car. Without them, your own policy may not pay if a rental car is damaged or stolen, so the waiver, or a card that covers rentals, may be the only thing standing between you and the repair bill.';
+// The same news for a household filed under Drop because its card pays first: the card is the cover to check.
+const RENTAL_NO_COLLISION_CARD = 'You told us you do not carry collision and comprehensive on your car. Without them, your own policy may not pay if a rental car is damaged or stolen, so the card\'s rental coverage is the one to confirm.';
 const RENTAL_NO_AUTO = 'You did not tell us about a car insurance policy, so there may be no policy of your own for a rental to fall back on. That makes it more important to check what else would pay before you decline anything.';
 const RENTAL_CARDS = 'Many credit cards cover rental car damage when you pay for the rental with the card, but you generally have to decline the rental company\'s waiver to use it. That coverage is usually secondary, meaning it pays only after your own car insurance or the rental company\'s coverage, and it may cover only your deductible.';
+// When a card the household carries is listed as paying first, the generic "usually secondary" sentence would contradict the
+// card paragraph below it ("it pays before your own insurance"), so it says that some pay first and some second instead.
+const RENTAL_CARDS_SOME_FIRST = 'Many credit cards cover rental car damage when you pay for the rental with the card, but you generally have to decline the rental company\'s waiver to use it. Some pay first and some pay only after your own car insurance or the rental company\'s coverage, and the coverage may have limits, so read the terms.';
 const RENTAL_RISK = "If nothing else covers the rental and you decline the waiver, you can owe for the damage, sometimes up to the car's full value.";
 
 const rentalCarWaiver = {
@@ -211,24 +240,38 @@ const rentalCarWaiver = {
   domain: 'other',
   bucket: 'drop',
   kind: 'cross-policy',
+  alternateBuckets: ['question'],
   priority: 510,
-  title: "Check whether you can skip the rental company's extra coverage",
+  title: (ctx) => (rentalState(ctx).isDrop
+    ? "Check whether you can skip the rental company's extra coverage"
+    : 'Find out what would pay for a rental car before you buy the extra coverage'),
   applies(ctx) {
     if (!ctx.holds('rental_car')) return false;
-    return { emphasis: rentalState(ctx).strong ? 'strong' : 'normal' };
+    const s = rentalState(ctx);
+    return { bucket: bucketFor(s.isDrop), emphasis: s.strong ? 'strong' : 'normal' };
   },
   background(ctx) {
     const s = rentalState(ctx);
+    let own;
+    if (s.ownPolicy) own = RENTAL_OWN_POLICY;
+    else if (!s.hasAuto) own = RENTAL_NO_AUTO;
+    else own = s.isDrop ? RENTAL_NO_COLLISION_CARD : RENTAL_NO_COLLISION;
     return join([
       RENTAL_INTRO,
-      s.hasAuto ? (s.noCollision ? RENTAL_NO_COLLISION : RENTAL_OWN_POLICY) : RENTAL_NO_AUTO,
-      RENTAL_CARDS,
+      own,
+      s.firstCards.length > 0 ? RENTAL_CARDS_SOME_FIRST : RENTAL_CARDS,
       RENTAL_RISK,
       cardParagraph(ctx, 'rentalCar', { gloss: rentalGloss }),
     ]);
   },
   ask(ctx) {
     const s = rentalState(ctx);
+    if (s.isDrop && !s.ownPolicy) {
+      // Only a card that pays first makes this a Drop for a household without a car policy to rely on.
+      const names = joinList(s.firstCards.map((c) => c.name));
+      const choice = s.firstCards.length > 1 ? `one of ${names}` : names;
+      return `Read the current benefits guide for ${names} and ask the issuer for the rental terms in writing, including what you must do to qualify and what the coverage leaves out. If it covers a rental the way you need, put your next rental on ${choice} and decline the waiver at the counter.`;
+    }
     if (s.strong) {
       return `Read the current benefits guide for ${confirmedNames(ctx, 'rentalCar')} and ask the issuer for the rental terms in writing, including whether it pays first or second. Confirm your car insurance still includes collision and comprehensive. If both check out, put your next rental on ${confirmedChoice(ctx, 'rentalCar')} and decline the waiver at the counter.`;
     }
@@ -244,9 +287,13 @@ const rentalCarWaiver = {
     return 'Before your next rental, ask your car insurer whether your policy covers a rental car on personal trips, including theft and damage, and what your deductible would be. Rules vary, so get the answer from your insurer or your state\'s department of insurance. Then, if you plan to rely on a card, ask its issuer for the rental terms in writing: whether it pays first or second, and what you must do to qualify, which usually means paying with the card and declining the waiver. If both cover you, decline the waiver at the counter.';
   },
   reason(ctx) {
-    return rentalState(ctx).ownMayNotExtend
-      ? "I want to know what would pay if a rental car were damaged before I decide whether the rental company's coverage is worth buying."
-      : "I want to confirm my own policy and my card already cover a rental car before I pay the rental company for the same protection.";
+    const s = rentalState(ctx);
+    if (!s.isDrop) return "I want to know what would pay if a rental car were damaged before I decide whether the rental company's coverage is worth buying.";
+    if (!s.ownPolicy) return "My card's benefits guide lists rental car coverage that pays first, so I want to confirm it applies to my rental before I pay the rental company for the same protection.";
+    // A card is mentioned only when the household said it carries one.
+    return carriesListedCard(ctx)
+      ? 'I want to confirm my own policy and my card already cover a rental car before I pay the rental company for the same protection.'
+      : 'I want to confirm my own car policy already covers a rental car before I pay the rental company for the same protection.';
   },
   sourceIds: ['iii-rental-car-insurance', 'ftc-renting-a-car', 'naic-consumer-auto-insurance'],
 };
@@ -372,12 +419,16 @@ const travelOverlap = {
   id: 'other-travel-insurance-overlap',
   domain: 'other',
   bucket: 'drop',
+  alternateBuckets: ['question'],
   kind: 'cross-policy',
   priority: 540,
-  title: 'Check what you already have before paying for travel insurance',
+  title: (ctx) => (strongCard(ctx, 'tripProtection')
+    ? 'Check whether your card already covers the travel insurance you buy'
+    : 'Check what you already have before paying for travel insurance'),
   applies(ctx) {
     if (!ctx.holds('travel')) return false;
-    return { emphasis: strongCard(ctx, 'tripProtection') ? 'strong' : 'normal' };
+    const drop = strongCard(ctx, 'tripProtection');
+    return { bucket: bucketFor(drop), emphasis: drop ? 'strong' : 'normal' };
   },
   background(ctx) {
     return join([
@@ -397,7 +448,14 @@ const travelOverlap = {
       'Then buy only the parts you do not already have. Ask your health insurer whether it covers you abroad before you give up medical coverage.',
     ]);
   },
-  reason: 'I want to compare this policy with the trip protection on my card and the coverage I already have, so I only pay for what is missing.',
+  reason(ctx) {
+    // A card is mentioned only when the household said it carries one, and "the trip protection on my card" only when the
+    // table confirms it.
+    if (strongCard(ctx, 'tripProtection')) return 'I want to compare this policy with the trip protection on my card and the coverage I already have, so I only pay for what is missing.';
+    return carriesListedCard(ctx)
+      ? 'I want to compare this policy with any trip protection on my card and the coverage I already have, so I only pay for what is missing.'
+      : 'I want to compare this policy with the coverage I already have, so I only pay for what is missing.';
+  },
   sourceIds: ['naic-should-i-get-travel-insurance', 'iii-should-you-buy-travel-insurance'],
 };
 
@@ -416,6 +474,17 @@ function homeOrRenters(ctx) {
   return renters ? 'renters' : '';
 }
 
+// The other place a phone may already be covered, named the way the household would say it: "home", "renters", "home or renters",
+// or '' when it holds neither (then the only other place is a card). The title, the opening sentence, the ask and the reason all
+// follow this, so no text sends a household to a policy it does not have (DECISIONS S12-10).
+function phonePolicyName(ctx) {
+  const home = ctx.holds('home');
+  const renters = ctx.holds('renters');
+  if (home && renters) return 'home or renters';
+  if (home) return 'home';
+  return renters ? 'renters' : '';
+}
+
 function phoneState(ctx) {
   const view = cardView(ctx, 'cellPhone');
   const bill = ctx.is('phone_bill_on_card', 'yes') ? 'yes' : (ctx.is('phone_bill_on_card', 'no') ? 'no' : 'unknown');
@@ -430,7 +499,10 @@ const phoneInsurance = {
   bucket: 'question',
   kind: 'cross-policy',
   priority: 550,
-  title: 'Check whether a card or your home policy already covers your phone',
+  title(ctx) {
+    const policy = phonePolicyName(ctx);
+    return policy ? `Check whether a card or your ${policy} policy already covers your phone` : 'Check whether a card you carry already covers your phone';
+  },
   applies(ctx) {
     if (!ctx.holds('phone')) return false;
     return { emphasis: phoneState(ctx).strong ? 'strong' : 'normal' };
@@ -438,7 +510,9 @@ const phoneInsurance = {
   background(ctx) {
     const policy = homeOrRenters(ctx);
     return join([
-      'You told us you pay a monthly fee to insure your phone. Before you keep paying it, check two places that may already cover the same phone.',
+      phonePolicyName(ctx)
+        ? 'You told us you pay a monthly fee to insure your phone. Before you keep paying it, check two places that may already cover the same phone.'
+        : 'You told us you pay a monthly fee to insure your phone. Before you keep paying it, check whether a card you carry already covers the same phone.',
       policy
         ? `Your ${policy} policy generally covers your belongings, including things you carry away from home, up to a limit, and some insurers cap the away-from-home part. Ask whether it covers a phone and what you would pay out of pocket first.`
         : '',
@@ -458,13 +532,16 @@ const phoneInsurance = {
     if (names !== '') {
       return `Ask the issuer of ${names} whether paying your phone bill with the card turns its phone coverage on. If it does, the move is to put the bill on that card and then cancel the carrier's plan, rather than just cancelling and going without. Keep the carrier's plan until the card's coverage is confirmed.`;
     }
-    return 'Ask the issuer of any card you carry whether it protects your phone and what it requires. Ask your home or renters insurer whether a phone is covered and what your deductible would be. Keep the carrier plan until one of them confirms coverage.';
+    const policy = phonePolicyName(ctx);
+    return policy
+      ? `Ask the issuer of any card you carry whether it protects your phone and what it requires. Ask your ${policy} insurer whether a phone is covered and what your deductible would be. Keep the carrier plan until one of them confirms coverage.`
+      : 'Ask the issuer of any card you carry whether it protects your phone and what it requires. Keep the carrier plan until it confirms coverage.';
   },
   reason(ctx) {
     // Conditional on purpose: the bill answer does not say which card the bill is on (DECISIONS S11-8).
-    return phoneState(ctx).strong
-      ? `If my phone bill is charged to ${confirmedChoice(ctx, 'cellPhone')}, I want to swap the carrier plan for that coverage instead of paying twice.`
-      : 'I may already have coverage for my phone through a card or my home or renters policy, so I want to confirm that before I keep paying for a separate plan.';
+    if (phoneState(ctx).strong) return `If my phone bill is charged to ${confirmedChoice(ctx, 'cellPhone')}, I want to swap the carrier plan for that coverage instead of paying twice.`;
+    const policy = phonePolicyName(ctx);
+    return `I may already have coverage for my phone through a card${policy ? ` or my ${policy} policy` : ''}, so I want to confirm that before I keep paying for a separate plan.`;
   },
   sourceIds: ['iii-standard-homeowners-coverage', 'iii-renters-insurance'],
 };
@@ -477,12 +554,16 @@ const extendedWarranty = {
   id: 'other-extended-warranty-overlap',
   domain: 'other',
   bucket: 'drop',
+  alternateBuckets: ['question'],
   kind: 'cross-policy',
   priority: 560,
-  title: 'Check before you pay extra for another extended warranty',
+  title: (ctx) => (strongCard(ctx, 'extendedWarranty')
+    ? 'Check whether your card already extends the warranty before you pay for another'
+    : 'Check before you pay extra for another extended warranty'),
   applies(ctx) {
     if (!ctx.holds('warranty')) return false;
-    return { emphasis: strongCard(ctx, 'extendedWarranty') ? 'strong' : 'normal' };
+    const drop = strongCard(ctx, 'extendedWarranty');
+    return { bucket: bucketFor(drop), emphasis: drop ? 'strong' : 'normal' };
   },
   background(ctx) {
     return join([
@@ -501,7 +582,12 @@ const extendedWarranty = {
       'If the plan adds nothing you do not already have, say no. If you already pay for one, ask the company what it covers beyond the manufacturer\'s warranty and whether you can cancel.',
     ]);
   },
-  reason: "I want to know what this plan covers that the product's own warranty and my card do not before I pay for it.",
+  reason(ctx) {
+    // A card is mentioned only when the household said it carries one.
+    return carriesListedCard(ctx)
+      ? "I want to know what this plan covers that the product's own warranty and my card do not before I pay for it."
+      : "I want to know what this plan covers that the product's own warranty does not before I pay for it.";
+  },
   sourceIds: ['ftc-extended-warranties-service-contracts', 'ftc-warranties'],
 };
 

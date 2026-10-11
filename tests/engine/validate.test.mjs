@@ -75,6 +75,15 @@ suite('validate: unique ids', (t) => {
 suite('validate: flags', (t) => {
   rejects('flag bucket not in raise|drop|question', (c) => { f(c, 'umbrella-um-missing').bucket = 'keep'; }, /flag "umbrella-um-missing": bucket must be one of raise, drop, question/);
   rejects('flag bucket missing', (c) => { delete f(c, 'umbrella-um-missing').bucket; }, /flag "umbrella-um-missing": bucket must be one of/);
+  rejects('flag alternateBuckets is not an array', (c) => { f(c, 'umbrella-um-missing').alternateBuckets = 'question'; }, /flag "umbrella-um-missing": alternateBuckets must be a non-empty list of different buckets/);
+  rejects('flag alternateBuckets is empty', (c) => { f(c, 'umbrella-um-missing').alternateBuckets = []; }, /flag "umbrella-um-missing": alternateBuckets must be a non-empty list/);
+  rejects('flag alternateBuckets names something that is not a bucket', (c) => { f(c, 'umbrella-um-missing').alternateBuckets = ['keep']; }, /flag "umbrella-um-missing": alternateBuckets must be a non-empty list/);
+  rejects('flag alternateBuckets repeats a bucket', (c) => { f(c, 'umbrella-um-missing').alternateBuckets = ['drop', 'drop']; }, /flag "umbrella-um-missing": alternateBuckets must be a non-empty list/);
+  rejects('flag alternateBuckets includes the flag\'s own bucket', (c) => { f(c, 'umbrella-um-missing').alternateBuckets = [f(c, 'umbrella-um-missing').bucket]; }, /flag "umbrella-um-missing": alternateBuckets must be a non-empty list/);
+  t('alternateBuckets is optional, and a list of other buckets is accepted', () => {
+    assert.equal(check((c) => { delete f(c, 'umbrella-um-missing').alternateBuckets; }).ok, true);
+    assert.equal(check((c) => { f(c, 'umbrella-um-missing').alternateBuckets = ['raise', 'drop'].filter((b) => b !== f(c, 'umbrella-um-missing').bucket); }).ok, true);
+  });
   rejects('flag kind invalid', (c) => { f(c, 'umbrella-um-missing').kind = 'other-kind'; }, /flag "umbrella-um-missing": kind must be one of cross-policy, within-policy, education/);
   rejects('flag domain invalid', (c) => { f(c, 'umbrella-um-missing').domain = 'pets'; }, /flag "umbrella-um-missing": domain must be one of/);
   rejects('flag with zero sourceIds', (c) => { f(c, 'umbrella-um-missing').sourceIds = []; }, /flag "umbrella-um-missing": needs at least one sourceId/);

@@ -408,6 +408,64 @@ suite('umbrella-limits-unconfirmed', (t) => {
     assert.equal(f.reason, 'I want the list of underlying limits my umbrella requires so I can check it against my policies.');
     assert.equal(OVERCLAIM.test(`${f.background} ${f.ask} ${f.reason}`), false);
   });
+  t('a household that gave what its umbrella requires but is Not sure of its own limits is sent to its own policies, with the figures it gave, not to the agent for the requirements list (DECISIONS S12-11)', () => {
+    const f = flagOf(run(U({ auto_liability: 'not_sure', umbrella_min_auto: '250_500', home_liability: 'not_sure', umbrella_min_home: '500k' })), ID.unconfirmed);
+    assert.equal(f.title, 'Get the liability limits from your own policies');
+    assert.match(f.title, /^(Raise|Ask|Get) /, 'still an action phrase');
+    assert.match(f.ask, /^Check the summary page of your auto and home policies, called the declarations page, for the liability limit on each, then compare your auto limit with the 250\/500 and your home limit with the \$500,000 your umbrella asks for\./);
+    assert.match(f.ask, /ask your agent to read it to you\.$/, 'the agent is the fallback, not the first step');
+    assert.equal(f.reason, 'I want to confirm my own liability limits meet what my umbrella asks for.');
+    for (const part of [f.title, f.ask, f.reason]) assert.equal(/required underlying limits|list of (the )?underlying|limits my umbrella requires|limits your umbrella requires/i.test(part), false, part);
+    // The background still names what is unknown: the household's own limits.
+    assert.match(f.background, /You were not sure about your auto liability limit and your home liability limit, so/);
+    // One layer: singular wording and its own figure.
+    const one = flagOf(run(U({ auto_liability: 'not_sure', umbrella_min_auto: '500_500', home_liability: '500k', umbrella_min_home: '500k' })), ID.unconfirmed);
+    assert.match(one.ask, /^Check the summary page of your auto policy, called the declarations page, for its liability limit, then compare it with the 500\/500 your umbrella asks for\. If it is lower, /);
+    assert.equal(/home/.test(one.ask), false, 'the home limit was given, so the home policy is not mentioned');
+    // Only for a test or tool that skips the requirement question: no figure, and no claim that the household gave one.
+    const unanswered = flagOf(run(U({ auto_liability: 'not_sure' })), ID.unconfirmed);
+    assert.match(unanswered.ask, /then compare it with what your umbrella asks for\./);
+    assert.equal(/\d\d\d\/\d\d\d/.test(unanswered.ask), false);
+  });
+  t('a household that gave its own limits but is Not sure what its umbrella requires is sent to the agent for the list, and its own limits are said back, not looked up again (DECISIONS S12-11)', () => {
+    const f = flagOf(run(U({ auto_liability: '100_300', umbrella_min_auto: 'not_sure', home_liability: '300k', umbrella_min_home: 'not_sure' })), ID.unconfirmed);
+    assert.equal(f.title, 'Get the underlying limits your umbrella requires from your agent');
+    assert.match(f.ask, /^Ask your agent for the list of required underlying limits on your umbrella \(look for a heading like "required underlying limits"\), then compare it with the limits you told us about: your auto limit is 100\/300 and your home limit is \$300,000\. If any of your limits is lower than the list asks for, /);
+    assert.equal(/declarations page|summary page/.test(f.ask), false, 'it already gave those limits');
+    assert.equal(f.reason, 'I want the list of underlying limits my umbrella requires so I can check it against my policies.');
+    // Only the layers with a Not sure requirement are mentioned, and a "Lower than" limit reads as one.
+    const part = flagOf(run(U({ auto_liability: 'lower', umbrella_min_auto: 'not_sure', home_liability: '500k', umbrella_min_home: '500k' })), ID.unconfirmed);
+    assert.match(part.ask, /the limits you told us about: your auto limit is lower than 100\/300\. If any/);
+    assert.equal(part.emphasis, 'strong', 'unchanged: a limit below the lowest tier with the requirement unknown');
+  });
+  t('a household that is Not sure of both is sent to both places, in the order that lets it compare them (DECISIONS S12-11)', () => {
+    for (const answers of [
+      U({ auto_liability: 'not_sure', umbrella_min_auto: 'not_sure', home_liability: '300k', umbrella_min_home: '500k' }),          // both numbers of one layer
+      U({ auto_liability: 'not_sure', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: 'not_sure' }),      // own limit of one layer, requirement of another
+    ]) {
+      const f = flagOf(run(answers), ID.unconfirmed);
+      assert.equal(f.title, 'Get your own liability limits and what your umbrella requires');
+      assert.match(f.ask, /^Ask your agent for the list of required underlying limits on your umbrella \(look for a heading like "required underlying limits"\)\. Then check the summary page of your auto policy, called the declarations page, for your own liability limit and compare the two\./);
+      assert.equal(f.reason, 'I want to confirm my own liability limits and get the list of limits my umbrella requires so I can compare them.');
+      assert.equal(f.reason.split('. ').length, 1, 'one sentence');
+    }
+  });
+  t('the four wordings of the item all stay plain text, cite the same two sources, and keep the Question bucket and emphasis rules', () => {
+    for (const answers of [
+      U({ auto_liability: 'not_sure', umbrella_min_auto: '250_500' }),
+      U({ umbrella_min_auto: 'not_sure', auto_liability: '250_500' }),
+      U({ auto_liability: 'not_sure', umbrella_min_auto: 'not_sure' }),
+      U({ auto_liability: 'not_sure', umbrella_min_auto: '250_500', home_liability: '300k', umbrella_min_home: 'not_sure' }),
+    ]) {
+      const r = run(answers);
+      const f = flagOf(r, ID.unconfirmed);
+      assert.equal(f.bucket, 'question');
+      assert.equal(f.emphasis, 'normal');
+      assert.deepEqual(f.sources.map((x) => x.id), ['iii-should-i-purchase-umbrella', 'iii-homebuyers-handbook']);
+      const text = `${f.title} ${f.background} ${f.ask} ${f.reason}`;
+      assert.equal(BANNED.test(text) || STATE_NAMES.test(text) || OVERCLAIM.test(text), false, text);
+    }
+  });
   t('cites exactly its two planned sources', () => {
     const f = flagOf(run(U({ umbrella_min_home: 'not_sure' })), ID.unconfirmed);
     assert.deepEqual(f.sources.map((s) => s.id), ['iii-should-i-purchase-umbrella', 'iii-homebuyers-handbook']);

@@ -107,8 +107,21 @@ function runApplies(flag, ctx) {
   return result;
 }
 
+// The bucket this household's item goes in: the flag's own `bucket`, unless applies() asked for another one that the flag
+// lists in `alternateBuckets` (a flag that is a Drop only when something already covers the same thing, and a Question
+// when nothing is known to). Naming a bucket the flag did not declare is an error, so it cannot happen by accident.
+function bucketOf(flag, result) {
+  if (result.bucket === undefined) return flag.bucket;
+  if (!BUCKETS.includes(result.bucket)) throw new Error(`flag "${flag.id}": applies() bucket must be one of ${BUCKETS.join(', ')}, got ${describe(result.bucket)}`);
+  if (result.bucket !== flag.bucket && !(Array.isArray(flag.alternateBuckets) && flag.alternateBuckets.includes(result.bucket))) {
+    throw new Error(`flag "${flag.id}": applies() returned bucket "${result.bucket}", which the flag does not list in alternateBuckets`);
+  }
+  return result.bucket;
+}
+
 function renderFlag(flag, ctx, result, sources) {
   if (!BUCKETS.includes(flag.bucket)) throw new Error(`flag "${flag.id}": bucket must be one of ${BUCKETS.join(', ')}, got ${describe(flag.bucket)}`);
+  const bucket = bucketOf(flag, result);
   const emphasis = result.emphasis === undefined ? 'normal' : result.emphasis;
   if (!EMPHASES.includes(emphasis)) throw new Error(`flag "${flag.id}": emphasis must be one of ${EMPHASES.join(', ')}, got ${describe(emphasis)}`);
   const rawVars = result.vars === undefined ? {} : result.vars;
@@ -135,7 +148,7 @@ function renderFlag(flag, ctx, result, sources) {
 
   return {
     id: flag.id,
-    bucket: flag.bucket,
+    bucket,
     domain: flag.domain,
     kind: flag.kind,
     title: text.title,

@@ -688,7 +688,7 @@ export default {
     },
     "flags": [
       {
-        "ask": "Ask your agent for the list of required underlying limits on your umbrella (look for a heading like \"required underlying limits\"), then compare it with the liability limit on each policy underneath. Your own limits are on the summary page of each policy, called the declarations page. If any of your limits is lower than the list asks for, raise it, and ask what the umbrella does while a limit is short.",
+        "ask": "Ask your agent for the list of required underlying limits on your umbrella (look for a heading like \"required underlying limits\"), then compare it with the limits you told us about: your auto limit is 100/300 and your home limit is lower than $300,000. If any of your limits is lower than the list asks for, raise it, and ask what the umbrella does while a limit is short.",
         "background": "The Insurance Information Institute describes the usual underlying limits as what most insurers want, so your umbrella insurer may ask for something different, and not being sure of yours is fine. You were not sure about what your umbrella asks for on your auto and home policies, so we cannot tell whether your limits meet what your umbrella asks for. An umbrella is extra liability coverage that starts paying only after the limits underneath are used up. Your home liability limit is lower than $300,000, which is the likeliest place for a gap, and what your umbrella requires is the one thing left to confirm.",
         "bucket": "question",
         "emphasis": "strong",

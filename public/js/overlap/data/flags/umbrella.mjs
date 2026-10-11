@@ -23,6 +23,67 @@ function joinList(items) {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
+// What `umbrella-limits-unconfirmed` should send the household to do (DECISIONS S12-11). The flag fires when either number of a
+// layer is Not sure, but the two gaps are closed in different places: a Not sure on what the UMBRELLA requires is closed by
+// getting the required-underlying-limits list from the agent, and a Not sure on the household's OWN limit is closed by reading
+// it off its own policy's summary page (the declarations page). Telling a household that stated what its umbrella requires to
+// get that list again, when its own limits are what is missing, sends it to look for what it already gave us.
+//   own       a Not sure on at least one of the household's own limits, and no Not sure on a requirement
+//   required  a Not sure on at least one requirement, and no Not sure on an own limit
+//   both      at least one of each (the same layer, or different layers)
+// Everything here is read from the liability stack, so it follows the answers and nothing else.
+const POLICIES = (findings) => `your ${joinList(findings.map((f) => f.policyText.replace(/ policy$/, '')))} ${findings.length > 1 ? 'policies' : 'policy'}`;
+const REQUIRED_LIST = 'for the list of required underlying limits on your umbrella (look for a heading like "required underlying limits")';
+const IF_LOWER = 'raise it, and ask what the umbrella does while a limit is short';
+
+function unconfirmedPlan(ctx) {
+  const unconfirmed = stackFindings(ctx.stack, 'unconfirmed');
+  const layerOf = (f) => ctx.stack.layers.find((l) => l.id === f.layer);
+  const ownUnknown = unconfirmed.filter((f) => f.notSure.includes('limit'));
+  const requirementUnknown = unconfirmed.filter((f) => f.notSure.includes('required'));
+
+  if (ownUnknown.length > 0 && requirementUnknown.length === 0) {
+    // What the umbrella asks for is known, so the numbers go in the ask. (Only a test or tool that skips the requirement question
+    // leaves one unanswered; then the ask says "what your umbrella asks for" and gives no number.)
+    const several = ownUnknown.length > 1;
+    const known = ownUnknown.every((f) => layerOf(f).requiredAnswer === 'known');
+    const compare = (() => {
+      if (!known) return `${several ? 'each' : 'it'} with what your umbrella asks for`;
+      if (!several) return `it with the ${ownUnknown[0].requiredText} your umbrella asks for`;
+      return `${joinList(ownUnknown.map((f) => `your ${f.layer} limit with the ${f.requiredText}`))} your umbrella asks for`;
+    })();
+    return {
+      kind: 'own',
+      title: 'Get the liability limits from your own policies',
+      ask: `Check the summary page of ${POLICIES(ownUnknown)}, called the declarations page, for ${several ? 'the liability limit on each' : 'its liability limit'}, then compare ${compare}. `
+        + `If ${several ? 'any of them is' : 'it is'} lower, ${IF_LOWER}. If you cannot find ${several ? 'a limit' : 'the limit'} there, ask your agent to read it to you.`,
+      reason: 'I want to confirm my own liability limits meet what my umbrella asks for.',
+    };
+  }
+
+  if (ownUnknown.length === 0) {
+    // The household's own limits are what it told us, so say them back; only a limit that was never answered still needs the policy.
+    const told = requirementUnknown.filter((f) => layerOf(f).limitAnswer === 'known').map((f) => `your ${f.layer} limit is ${f.limitText}`);
+    const compareWith = told.length === requirementUnknown.length
+      ? `the limits you told us about: ${joinList(told)}`
+      : 'the liability limit on each policy underneath. Your own limits are on the summary page of each policy, called the declarations page';
+    return {
+      kind: 'required',
+      title: 'Get the underlying limits your umbrella requires from your agent',
+      ask: `Ask your agent ${REQUIRED_LIST}, then compare it with ${compareWith}. If any of your limits is lower than the list asks for, ${IF_LOWER}.`,
+      reason: 'I want the list of underlying limits my umbrella requires so I can check it against my policies.',
+    };
+  }
+
+  return {
+    kind: 'both',
+    title: 'Get your own liability limits and what your umbrella requires',
+    ask: `Ask your agent ${REQUIRED_LIST}. Then check the summary page of ${POLICIES(ownUnknown)}, called the declarations page, for your own liability limit and compare the two. `
+      + `If any of your limits is lower than the list asks for, ${IF_LOWER}.`,
+    reason: 'I want to confirm my own liability limits and get the list of limits my umbrella requires so I can compare them.',
+  };
+}
+
 export default [
   {
     id: 'umbrella-home-below-required-min',
@@ -97,7 +158,7 @@ export default [
     bucket: 'question',
     kind: 'cross-policy',
     priority: 60,
-    title: 'Get the underlying limits your umbrella requires from your agent',
+    title: (ctx) => unconfirmedPlan(ctx).title,
     applies(ctx) {
       if (!ctx.holds('umbrella')) return false;
       const unconfirmed = stackFindings(ctx.stack, 'unconfirmed');
@@ -115,8 +176,8 @@ export default [
       return { emphasis: likeliest.length > 0 ? 'strong' : 'normal', vars: { items: parts.join(', '), low } };
     },
     background: 'The Insurance Information Institute describes the usual underlying limits as what most insurers want, so your umbrella insurer may ask for something different, and not being sure of yours is fine. You were not sure about {{items}}, so we cannot tell whether your limits meet what your umbrella asks for. An umbrella is extra liability coverage that starts paying only after the limits underneath are used up.{{low}}',
-    ask: 'Ask your agent for the list of required underlying limits on your umbrella (look for a heading like "required underlying limits"), then compare it with the liability limit on each policy underneath. Your own limits are on the summary page of each policy, called the declarations page. If any of your limits is lower than the list asks for, raise it, and ask what the umbrella does while a limit is short.',
-    reason: 'I want the list of underlying limits my umbrella requires so I can check it against my policies.',
+    ask: (ctx) => unconfirmedPlan(ctx).ask,
+    reason: (ctx) => unconfirmedPlan(ctx).reason,
     sourceIds: ['iii-should-i-purchase-umbrella', 'iii-homebuyers-handbook'],
   },
 ];

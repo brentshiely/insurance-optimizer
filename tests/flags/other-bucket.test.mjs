@@ -140,6 +140,12 @@ suite('other bucket: the flag set matches the plan', (t) => {
     });
   });
 
+  t('rental car, travel and warranties are a Drop only with a duplicate, so they may also be a Question; no other flag moves (DECISIONS S12-9)', () => {
+    const alternates = {};
+    FLAGS.forEach((f) => { if (f.alternateBuckets !== undefined) alternates[f.id] = f.alternateBuckets; });
+    assert.deepEqual(alternates, { [RENTAL]: ['question'], [TRAVEL]: ['question'], [WARRANTY]: ['question'] });
+  });
+
   t('every flag has the contract fields and priorities stay inside S11\'s range 500 to 599, unique', () => {
     const seen = {};
     for (const f of FLAGS) {
@@ -322,6 +328,98 @@ suite('other-rental-car-waiver', (t) => {
     assert.equal(f.emphasis, 'normal');
     assert.includes(f.background, 'If you carry a credit card, check its current benefits guide');
   });
+
+  // DECISIONS S12-9: a Drop is coverage the household pays for twice, so rental car is a Drop only when something covers it.
+  const bucketOf = (answers, catalog) => ['raise', 'drop', 'question'].find((b) => run(answers, catalog).flags[b].some((f) => f.id === RENTAL));
+
+  t('a Drop when the car policy can be relied on: a car policy that is not known to lack collision and comprehensive', () => {
+    assert.equal(bucketOf(rental()), 'drop');
+    assert.equal(bucketOf(rental(cheapCar('yes'))), 'drop');
+    assert.equal(bucketOf(rental(cheapCar('not_sure'))), 'drop', 'Not sure is not "no"');
+    assert.equal(bucketOf(rental(withCards(['other_none']))), 'drop');
+  });
+
+  t('a Question when nothing is known to cover a rental: no car policy, or a car policy without collision and comprehensive, and no card that pays first', () => {
+    assert.equal(bucketOf(rental({}, { base: ['home'] })), 'question');
+    assert.equal(bucketOf(rental({}, { base: [] })), 'question');
+    assert.equal(bucketOf(rental(cheapCar('no'))), 'question');
+    assert.equal(bucketOf(rental(withCards(['other_none']), { base: ['home'] })), 'question');
+    // a card the household does not use, or is unsure it uses, or one that pays second, or whose cover is unconfirmed, is no duplicate
+    const noPolicy = { base: ['home'] };
+    for (const usual of ['no', 'not_sure', undefined]) assert.equal(bucketOf(rental(withCards([ALPHA], usual), noPolicy), WITH_CARDS), 'question', `usual ${usual}`);
+    for (const card of [BETA, EPS, GAMMA, DELTA]) assert.equal(bucketOf(rental(withCards([card], 'yes'), noPolicy), WITH_CARDS), 'question', card);
+    // and with no card table at all nothing can be a card that pays first
+    assert.equal(bucketOf(rental(withCards([ALPHA], 'yes'), noPolicy), NO_CARDS), 'question');
+  });
+
+  t('a Drop with no car policy to rely on when a card the table lists as paying first is the one the household pays with', () => {
+    const noPolicy = { base: ['home'] };
+    for (const opts of [rental(withCards([ALPHA], 'yes'), noPolicy), rental({ ...withCards([ALPHA], 'yes'), ...cheapCar('no') })]) {
+      const f = find(run(opts, WITH_CARDS), RENTAL);
+      assert.equal(f.bucket, 'drop');
+      assert.equal(f.emphasis, 'normal', 'strong needs a car policy to rely on as well');
+      assert.includes(f.background, 'listed as primary, which means it pays before your own insurance');
+      assert.includes(f.ask, 'Read the current benefits guide for Fixture Card Alpha');
+      assert.includes(f.ask, 'put your next rental on Fixture Card Alpha and decline the waiver');
+      assert.includes(f.reason, 'pays first');
+    }
+    // two cards that pay first are offered as a choice
+    const two = find(run(rental(withCards([ALPHA, BETA], 'yes'), noPolicy), { ...CATALOG, cards: { ...FIXTURE_CARDS, [cardIdOf(BETA)]: { ...FIXTURE_CARDS[cardIdOf(BETA)], benefits: { ...FIXTURE_CARDS[cardIdOf(BETA)].benefits, rentalCar: { ...FIXTURE_CARDS[cardIdOf(BETA)].benefits.rentalCar, status: 'primary' } } } } }), RENTAL);
+    assert.equal(two.bucket, 'drop');
+    assert.includes(two.ask, 'put your next rental on one of Fixture Card Beta and Fixture Card Alpha');
+  });
+
+  t('a Drop never says the waiver may be worth buying or may be all that stands between you and the bill; a Question may', () => {
+    const NOT_FOR_A_DROP = /worth buying|only thing standing|may be the only/i;
+    const everyHousehold = [
+      rental(), rental(cheapCar('yes')), rental(cheapCar('no')), rental({}, { base: ['home'] }), rental({}, { base: [] }),
+      rental(withCards([ALPHA], 'yes'), { base: ['home'] }), rental({ ...withCards([ALPHA], 'yes'), ...cheapCar('no') }),
+      rental(withCards([ALPHA], 'yes')), rental(withCards([ALPHA, BETA, GAMMA, DELTA], 'no')), rental(withCards([BETA], 'yes'), { base: ['home'] }),
+    ];
+    let drops = 0;
+    let questions = 0;
+    for (const opts of everyHousehold) {
+      for (const catalog of [CATALOG, WITH_CARDS]) {
+        const f = find(run(opts, catalog), RENTAL);
+        if (f.bucket === 'drop') { drops++; assert.equal(NOT_FOR_A_DROP.test(textOf(f)), false, `a Drop says: ${textOf(f)}`); } else questions++;
+      }
+    }
+    assert.ok(drops >= 6 && questions >= 6, `${drops} Drops and ${questions} Questions`);
+    // the Question keeps the honest advice for a household with nothing else to fall back on
+    const q = find(run(rental({}, { base: ['home'] })), RENTAL);
+    assert.includes(q.ask, 'the waiver may be worth buying for that trip');
+    assert.includes(find(run(rental(cheapCar('no'))), RENTAL).background, 'may be the only thing standing between you and the repair bill');
+  });
+
+  t('the title says what the bucket does: skip the extra coverage for a Drop, find out what would pay for a Question', () => {
+    assert.equal(find(run(rental()), RENTAL).title, "Check whether you can skip the rental company's extra coverage");
+    assert.equal(find(run(rental({}, { base: ['home'] })), RENTAL).title, 'Find out what would pay for a rental car before you buy the extra coverage');
+  });
+
+  t('the reason speaks of "my card" only when the household ticked a card', () => {
+    const noCard = find(run(rental(withCards(['other_none'])), WITH_CARDS), RENTAL);
+    assert.equal(/card/i.test(noCard.reason), false, noCard.reason);
+    assert.includes(noCard.reason, 'my own car policy');
+    const noAnswer = find(run(rental()), RENTAL);
+    assert.equal(/card/i.test(noAnswer.reason), false, 'cards question not answered');
+    const withCard = find(run(rental(withCards([ALPHA], 'yes')), WITH_CARDS), RENTAL);
+    assert.includes(withCard.reason, 'my own policy and my card');
+    const question = find(run(rental(withCards(['other_none']), { base: ['home'] })), RENTAL);
+    assert.equal(question.bucket, 'question');
+    assert.equal(/card/i.test(question.reason), false, question.reason);
+  });
+
+  t('a card that pays first and "usually secondary" are never said together, but "usually secondary" stays for the generic and secondary-only cases', () => {
+    for (const opts of [rental(withCards([ALPHA], 'yes')), rental(withCards([ALPHA], 'no')), rental(withCards([ALPHA, BETA], 'yes'), { base: ['home'] })]) {
+      const f = find(run(opts, WITH_CARDS), RENTAL);
+      assert.includes(f.background, 'pays before your own insurance');
+      assert.equal(/usually secondary/i.test(f.background), false, 'the generic sentence contradicts the card paragraph');
+      assert.includes(f.background, 'Some pay first and some pay only after your own car insurance');
+    }
+    for (const [opts, catalog] of [[rental(), NO_CARDS], [rental(withCards([BETA], 'yes')), WITH_CARDS], [rental(withCards([DELTA], 'yes')), WITH_CARDS]]) {
+      assert.includes(find(run(opts, catalog), RENTAL).background, 'usually secondary');
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------
@@ -489,9 +587,9 @@ suite('other-vehicle-towing-check', (t) => {
 suite('other-travel-insurance-overlap', (t) => {
   const travel = (more = {}, rest = {}) => items(['travel'], more, rest);
 
-  t('fires only when travel insurance is ticked, as a Drop', () => {
+  t('fires only when travel insurance is ticked, as a Question until something shows a card already covers it', () => {
     const f = find(run(travel()), TRAVEL);
-    assert.equal(f.bucket, 'drop');
+    assert.equal(f.bucket, 'question');
     for (const list of [[], ['none'], ['rental_car', 'towing', 'phone', 'warranty', 'accidental_death']]) {
       assert.equal(find(run(items(list)), TRAVEL), undefined);
     }
@@ -518,17 +616,35 @@ suite('other-travel-insurance-overlap', (t) => {
     }
   });
 
-  t('strong only when a held card confirms trip protection AND the user usually pays with their cards', () => {
+  t('strong, and a Drop, only when a held card confirms trip protection AND the user usually pays with their cards', () => {
     const strong = find(run(travel(withCards([ALPHA], 'yes')), WITH_CARDS), TRAVEL);
     assert.equal(strong.emphasis, 'strong');
+    assert.equal(strong.bucket, 'drop');
+    assert.equal(strong.title, 'Check whether your card already covers the travel insurance you buy');
     assert.includes(strong.background, 'Our notes on Fixture Card Alpha (last checked October 1, 2026) show that its benefits guide lists trip protection');
     assert.includes(strong.ask, 'Read the current benefits guide for Fixture Card Alpha');
     for (const usual of ['no', 'not_sure', undefined]) {
-      assert.equal(find(run(travel(withCards([ALPHA], usual)), WITH_CARDS), TRAVEL).emphasis, 'normal', `usual ${usual}`);
+      const f = find(run(travel(withCards([ALPHA], usual)), WITH_CARDS), TRAVEL);
+      assert.equal(f.emphasis, 'normal', `usual ${usual}`);
+      assert.equal(f.bucket, 'question', `usual ${usual}: a card the household does not usually pay with is not a duplicate`);
+      assert.equal(f.title, 'Check what you already have before paying for travel insurance');
     }
     for (const card of [BETA, GAMMA, DELTA]) {
-      assert.equal(find(run(travel(withCards([card], 'yes')), WITH_CARDS), TRAVEL).emphasis, 'normal', `${card} has no confirmed trip protection`);
+      const f = find(run(travel(withCards([card], 'yes')), WITH_CARDS), TRAVEL);
+      assert.equal(f.emphasis, 'normal', `${card} has no confirmed trip protection`);
+      assert.equal(f.bucket, 'question', `${card} has no confirmed trip protection`);
     }
+    // no card table: nothing is confirmed, so it is a Question whatever the household says
+    assert.equal(find(run(travel(withCards([ALPHA], 'yes')), NO_CARDS), TRAVEL).bucket, 'question');
+  });
+
+  t('the reason names a card only when the household ticked one, and "the trip protection on my card" only when the table confirms it', () => {
+    const reasonOf = (opts, catalog) => find(run(opts, catalog), TRAVEL).reason;
+    assert.equal(/card/i.test(reasonOf(travel(), WITH_CARDS)), false, 'cards question not answered');
+    assert.equal(/card/i.test(reasonOf(travel(withCards(['other_none'])), WITH_CARDS)), false, 'no card');
+    assert.includes(reasonOf(travel(withCards([BETA], 'yes')), WITH_CARDS), 'any trip protection on my card');
+    assert.includes(reasonOf(travel(withCards([ALPHA], 'no')), WITH_CARDS), 'any trip protection on my card');
+    assert.includes(reasonOf(travel(withCards([ALPHA], 'yes')), WITH_CARDS), 'compare this policy with the trip protection on my card and the coverage I already have');
   });
 
   t('an unverified trip protection benefit is a question, never a claim', () => {
@@ -592,8 +708,56 @@ suite('other-phone-insurance-card', (t) => {
     for (const bill of ['yes', 'no', 'not_sure', undefined]) {
       const f = find(run(phone(bill === undefined ? {} : { phone_bill_on_card: bill }), NO_CARDS), PHONE);
       assert.equal(CLAIM.test(textOf(f)), false, `bill ${bill}: ${textOf(f)}`);
-      assert.includes(f.ask, 'Ask the issuer of any card you carry whether it protects your phone and what it requires. Ask your home or renters insurer');
+      assert.includes(f.ask, 'Ask the issuer of any card you carry whether it protects your phone and what it requires. Ask your home insurer');
     }
+  });
+
+  t('the title, the opening sentence, the ask and the reason send the household only to the places it has: its card, and the home and renters policies it holds (DECISIONS S12-10)', () => {
+    const at = (base, more = {}) => find(run(phone(more, { base }), NO_CARDS), PHONE);
+    const CARD_ASK = 'Ask the issuer of any card you carry whether it protects your phone and what it requires.';
+    const CARD_REASON = (where) => `I may already have coverage for my phone through a card${where}, so I want to confirm that before I keep paying for a separate plan.`;
+
+    // Neither a home nor a renters policy: the card is the only other place, and nothing mentions a policy.
+    for (const base of [[], ['auto'], ['auto', 'umbrella']]) {
+      const f = at(base);
+      assert.equal(f.title, 'Check whether a card you carry already covers your phone', JSON.stringify(base));
+      assert.includes(f.background, 'Before you keep paying it, check whether a card you carry already covers the same phone.');
+      assert.equal(f.background.includes('two places'), false, 'one place is not two places');
+      assert.equal(f.ask, `${CARD_ASK} Keep the carrier plan until it confirms coverage.`);
+      assert.equal(f.reason, CARD_REASON(''));
+      assert.equal(/home|renters|homeowners/i.test(textOf(f)), false, `${JSON.stringify(base)}: ${textOf(f)}`);
+    }
+
+    // One policy: the card and that policy, named as the household would name it.
+    for (const [base, name, owners] of [[['auto', 'home'], 'home', 'homeowners'], [['auto', 'renters'], 'renters', 'renters']]) {
+      const f = at(base);
+      assert.equal(f.title, `Check whether a card or your ${name} policy already covers your phone`);
+      assert.includes(f.background, 'check two places that may already cover the same phone.');
+      assert.includes(f.background, `Your ${owners} policy generally covers your belongings`);
+      assert.equal(f.ask, `${CARD_ASK} Ask your ${name} insurer whether a phone is covered and what your deductible would be. Keep the carrier plan until one of them confirms coverage.`);
+      assert.equal(f.reason, CARD_REASON(` or my ${name} policy`));
+      const other = name === 'home' ? /renters/i : /\bhome\b|homeowners/i;
+      assert.equal(other.test(f.title + f.ask + f.reason), false, `${name}: names the policy the household does not hold`);
+    }
+
+    // Both: "home or renters".
+    const both = at(['auto', 'home', 'renters']);
+    assert.equal(both.title, 'Check whether a card or your home or renters policy already covers your phone');
+    assert.includes(both.ask, 'Ask your home or renters insurer whether a phone is covered');
+    assert.equal(both.reason, CARD_REASON(' or my home or renters policy'));
+
+    // A named card, and a confirmed card with the bill on it, send the household to the card in the ask whatever else it holds; the
+    // named card's reason still follows the policies, and the strong reason never mentions one.
+    const named = (base) => find(run(phone(withCards([BETA]), { base }), WITH_CARDS), PHONE);
+    assert.equal(named([]).ask, named(['auto', 'home', 'renters']).ask);
+    assert.equal(named([]).reason, CARD_REASON(''));
+    assert.equal(named(['auto', 'renters']).reason, CARD_REASON(' or my renters policy'));
+    const strong = (base) => find(run(phone({ ...withCards([BETA]), phone_bill_on_card: 'yes' }, { base }), WITH_CARDS), PHONE);
+    assert.equal(strong([]).ask, strong(['auto', 'home']).ask);
+    assert.equal(strong([]).reason, strong(['auto', 'home']).reason);
+    assert.equal(strong([]).emphasis, 'strong');
+    assert.equal(strong([]).title, 'Check whether a card you carry already covers your phone');
+    assert.equal(strong([]).background.includes('two places'), false);
   });
 
   t('strong, with the "route the bill through the card" move, only for a confirmed cellPhone benefit AND a bill already on a card', () => {
@@ -683,9 +847,9 @@ suite('other-phone-insurance-card', (t) => {
 suite('other-extended-warranty-overlap', (t) => {
   const warranty = (more = {}, rest = {}) => items(['warranty'], more, rest);
 
-  t('fires only when extended warranties are ticked, as a Drop', () => {
+  t('fires only when extended warranties are ticked, as a Question until something shows a card already extends the warranty', () => {
     const f = find(run(warranty()), WARRANTY);
-    assert.equal(f.bucket, 'drop');
+    assert.equal(f.bucket, 'question');
     for (const list of [[], ['none'], ['rental_car', 'towing', 'travel', 'phone', 'accidental_death']]) {
       assert.equal(find(run(items(list)), WARRANTY), undefined);
     }
@@ -704,18 +868,34 @@ suite('other-extended-warranty-overlap', (t) => {
     assert.equal(/rarely|nearly every case|never worth/i.test(textOf(f)), false, 'does not overstate the FTC');
   });
 
-  t('strong only for a confirmed extendedWarranty benefit AND a usual card payment; the card is named', () => {
+  t('strong, and a Drop, only for a confirmed extendedWarranty benefit AND a usual card payment; the card is named', () => {
     const f = find(run(warranty(withCards([ALPHA], 'yes')), WITH_CARDS), WARRANTY);
     assert.equal(f.emphasis, 'strong');
+    assert.equal(f.bucket, 'drop');
+    assert.equal(f.title, 'Check whether your card already extends the warranty before you pay for another');
     assert.includes(f.background, 'Our notes on Fixture Card Alpha');
     assert.includes(f.background, 'lists an extended warranty benefit');
     assert.includes(f.ask, 'Read the current benefits guide for Fixture Card Alpha');
     for (const usual of ['no', 'not_sure', undefined]) {
-      assert.equal(find(run(warranty(withCards([ALPHA], usual)), WITH_CARDS), WARRANTY).emphasis, 'normal', `usual ${usual}`);
+      const w = find(run(warranty(withCards([ALPHA], usual)), WITH_CARDS), WARRANTY);
+      assert.equal(w.emphasis, 'normal', `usual ${usual}`);
+      assert.equal(w.bucket, 'question', `usual ${usual}: a card the household does not usually pay with is not a duplicate`);
+      assert.equal(w.title, 'Check before you pay extra for another extended warranty');
     }
     for (const card of [BETA, GAMMA, DELTA]) {
-      assert.equal(find(run(warranty(withCards([card], 'yes')), WITH_CARDS), WARRANTY).emphasis, 'normal', card);
+      const w = find(run(warranty(withCards([card], 'yes')), WITH_CARDS), WARRANTY);
+      assert.equal(w.emphasis, 'normal', card);
+      assert.equal(w.bucket, 'question', card);
     }
+    assert.equal(find(run(warranty(withCards([ALPHA], 'yes')), NO_CARDS), WARRANTY).bucket, 'question', 'no card table: nothing is confirmed');
+  });
+
+  t('the reason names a card only when the household ticked one', () => {
+    const reasonOf = (opts, catalog) => find(run(opts, catalog), WARRANTY).reason;
+    assert.equal(/card/i.test(reasonOf(warranty(), WITH_CARDS)), false, 'cards question not answered');
+    assert.equal(/card/i.test(reasonOf(warranty(withCards(['other_none'])), WITH_CARDS)), false, 'no card');
+    assert.includes(reasonOf(warranty(withCards([ALPHA], 'yes')), WITH_CARDS), "the product's own warranty and my card do not");
+    assert.includes(reasonOf(warranty(withCards([DELTA], 'no')), WITH_CARDS), "the product's own warranty and my card do not");
   });
 
   t('a card with no extended warranty (none) is not mentioned; an unverified one is a question', () => {
@@ -1209,7 +1389,7 @@ suite('other bucket: end to end on the real catalog', (t) => {
   // Each scenario is a set of plain answers. No card is ticked, so these hold whatever the real card table contains.
   const place = (r, id) => (['raise', 'drop', 'question'].find((b) => r.flags[b].some((f) => f.id === id)));
 
-  t('rental car: a homeowner with one car who pays for rental coverage gets a Drop with the generic card wording', () => {
+  t('rental car: a homeowner with one car who pays for rental coverage gets a Drop (the car policy covers it) with the generic card wording', () => {
     const answers = items(['rental_car']);
     assert.includes(answers.policies, 'rental_car');
     const r = evaluate(answers);
@@ -1235,10 +1415,11 @@ suite('other bucket: end to end on the real catalog', (t) => {
     assert.equal(find(r, VEHICLE).title, 'Check where the towing help on your boat comes from');
   });
 
-  t('travel: a Drop whose generic text compares what the user already has', () => {
+  t('travel: a Question whose generic text compares what the user already has (no card is known to duplicate it)', () => {
     const r = evaluate(items(['travel'], { cards: ['other_none'] }));
-    assert.equal(place(r, TRAVEL), 'drop');
+    assert.equal(place(r, TRAVEL), 'question');
     assert.equal(find(r, TRAVEL).emphasis, 'normal');
+    assert.equal(/card/i.test(find(r, TRAVEL).reason), false, 'the household has no card');
   });
 
   t('phone: a Question that asks about the card and the home policy', () => {
@@ -1248,9 +1429,10 @@ suite('other bucket: end to end on the real catalog', (t) => {
     assert.deepEqual(find(r, PHONE).sources.map((s) => s.id), ['iii-standard-homeowners-coverage', 'iii-renters-insurance']);
   });
 
-  t('extended warranty: a Drop built on the FTC value test', () => {
+  t('extended warranty: a Question built on the FTC value test (no card is known to duplicate it)', () => {
     const r = evaluate(items(['warranty'], { cards: ['other_none'] }));
-    assert.equal(place(r, WARRANTY), 'drop');
+    assert.equal(place(r, WARRANTY), 'question');
+    assert.equal(/card/i.test(find(r, WARRANTY).reason), false, 'the household has no card');
     assert.deepEqual(find(r, WARRANTY).sources.map((s) => s.id), ['ftc-extended-warranties-service-contracts', 'ftc-warranties']);
   });
 
@@ -1262,7 +1444,7 @@ suite('other bucket: end to end on the real catalog', (t) => {
     assert.equal(find(own, ADD).sources.length, 4);
   });
 
-  t('everything ticked: the Drops come out in priority order, the Questions after, nothing else from this bucket', () => {
+  t('everything ticked: the Drops (a car policy duplicates the rental waiver; two roadside sources) come out in priority order, the Questions after, nothing else from this bucket', () => {
     const r = evaluate(items(['rental_car', 'towing', 'travel', 'phone', 'warranty', 'accidental_death'], {
       cards: ['other_none'],
       roadside_sources: ['auto_policy', 'club'],
@@ -1270,8 +1452,8 @@ suite('other bucket: end to end on the real catalog', (t) => {
       phone_bill_on_card: 'no',
       term_life: 'none',
     }, { plus: ['motorcycle'] }));
-    assert.deepEqual(r.flags.drop.filter((f) => ALL_IDS.includes(f.id)).map((f) => f.id), [RENTAL, TOWING, TRAVEL, WARRANTY]);
-    assert.deepEqual(r.flags.question.filter((f) => ALL_IDS.includes(f.id)).map((f) => f.id), [VEHICLE, PHONE, ADD]);
+    assert.deepEqual(r.flags.drop.filter((f) => ALL_IDS.includes(f.id)).map((f) => f.id), [RENTAL, TOWING]);
+    assert.deepEqual(r.flags.question.filter((f) => ALL_IDS.includes(f.id)).map((f) => f.id), [VEHICLE, TRAVEL, PHONE, WARRANTY, ADD]);
     assert.deepEqual(r.flags.raise.filter((f) => ALL_IDS.includes(f.id)), []);
   });
 

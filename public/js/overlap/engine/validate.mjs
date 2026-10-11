@@ -241,6 +241,12 @@ function validateFlags(flags, sources, errors) {
     if (hasOwn(seen, id)) errors.push(`duplicate flag id "${id}"`);
     seen[id] = true;
     if (!BUCKETS.includes(fl.bucket)) errors.push(`flag "${id}": bucket must be one of ${BUCKETS.join(', ')}, got ${describe(fl.bucket)}`);
+    if (fl.alternateBuckets !== undefined) {
+      const alt = fl.alternateBuckets;
+      if (!Array.isArray(alt) || alt.length === 0 || alt.some((b) => !BUCKETS.includes(b)) || alt.some((b, k) => alt.indexOf(b) !== k) || alt.includes(fl.bucket)) {
+        errors.push(`flag "${id}": alternateBuckets must be a non-empty list of different buckets from ${BUCKETS.join(', ')}, other than the flag's own bucket, got ${describe(alt)}`);
+      }
+    }
     if (!KINDS.includes(fl.kind)) errors.push(`flag "${id}": kind must be one of ${KINDS.join(', ')}, got ${describe(fl.kind)}`);
     if (!DOMAINS.includes(fl.domain)) errors.push(`flag "${id}": domain must be one of ${DOMAINS.join(', ')}, got ${describe(fl.domain)}`);
     if (fl.priority !== undefined && !(typeof fl.priority === 'number' && Number.isFinite(fl.priority))) {
