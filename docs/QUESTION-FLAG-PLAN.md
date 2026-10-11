@@ -102,7 +102,7 @@ Display order. "Option ids" lists every id including `not_sure` where the questi
 | `deductible_health` | `deductible` | single | `under_1000`, `1000_4999`, `5000_plus`, `not_sure` | holds `health` | `deductible-exceeds-cushion-health` |
 | `emergency_cushion` | `deductible` | single | `under_1000`, `1000_4999`, `5000_plus`, `not_sure` | holds `auto` or holds `home` or holds `health` | `health-supplemental-boltons`, `deductible-exceeds-cushion-auto`, `deductible-exceeds-cushion-home`, `deductible-exceeds-cushion-health` |
 | `cards` | `cards` | multi | `chase_sapphire_preferred`, `chase_sapphire_reserve`, `chase_freedom_unlimited`, `chase_freedom_flex`, `amex_platinum`, `amex_gold`, `amex_blue_cash_preferred`, `amex_blue_cash_everyday`, `citi_double_cash`, `wells_fargo_active_cash`, `capital_one_venture_x`, `capital_one_venture`, `other_none` | holds `rental_car` or holds `towing` or holds `travel` or holds `phone` or holds `warranty` | `other-rental-car-waiver`, `other-towing-roadside-duplicate`, `other-travel-insurance-overlap`, `other-phone-insurance-card`, `other-extended-warranty-overlap` |
-| `card_usual_payment` | `cards` | single | `yes`, `no`, `not_sure` | `cards` is answered and not (`cards` includes `other_none`) | `other-rental-car-waiver`, `other-travel-insurance-overlap`, `other-phone-insurance-card`, `other-extended-warranty-overlap` |
+| `card_usual_payment` | `cards` | single | `yes`, `no`, `not_sure` | `cards` is answered and not (`cards` includes `other_none`) | `other-rental-car-waiver`, `other-travel-insurance-overlap`, `other-extended-warranty-overlap` |
 | `phone_bill_on_card` | `extras_detail` | single | `yes`, `no`, `not_sure` | holds `phone` | `other-phone-insurance-card` |
 | `roadside_sources` | `extras_detail` | multi | `auto_policy`, `club`, `card`, `car_maker`, `other`, `not_sure` | holds `towing` | `other-towing-roadside-duplicate`, `other-vehicle-towing-check` |
 | `towing_vehicle_policy` | `extras_detail` | single | `yes`, `no`, `not_sure` | holds `towing` and (holds `motorcycle` or holds `boat`) | `other-vehicle-towing-check` |
@@ -154,9 +154,9 @@ Notes on the questions that need them:
 | `other-towing-roadside-duplicate` | S11 | `other` | drop | cross-policy | other | 520 | planned | `other_items`, `roadside_sources`, `cards` | `towing` |
 | `other-vehicle-towing-check` | S11 | `other` | question | cross-policy | other | 530 | planned | `other_items`, `towing_vehicle_policy`, `roadside_sources` | `towing`, `motorcycle`, `boat` |
 | `other-travel-insurance-overlap` | S11 | `other` | drop | cross-policy | other | 540 | planned | `other_items`, `cards`, `card_usual_payment` | `travel` |
-| `other-phone-insurance-card` | S11 | `other` | question | cross-policy | other | 550 | conditional | `other_items`, `phone_bill_on_card`, `cards`, `card_usual_payment` | `phone` |
+| `other-phone-insurance-card` | S11 | `other` | question | cross-policy | other | 550 | planned | `other_items`, `phone_bill_on_card`, `cards` | `phone`, `home`, `renters` |
 | `other-extended-warranty-overlap` | S11 | `other` | drop | cross-policy | other | 560 | planned | `other_items`, `cards`, `card_usual_payment` | `warranty` |
-| `other-add-on-term-life` | S11 | `other` | question | cross-policy | other | 570 | planned | `other_items`, `term_life` | `accidental_death` |
+| `other-add-on-term-life` | S11 | `other` | question | cross-policy | other | 570 | planned | `other_items`, `term_life` | `accidental_death`, `travel` |
 <!-- flag-table:end -->
 
 ### Ownership
@@ -420,7 +420,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 - Trigger: Fires when rental_car is held; emphasis strong when a held card has a verified rentalCar benefit (ctx.cardsWith) and card_usual_payment is yes; softer when the user holds no auto policy or auto_collision is no (their own policy may not extend to a rental); Not sure answers never raise emphasis.
 - Facts: `rental-waiver-what-it-is`, `rental-waiver-often-unneeded-if-covered`, `rental-personal-auto-usually-extends`, `rental-decline-without-cover-you-pay`, `rental-card-coverage-usually-secondary`, `rental-card-requires-declining-waiver`
 - Sources: `iii-rental-car-insurance`, `ftc-renting-a-car`, `naic-consumer-auto-insurance`
-- Wording: Say card rental coverage is "usually secondary" and ask the issuer for the terms in writing (S3a-other-1); name a card only from CARDS and upgrade the wording only for a verified primary entry. Do not quote the undated NAIC per-day prices as fact (S3a-other-6).
+- Wording: Say card rental coverage is "usually secondary" and ask the issuer for the terms in writing (S3a-other-1); name a card only from CARDS and upgrade the wording only for a verified primary entry. Do not quote the undated NAIC per-day prices as fact (S3a-other-6). The card_usual_payment answer says only that the user usually pays with one of the cards they ticked, so never word it as paying with a named card unless every ticked card is named; otherwise say it helps only if the card they use is a named one (DECISIONS S11-8).
 
 #### `other-towing-roadside-duplicate`
 
@@ -447,16 +447,16 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 - Trigger: Fires when travel is held; the generic text asks them to compare the policy with what they already have (a card's trip protection, home or renters belongings cover, life insurance for accidental death); emphasis strong only when a held card has a verified tripProtection benefit and card_usual_payment is yes; a Not sure card_usual_payment never raises emphasis.
 - Facts: `travel-coverage-types`, `travel-credit-card-benefits-exist`, `travel-other-existing-coverage`, `travel-exclusions-and-limits`, `travel-accidental-death-duplicate`, `travel-cost-share`
 - Sources: `naic-should-i-get-travel-insurance`, `iii-should-you-buy-travel-insurance`
-- Wording: No source says a card's trip protection makes a separate policy unnecessary (S3a-9): compare the covered reasons, note travel medical is the likelier real gap, never promise a card covers a trip, and with the card table empty keep the wording generic.
+- Wording: No source says a card's trip protection makes a separate policy unnecessary (S3a-9): compare the covered reasons, note travel medical is the likelier real gap, never promise a card covers a trip, and with the card table empty keep the wording generic. The card_usual_payment answer says only that the user usually pays with one of the cards they ticked, so never word it as paying with a named card unless every ticked card is named; otherwise say it helps only if the card they use is a named one (DECISIONS S11-8).
 
 #### `other-phone-insurance-card`
 
-- Bucket and kind: question, cross-policy (domain other, priority 550, file `other`, conditional)
-- Reads: questions `other_items`, `phone_bill_on_card`, `cards`, `card_usual_payment`; policies `phone`
-- Trigger: Conditional. If it ships: fires when phone is held and asks whether a card or the home or renters policy already covers the phone, with the "route the bill through the card" move only when the card table verifies a cellPhone benefit and phone_bill_on_card is yes (a Not sure phone_bill_on_card never triggers that move).
-- Facts: none
-- Sources: none
-- Wording: No authoritative source remains for phone protection plans (S3a-3, research gap 1). It ships only if the owner allows consumerreports.org and the facts are reinstated, or every claim comes from verified issuer guides in the card table (S11b). With the card table empty S11 omits this flag and records that in its own DECISIONS entry. phone_bill_on_card is still asked so the answer is ready when it ships.
+- Bucket and kind: question, cross-policy (domain other, priority 550, file `other`, planned)
+- Reads: questions `other_items`, `phone_bill_on_card`, `cards`; policies `phone`, `home`, `renters`
+- Trigger: Fires when phone is held and asks whether a card or the home or renters policy already covers the phone; the "route the bill through the card" move (put the bill on the card, then cancel the carrier plan) is stated as an action only when the card table verifies a cellPhone benefit on a held card and phone_bill_on_card is yes, which also makes the emphasis strong (a Not sure phone_bill_on_card never triggers that move); with the real, empty card table the text stays generic.
+- Facts: `off-premises-belongings-covered`, `off-premises-cap-ten-percent`
+- Sources: `iii-standard-homeowners-coverage`, `iii-renters-insurance`
+- Wording: No authoritative source describes phone protection plans or what a card's phone coverage requires (S3a-3, research gap 1), so the flag says none of that: it asks. The only sourced statement is Triple-I's that a home or renters policy generally covers belongings, including away from home, up to a limit that some insurers cap; ask whether a phone counts and what the deductible would be. Anything about a named card comes only from the card table. Shipped as a question-only flag (DECISIONS S11-2). The phone_bill_on_card answer does not say which card pays the bill, so the strong ask and reason are conditional on the bill being on the named card (DECISIONS S11-8).
 
 #### `other-extended-warranty-overlap`
 
@@ -465,16 +465,16 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 - Trigger: Fires when warranty is held; the generic text uses the FTC value test (does it add anything beyond the warranty you already have, hidden costs, would savings be better); emphasis strong only when a held card has a verified extendedWarranty benefit and card_usual_payment is yes; a Not sure card_usual_payment never raises emphasis.
 - Facts: `warranty-extended-is-separate-and-may-overlap`, `warranty-value-questions`
 - Sources: `ftc-extended-warranties-service-contracts`, `ftc-warranties`
-- Wording: Any card warranty-extension claim comes only from the card table (S3a-other-3); say "many cards extend the manufacturer's warranty; check yours" only if a verified entry supports it.
+- Wording: Any card warranty-extension claim comes only from the card table (S3a-other-3); say "many cards extend the manufacturer's warranty; check yours" only if a verified entry supports it. The card_usual_payment answer says only that the user usually pays with one of the cards they ticked, so never word it as paying with a named card unless every ticked card is named; otherwise say it helps only if the card they use is a named one (DECISIONS S11-8).
 
 #### `other-add-on-term-life`
 
 - Bucket and kind: question, cross-policy (domain other, priority 570, file `other`, planned)
-- Reads: questions `other_items`, `term_life`; policies `accidental_death`
-- Trigger: Fires when accidental_death is held, with text by term_life: own (stacking can be paying twice for a narrow case; ask whether the term life already covers what the AD&D is for), work_only (employer life is often modest and tied to the job; ask whether total coverage is enough), none (accidental death coverage is not a substitute for regular life insurance), Not sure (ask what life coverage exists); never says "drop it".
+- Reads: questions `other_items`, `term_life`; policies `accidental_death`, `travel`
+- Trigger: Fires when accidental_death is held and term_life is answered (it stays silent while term_life is unanswered), with text by term_life: own (the term life may already pay for an accidental death, while the AD&D adds a further payout and may pay for non-fatal losses; ask whether the term life already covers what the AD&D is for, what the AD&D pays beyond it and whether that is worth the price), work_only (employer life is often modest and tied to the job; ask whether total coverage is enough), none (accidental death coverage is not a substitute for regular life insurance), Not sure (ask what life coverage exists, then what the AD&D pays beyond it); when travel is also held the text adds that a travel policy's accidental death coverage can duplicate life insurance too; never says "drop it".
 - Facts: `add-definition-accident-only`, `add-rider-pays-extra-for-accident`, `term-life-pays-on-death-in-term`, `add-employer-coverage-ends-with-job`, `employer-life-typical-size`, `travel-accidental-death-duplicate`
 - Sources: `naic-glossary`, `naic-consumer-life-insurance`, `naic-life-insurance-roadmap`, `iii-should-you-buy-travel-insurance`
-- Wording: Use the DECISIONS S3a-2(c) background: regular life insurance pays if you die during the term, while accidental death coverage pays only when an accident causes the death or injury; read your policy for exclusions. Whether employer AD&D ends with the job is unsourced (only employer life insurance is); the conclusion that AD&D on top of adequate term life is largely redundant is the SPEC's judgement, so this stays a Question.
+- Wording: Use the DECISIONS S3a-2(c) background: regular life insurance pays if you die during the term, while accidental death coverage pays only when an accident causes the death or injury; read your policy for exclusions. Whether employer AD&D ends with the job is unsourced (only employer life insurance is); the conclusion that AD&D on top of adequate term life is largely redundant is the SPEC's judgement, so this stays a Question. Never describe the AD&D extra as covering only one narrow case: the NAIC definition covers death and/or dismemberment, so a non-fatal loss stays in view in every branch (S11-9).
 
 ## 6. Research gaps that bind wording
 
@@ -498,7 +498,7 @@ Each block repeats the machine-checked fields. "Wording" is binding: it records 
 | No HSA usage statistic is allowlisted (`S3a-health-5`, `S3a-2`) | No "commonly underused"; federal tax advantages only; date any threshold | `health-hsa-nudge` |
 | Cushion bands and the $5,000 edge (`S3a-health-6`) | Fed shares are context only, with their year | S10 deductible flags |
 | Card rental cover is usually secondary (`S3a-other-1`) | Say "usually secondary"; upgrade only for a verified primary entry | `other-rental-car-waiver` |
-| Phone protection has no allowlisted source (`S3a-3`) | The phone flag is conditional; omit it with a log entry if the condition is unmet | `other-phone-insurance-card` |
+| Phone protection has no allowlisted source (`S3a-3`) | The phone flag only asks: it cites the Triple-I home and renters statement, makes no claim about phone plans or card terms, and names a card only from the card table (DECISIONS `S11-2`) | `other-phone-insurance-card` |
 | Card warranty extension has no allowlisted source (`S3a-other-3`) | Card claims only from the verified card table | `other-extended-warranty-overlap` |
 | Motorcycle and boat towing duplication is unsourced (`S3a-other-7`) | A Question, not the SPEC's Drop | `other-vehicle-towing-check` |
 | AD&D "redundant on term life" is the SPEC's judgement (`S3a-other-4`, `S3a-2`) | Stays a Question; use the S3a-2(c) background wording | `other-add-on-term-life` |

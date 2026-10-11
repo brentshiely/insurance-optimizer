@@ -1079,11 +1079,12 @@ suite('flag plan: every question is read and every planned flag has what it need
     }
   });
 
-  t('only the phone flag is conditional, and it has no facts or sources because none survive the authority rules', () => {
-    const conditional = FLAGS.filter((f) => f.status === 'conditional');
-    assert.deepEqual(conditional.map((f) => f.id), ['other-phone-insurance-card']);
-    assert.deepEqual(conditional[0].factIds, []);
-    assert.deepEqual(conditional[0].sourceIds, []);
+  t('no flag is conditional any more: the phone flag ships as a question-only flag resting on the Triple-I home and renters contents facts, never on phone-plan facts (DECISIONS S11-2)', () => {
+    assert.deepEqual(FLAGS.filter((f) => f.status === 'conditional').map((f) => f.id), []);
+    const phone = FLAGS.find((f) => f.id === 'other-phone-insurance-card');
+    assert.equal(phone.status, 'planned');
+    assert.deepEqual(phone.factIds, ['off-premises-belongings-covered', 'off-premises-cap-ten-percent']);
+    assert.deepEqual(phone.sourceIds, ['iii-standard-homeowners-coverage', 'iii-renters-insurance']);
   });
 
   t('every flag states a trigger and the wording its research gaps require; none names a state', () => {
