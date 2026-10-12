@@ -18,10 +18,13 @@
 // screen is worth recording) and one `next`. The last step of almost every scenario is the `next` that shows the action list.
 //
 // Together the scenarios cover: nothing held; each of the 13 policies on its own; auto + home; an umbrella over auto and home
-// with limits below, at and above what it asks for; a motorcycle and a boat under an umbrella; a parent who owns a home and pays
-// for a student's renters policy; health with every bolt-on and an HSA; every Other-bucket item with cards; Not sure to every
-// question that offers it; every policy ticked with every question answered; changing Q1 after going Back (answers to
-// questions that closed are dropped, answers to questions that stayed are kept); and Start over.
+// with limits below, at and above what it asks for; a motorcycle and a boat under an umbrella, alone and together with auto and
+// home (the whole drawing, one layer in each state); a parent who owns a home and pays for a student's renters policy, the child
+// in a dorm and off campus; health with every bolt-on and an HSA, and a high-deductible plan with no HSA and one indemnity policy;
+// every Other-bucket item with cards, and the Other-bucket items in the households they usually come with (a car household with a
+// paid-off old car, a renter with a phone plan, travel insurance next to accidental death coverage); Not sure to every question
+// that offers it; every policy ticked with every question answered; changing Q1 after going Back (answers to questions that
+// closed are dropped, answers to questions that stayed are kept); and Start over.
 
 export default [
   {
@@ -278,6 +281,31 @@ export default [
     ],
   },
   {
+    id: "moto-boat-full-stack",
+    title: "Auto, home, umbrella, motorcycle and boat together, with a towing plan: the whole stack in the drawing (the boat is the one below)",
+    steps: [
+      { op: "next" },
+      { op: "policies", ids: ["auto", "home", "umbrella", "motorcycle", "boat", "towing"] },
+      { op: "next" },
+      { op: "answer", list: [["umbrella_limit", "2m"], ["auto_liability", "250_500"], ["umbrella_min_auto", "250_500"], ["home_liability", "500k"], ["umbrella_min_home", "500k"]] },
+      { op: "next" },
+      { op: "answer", list: [["motorcycle_liability", "500_500"], ["umbrella_min_motorcycle", "250_500"], ["boat_liability", "lower"], ["umbrella_min_boat", "250_500"]] },
+      { op: "next" },
+      { op: "answer", list: [["umbrella_exposure", "1m_3m"], ["umbrella_um_uim", "yes"], ["side_business", "no"]] },
+      { op: "next" },
+      { op: "answer", list: [["auto_financing", "paid_off"], ["auto_value", "3000_9999"], ["auto_um_uim", "yes"], ["auto_um_uim_limit", "250_500"], ["auto_rental_reimbursement", "yes"]] },
+      { op: "next" },
+      { op: "answer", list: [["home_sewer_backup", "yes"], ["home_flood_policy", "yes"]] },
+      { op: "next" },
+      { op: "answer", list: [["deductible_auto", "1000_4999"], ["deductible_home", "1000_4999"], ["emergency_cushion", "5000_plus"]] },
+      { op: "next" },
+      { op: "answer", list: [["cards", "other_none"]] },
+      { op: "next" },
+      { op: "answer", list: [["roadside_sources", "club"], ["towing_vehicle_policy", "yes"]] },
+      { op: "next" },
+    ],
+  },
+  {
     id: "renters-college-child",
     title: "A parent who owns a home and pays for a child's renters policy at college: dorm, so the parents' policy may already cover it",
     steps: [
@@ -290,6 +318,22 @@ export default [
       { op: "answer", list: [["home_sewer_backup", "no"], ["home_flood_policy", "no"]] },
       { op: "next" },
       { op: "answer", list: [["deductible_home", "1000_4999"], ["emergency_cushion", "1000_4999"]] },
+      { op: "next" },
+    ],
+  },
+  {
+    id: "renters-college-off-campus",
+    title: "A parent who owns a home and pays for a child's renters policy, the child living off campus: the parents' policy likely does not reach it",
+    steps: [
+      { op: "next" },
+      { op: "policies", ids: ["home", "renters"] },
+      { op: "next" },
+      { op: "answer", list: [["renters_for", "child_away"]] },
+      { op: "answer", list: [["renters_child_housing", "off_campus"]] },
+      { op: "next" },
+      { op: "answer", list: [["home_sewer_backup", "yes"], ["home_flood_policy", "yes"]] },
+      { op: "next" },
+      { op: "answer", list: [["deductible_home", "1000_4999"], ["emergency_cushion", "5000_plus"]] },
       { op: "next" },
     ],
   },
@@ -311,6 +355,19 @@ export default [
     ],
   },
   {
+    id: "health-hdhp-indemnity",
+    title: "Health only: a high-deductible plan with no HSA, one hospital indemnity policy and a deductible above the cash cushion",
+    steps: [
+      { op: "next" },
+      { op: "policies", ids: ["health"] },
+      { op: "next" },
+      { op: "answer", list: [["health_hsa", "hdhp_only"], ["health_supplemental", "hospital_indemnity"], ["health_short_term", "no"]] },
+      { op: "next" },
+      { op: "answer", list: [["deductible_health", "5000_plus"], ["emergency_cushion", "under_1000"]] },
+      { op: "next" },
+    ],
+  },
+  {
     id: "other-bucket-all",
     title: "Every Other-bucket item at once: two cards, usually used, a phone bill on a card, two roadside sources, term life of your own",
     steps: [
@@ -320,6 +377,52 @@ export default [
       { op: "answer", list: [["cards", "chase_sapphire_reserve"], ["cards", "amex_gold"], ["card_usual_payment", "yes"]] },
       { op: "next" },
       { op: "answer", list: [["phone_bill_on_card", "yes"], ["roadside_sources", "auto_policy"], ["roadside_sources", "club"], ["term_life", "own"]] },
+      { op: "next" },
+    ],
+  },
+  {
+    id: "car-trip-extras",
+    title: "A car household with an old paid-off car, a rental waiver, a roadside plan, travel, phone and warranty extras and one card: collision, rental and roadside are Drops, the rest Questions",
+    steps: [
+      { op: "next" },
+      { op: "policies", ids: ["auto", "rental_car", "towing", "travel", "phone", "warranty"] },
+      { op: "next" },
+      { op: "answer", list: [["auto_financing", "paid_off"], ["auto_value", "under_3000"]] },
+      { op: "answer", list: [["auto_collision", "yes"], ["auto_um_uim", "yes"], ["auto_um_uim_limit", "250_500"], ["auto_rental_reimbursement", "yes"]] },
+      { op: "next" },
+      { op: "answer", list: [["deductible_auto", "1000_4999"], ["emergency_cushion", "1000_4999"]] },
+      { op: "next" },
+      { op: "answer", list: [["cards", "chase_sapphire_preferred"], ["card_usual_payment", "yes"]] },
+      { op: "next" },
+      { op: "answer", list: [["phone_bill_on_card", "yes"], ["roadside_sources", "auto_policy"], ["roadside_sources", "card"]] },
+      { op: "next" },
+    ],
+  },
+  {
+    id: "renter-phone-card",
+    title: "Renters (for yourself) and phone insurance with one card and the phone bill on a card: the phone item names the renters policy, not a home policy",
+    steps: [
+      { op: "next" },
+      { op: "policies", ids: ["renters", "phone"] },
+      { op: "next" },
+      { op: "answer", list: [["renters_for", "me"]] },
+      { op: "next" },
+      { op: "answer", list: [["cards", "chase_sapphire_reserve"], ["card_usual_payment", "yes"]] },
+      { op: "next" },
+      { op: "answer", list: [["phone_bill_on_card", "yes"]] },
+      { op: "next" },
+    ],
+  },
+  {
+    id: "travel-accidental-death",
+    title: "Travel insurance and accidental death coverage together, no card, life insurance of your own: both items point at the same life insurance",
+    steps: [
+      { op: "next" },
+      { op: "policies", ids: ["travel", "accidental_death"] },
+      { op: "next" },
+      { op: "answer", list: [["cards", "other_none"]] },
+      { op: "next" },
+      { op: "answer", list: [["term_life", "own"]] },
       { op: "next" },
     ],
   },

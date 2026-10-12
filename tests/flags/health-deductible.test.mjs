@@ -245,7 +245,7 @@ suite('health-auto-medpay-overlap', (t) => {
     const yes = flagFor(MEDPAY, ['health', 'auto'], { auto_medpay: 'yes' });
     assert.match(yes.ask, /auto insurer/i);
     assert.match(yes.ask, /health insurer/i);
-    assert.match(yes.ask, /coordinate/i, 'matches the existing app finding: ask about coordinating with the health plan');
+    assert.match(yes.ask, /coordinate/i, 'asks about coordinating with the health plan');
     assert.match(yes.ask, /your state's department of insurance/i, 'points to the state regulator without naming a state');
     const unsure = flagFor(MEDPAY, ['health', 'auto'], { auto_medpay: 'not_sure' });
     assert.match(unsure.ask, /auto insurer/i);
@@ -254,7 +254,7 @@ suite('health-auto-medpay-overlap', (t) => {
       assert.match(f.background, /overlap/i);
       assert.match(f.background, /depends on your state's rules and the exact wording of both policies/i);
       assert.match(f.background, /some states require this coverage/i);
-      assert.match(f.background, /may not be able to drop it/i, 'consistent with the existing app: where it is required it cannot be dropped');
+      assert.match(f.background, /may not be able to drop it/i, 'where it is required it cannot be dropped');
     }
   });
 

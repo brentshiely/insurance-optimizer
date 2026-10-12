@@ -10,7 +10,7 @@
 //
 // The model is plain, self-describing data (labels, statuses, numbers, sentences): no functions, no
 // undefined, nothing shared between calls. It reads only the user's own closed-list answers (the limit and
-// "what does your umbrella require" questions), never the host app's policy-screen numbers (DECISIONS D10).
+// "what does your umbrella require" questions). Nothing is typed anywhere, so there is no figure to read from anywhere else.
 //
 // It never asserts more than the research supports (DECISIONS S3a-umbrella-1, S6-2): it reports how a limit
 // compares with the requirement the user gave us, and it says nothing about what an umbrella insurer would

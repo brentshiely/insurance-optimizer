@@ -22,7 +22,7 @@ export default [
     section: 'start',
     type: 'multi',
     prompt: 'Which policies do you have?',
-    help: 'Tick everything you have or pay for. We only ask follow-up questions about what you tick. If you are not sure whether your job gives you accidental death coverage, tick it and we will tell you what to look for.',
+    help: 'Include everything you have or pay for. We only ask follow-up questions about what you tick. If you are not sure whether your job gives you accidental death coverage, tick it and we will tell you what to look for.',
     allowNotSure: false,
     showIf: null,
     options: [

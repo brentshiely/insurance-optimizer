@@ -615,7 +615,7 @@ suite('S8 auto flags: auto-collision-older-car (Drop)', (t) => {
     assert.includes(f.background, 'deductible (the part of a claim you pay first)');
   });
 
-  t('no savings figures are quoted (the existing app already quotes some, and none is sourced here)', () => {
+  t('no savings figures are quoted (none is sourced)', () => {
     const f = rendered('auto-collision-older-car', { ...OWNED_LOW, auto_collision: 'yes' });
     const text = TEXT_FIELDS.map((k) => f[k]).join(' ');
     assert.equal(/saves? \$|\$\s?\d+ (a|per) year|\d+ percent/i.test(text), false);

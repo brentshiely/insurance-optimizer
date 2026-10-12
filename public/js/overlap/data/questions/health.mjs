@@ -43,7 +43,7 @@ export default [
     section: 'health',
     type: 'multi',
     prompt: 'Do you pay for any extra health policies on top of your main one?',
-    help: 'These pay you a set amount of cash for one kind of event, like an accident, a hospital stay, or a cancer diagnosis, instead of paying your bills. You might pay for them through your paycheck or on your own. Tick all that apply.',
+    help: 'These are extra policies tied to one kind of event, like an accident, a hospital stay, or a cancer diagnosis. You might pay for them through your paycheck or on your own.',
     allowNotSure: true,
     showIf: gHolds('health'),
     options: [

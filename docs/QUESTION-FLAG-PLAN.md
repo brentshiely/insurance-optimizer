@@ -1,6 +1,6 @@
 # Question and flag plan
 
-Contract between the question catalog (Story S5, `public/js/overlap/data/questions/`) and the flag stories that run in parallel after it: S6 umbrella core and other vehicles, S7 umbrella scope and adequacy, S8 auto gaps, S9 home exclusions and renters, S10 health and deductible-vs-cushion, S11 Other bucket. Read it with `docs/ARCHITECTURE.md` (engine contracts), `docs/DECISIONS.md` (entries `S5-*` explain every choice here, `S3a-*` bind flag wording) and `research/INDEX.md` (fact and source ids).
+Which question each flag reads: the contract between the question catalog (`public/js/overlap/data/questions/`) and the flags written against it (S6 umbrella core and other vehicles, S7 umbrella scope and adequacy, S8 auto gaps, S9 home exclusions and renters, S10 health and deductible-vs-cushion, S11 Other bucket; the story ids are how the flag files and DECISIONS entries are named). Read it with `docs/ARCHITECTURE.md` (engine contracts), `docs/DECISIONS.md` (entries `S5-*` explain every choice here, `S3a-*` bind flag wording) and `research/INDEX.md` (fact and source ids).
 
 The same plan exists as data in `tests/fixtures/flagPlan.mjs`. `tests/data/questions.test.mjs` checks that this document, that fixture and the real catalog agree, so a change to one without the others fails the suite. The section table, the question table, the planned-flags table and the per-flag blocks below are the machine-checked parts; edit them and the fixture together.
 
@@ -40,7 +40,7 @@ const umbrellaNotLargerThanExposure = (umbrellaDollars, exposure) => umbrellaDol
 
 **Wording.** Plain, second person, jargon defined in a clause, state-neutral ("your state's department of insurance", never a state name, never a count of states), no "home equity", no em dashes. Where research found no authoritative support, the flag is worded as a question and the "Wording" line of its block says exactly what must not be asserted. Every flag cites only the source ids listed for it (each is a source of one of its listed facts) and never writes a URL.
 
-**Cards (DECISIONS D14).** The credit-card table is empty until stories S4a, S4b and S11b land. The `cards` question offers 12 intended cards as static choices (`CARD_CHOICES`, `questions/cards.mjs`); `ctx.cards()` is `[]` for them today. S11 builds and tests card-aware wording against fixture cards and stays generic with the real, empty table.
+**Cards (DECISIONS D14).** The credit-card table is empty until the deferred card work is done (OPEN-ITEMS S16-7). The `cards` question offers 12 intended cards as static choices (`CARD_CHOICES`, `questions/cards.mjs`); `ctx.cards()` is `[]` for them today. S11 builds and tests card-aware wording against fixture cards and stays generic with the real, empty table.
 
 ## 2. Sections
 
@@ -120,7 +120,7 @@ Notes on the questions that need them:
 
 ## 4. Planned flags
 
-32 flags. `Questions read` are asked questions; `Policies held` are policy ids read with `ctx.holds` (ticked in Q1). `Status` `conditional` means the flag cannot ship until its condition (in its block) is met. Priorities are unique across the plan and lower sorts first inside a bucket.
+32 flags. `Bucket` is the flag's declared (usual) bucket: `other-rental-car-waiver`, `other-travel-insurance-overlap` and `other-extended-warranty-overlap` are declared `drop` and are filed as a Question when nothing already covers the same thing (`alternateBuckets`, DECISIONS S12-9; the machine-checked table below keeps the declared bucket). `Questions read` are asked questions; `Policies held` are policy ids read with `ctx.holds` (ticked in Q1). `Status` `conditional` means the flag cannot ship until its condition (in its block) is met. Priorities are unique across the plan and lower sorts first inside a bucket.
 
 <!-- flag-table:start -->
 | Flag | Story | File | Bucket | Kind | Domain | Priority | Status | Questions read | Policies held |

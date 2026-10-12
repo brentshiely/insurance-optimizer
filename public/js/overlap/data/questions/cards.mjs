@@ -38,7 +38,7 @@ export default [
     section: 'cards',
     type: 'multi',
     prompt: 'Which of these credit cards do you carry?',
-    help: 'Some cards come with perks that overlap with the extras you picked, like rental car coverage or trip protection. Tick every card you have. We only use this to point you to the right fine print.',
+    help: 'Some cards come with perks that overlap with the extras you picked, like rental car coverage or trip protection. We only use this to point you to the right fine print.',
     // No "Not sure": the cards in your wallet are known, and "Another card, or no credit card" covers the rest.
     allowNotSure: false,
     showIf: gCardLinked(),

@@ -1,7 +1,8 @@
 // Section "extras_detail": follow-ups on the Other-bucket items, asked ONLY where the answer changes an output
 // (DECISIONS S5-9). Everything else about those items is already known from Q1 (`policies`) and `cards`.
-//   phone_bill_on_card      a card's phone protection may depend on how the bill is paid (SPEC: "the trim move
-//                           is often stop paying the carrier, route the bill through the card").
+//   phone_bill_on_card      is the phone bill already charged to a credit card (SPEC: "the trim move is often stop
+//                           paying the carrier, route the bill through the card"). The help text claims nothing about
+//                           what a card's phone cover requires, because no allowlisted source says (DECISIONS S16-2).
 //   roadside_sources        what already gives roadside help: more than one source is the duplicate.
 //   towing_vehicle_policy   is the plan on a motorcycle or boat policy (a question, not a Drop; research gap).
 //   term_life               AD&D against regular life insurance changes how the AD&D item reads.
@@ -15,7 +16,7 @@ export default [
     section: 'extras_detail',
     type: 'single',
     prompt: 'Do you pay your phone bill with a credit card?',
-    help: 'A card\'s phone protection, if it has any, may depend on how the bill is paid. We ask so we can point you to the right fine print.',
+    help: 'We ask so we can point you to the right fine print on your card.',
     allowNotSure: true,
     showIf: gHolds('phone'),
     options: yesNoOptions(),
@@ -26,7 +27,7 @@ export default [
     section: 'extras_detail',
     type: 'multi',
     prompt: 'Which of these already give you roadside help or towing?',
-    help: 'Tick everything that applies. If more than one gives you the same help, you may be paying twice.',
+    help: 'If more than one of these gives you the same help, you may be paying twice.',
     allowNotSure: true,
     showIf: gHolds('towing'),
     options: [

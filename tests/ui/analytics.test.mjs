@@ -856,8 +856,8 @@ suite('page sources: no network calls, no storage, no cookies, no extra resource
     assert.equal(/\son[a-z]+\s*=/i.test(html), false, 'no onclick-style attributes');
     assert.equal(/<(iframe|frame|object|embed|form|base|style|img|meta\s+http-equiv)\b/i.test(html), false);
     const links = Array.from(html.matchAll(/<link\b[^>]*>/gi)).map((m) => m[0]);
-    assert.equal(links.length, 1);
-    assert.equal(/rel="stylesheet"\s+href="css\/app\.css"/.test(links[0]), true);
+    // The empty icon (DECISIONS S16-2) stops the browser asking the site for /favicon.ico, which would answer 404 and log a console error.
+    assert.deepEqual(links, ['<link rel="icon" href="data:,">', '<link rel="stylesheet" href="css/app.css">']);
     assert.equal(/(https?:)?\/\/[a-z]/i.test(html.replace(/<!DOCTYPE[^>]*>/i, '')), false, 'no absolute address in the shell');
   });
 

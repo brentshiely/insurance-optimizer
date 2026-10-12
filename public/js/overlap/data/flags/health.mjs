@@ -65,7 +65,7 @@ export default [
     // Fires on Yes and on Not sure (the question exists so people with no auto medical coverage are not asked
     // anything); silent on No. Never says which coverage pays first, that it pays a health deductible or copay,
     // or that it is simply required or optional (all unsourced, DECISIONS S3a-auto-4). The "may not be able to
-    // drop it" line matches the existing app's no-fault finding without naming a state. "No matter who caused the
+    // drop it" line says only that where a state requires the coverage it cannot be dropped, without naming a state. "No matter who caused the
     // crash" is stated only for states with no-fault rules, which is all the NAIC page says (DECISIONS S10-9).
     applies(ctx) {
       if (!ctx.holds('health') || !ctx.holds('auto')) return false;

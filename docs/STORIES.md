@@ -1,5 +1,7 @@
 # Story backlog
 
+> **Build history.** This is the plan the build followed, kept as it was written. Stories S0 to S5 were written while the retired prototype was still the base of the project, so they mention it (its inline script, a "host" snapshot, an adapter); DECISIONS D15 and Story R1 removed the prototype, so read those parts as history. What the product is: `docs/SPEC.md`. How it is built: `docs/ARCHITECTURE.md`. Which requirement is built where, and which are deferred or deviate: `docs/TRACEABILITY.md`. S4a, S4b and S11b are deferred (DECISIONS D14; the steps to resume are OPEN-ITEMS S16-7).
+
 Executed strictly in order. A story is DONE only when: its acceptance criteria hold, `scripts/test.sh` is green (full suite, cumulative; plus the browser golden test for UI-touching stories), an independent verifier could not refute it, docs are updated, and it is committed and pushed to `main`. A failing story is never committed; the run halts instead.
 
 Commit message: `Story N: <title>` + short body + the `Co-Authored-By` trailer. Never run `npm run deploy`.

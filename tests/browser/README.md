@@ -102,7 +102,7 @@ Start over, Copy and Print.
 `policies` (tap Q1 options), `answer` (tap `[questionId, optionId]` pairs in one step; a tap that opens a follow-up
 question makes it available to the next tap in the same list), `next`, `back`, `restart`, and a generic `click`.
 Continue stays disabled on a screen until every visible question on it is answered, so each screen is one
-`answer` step (or two, where the half-answered screen is worth recording) and one `next`. 26 scenarios, 281
+`answer` step (or two, where the half-answered screen is worth recording) and one `next`. 32 scenarios, 351
 captured screens; each starts on the entry screen and ends on the action list.
 
 | id | covers |
@@ -118,9 +118,15 @@ captured screens; each starts on the entry screen and ends on the action list.
 | `auto-home` | auto and home with no umbrella: a paid-off cheap car opens the collision question; Not sure on one question |
 | `umbrella-low-limits`, `umbrella-matching-limits`, `umbrella-high-limits` | auto, home and umbrella with limits below, at and above what the umbrella asks for: the drawing and the Raise / Question items |
 | `moto-boat-umbrella` | a motorcycle and a boat under an umbrella, each with its own limit; no auto or home to compare |
+| `moto-boat-full-stack` | auto, home, umbrella, motorcycle and boat together with a towing plan: the whole drawing, one layer in each state (meets, meets, higher, below), and the towing check for the motorcycle or boat (Story S16) |
 | `renters-college-child` | a parent who owns a home and pays for a child's renters policy at college: the dorm follow-up |
+| `renters-college-off-campus` | the same parent, the child living off campus: the parents' policy likely does not reach it, so the item confirms the child's own policy (Story S16) |
 | `health-supplemental-hsa` | auto and health with an HSA, all four bolt-on policies and a short-term plan |
+| `health-hdhp-indemnity` | health only: a high-deductible plan with no HSA, one hospital indemnity policy and a deductible above the cash cushion (Story S16) |
 | `other-bucket-all` | every Other-bucket item at once: two cards, a phone bill on a card, two roadside sources, term life |
+| `car-trip-extras` | a car household with a paid-off old car, a rental waiver, a roadside plan, travel, phone and warranty extras and one card: collision, rental and roadside are Drops, the rest Questions (Story S16) |
+| `renter-phone-card` | renters (for yourself) with phone insurance and a card: the phone item names the renters policy, not a home policy (Story S16) |
+| `travel-accidental-death` | travel insurance next to accidental death coverage, no card, life insurance of your own: both items point at the same life insurance (Story S16) |
 | `not-sure-everywhere` | ten policies ticked and Not sure to every question that offers it |
 | `change-q1-after-back` | going Back to Q1 and changing it: unticking the umbrella drops its answers, ticking it again does not bring them back, the auto answers stay |
 | `start-over` | Start over from the list clears Q1, the panel and the progress, and a second, different run reaches its own list |

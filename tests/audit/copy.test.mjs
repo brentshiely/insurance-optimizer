@@ -224,6 +224,18 @@ suite('copy audit: questions and sections', (t) => {
   t('no dashes used as punctuation in question text', () => {
     assert.deepEqual(offenders(QUESTION_PARTS, [['a dash', DASH]]), []);
   });
+
+  // The page adds "Tap all that apply." to the help of every multi question (screens.mjs questionHtml), so a help text that
+  // says it too reads as a repeated instruction ("Tick all that apply. Tap all that apply."). Found in the S16 read-through.
+  t('no multi question help repeats the "all that apply" instruction the page already adds', () => {
+    const REPEATS = /\b(?:tick|tap|pick|select|check|choose)\s+(?:all|every|everything|each|any)\b/i;
+    const multi = CATALOG.questions.filter((q) => q.type === 'multi' && typeof q.help === 'string' && q.help !== '');
+    assert.ok(multi.length >= 4, 'the multi questions with help text are policies, health_supplemental, roadside_sources and cards');
+    assert.deepEqual(multi.filter((q) => REPEATS.test(q.help)).map((q) => `${q.id}: ${q.help}`), []);
+    assert.equal(REPEATS.test('Tick all that apply.'), true, 'the pattern catches the old wording');
+    assert.equal(REPEATS.test('Tick everything that applies.'), true, 'the pattern catches the other old wording');
+    assert.equal(REPEATS.test('If you are not sure, tick it and we will tell you what to look for.'), false, 'tick it is fine');
+  });
 });
 
 suite('copy audit: the audit itself can fail', (t) => {
