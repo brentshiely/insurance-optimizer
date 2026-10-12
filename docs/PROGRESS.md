@@ -26,3 +26,4 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S15 | Privacy-safe analytics, CSP and disclaimer | done |
 | S16 | Ship readiness | done |
 | S17 | Entry screen gives a reason to engage | done |
+| S18 | Analytics: visits, visitors, answers, time spent | pending |
