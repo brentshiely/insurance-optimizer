@@ -3,12 +3,12 @@
 // objects it needs as arguments, so it can be exercised with small stand-ins under jsc (tests/ui/dom.test.mjs)
 // and nothing here reaches for a global. No browser storage is used anywhere.
 //
-//   patchOverlapScreen(stage, sections, screenId, stackVm?)   update answers (and the stack drawing) in place; false = do a full re-render
+//   patchOverlapScreen(stage, sections, screenId, stackVm?)   update answers (and the stack drawing, the step label and Q1's live line) in place; false = do a full re-render
 //   restoreFocus(stage, questionId, optionId)       put focus back on the option that was just used
 //   focusHeading(stage)                             move focus to the screen's heading
 //   copyText(text, env, done)                       clipboard write with a textarea fallback
 //   printList(win)                                  open the print dialog
-import { overlapScreenKey, sectionIdOf, stackBodyHtml, stackLiveText } from './screens.mjs';
+import { overlapScreenKey, overlapStepTexts, sectionIdOf, stackBodyHtml, stackLiveText } from './screens.mjs';
 
 /**
  * Updates the pressed state of every option, the Continue button and the hint under it WITHOUT replacing the
@@ -16,6 +16,11 @@ import { overlapScreenKey, sectionIdOf, stackBodyHtml, stackLiveText } from './s
  * (and changes nothing) when the screen's shape differs from what is on the page (a different set of
  * questions or a different "N of M", or a stack drawing that the page has and the caller no longer wants, or
  * the other way round), in which case the caller renders the whole screen again.
+ *
+ * Story S20: Q1's key has no total, so ticking policies lands here, and how many steps there are changes with the ticks.
+ * The step label above the heading and Q1's live line under the list are therefore rewritten in place from
+ * overlapStepTexts(), and only when their text differs, so a screen reader hears the live line when it really changes
+ * and nothing is drawn again.
  *
  * `stackVm` (Story S14) is stackViewModel(...) for the screens that draw the umbrella and the limits under it:
  * the drawing is replaced with the new one, and its live region (a separate element that is never replaced) is
@@ -34,6 +39,10 @@ export function patchOverlapScreen(stage, sections, screenId, stackVm) {
   const sid = sectionIdOf(screenId);
   const section = sections.find((s) => s.id === sid);
   if (!section) return false;
+  const texts = overlapStepTexts(sections, screenId);
+  const stepLabel = stage.querySelector('#ovl-step');
+  const stepsLine = stage.querySelector('#ovl-steps');
+  if (!texts || !stepLabel || (texts.line === null ? stepsLine : !stepsLine)) return false;
   let optionCount = 0;
   const buttons = [];
   for (const q of section.questions) {
@@ -51,6 +60,8 @@ export function patchOverlapScreen(stage, sections, screenId, stackVm) {
   }
   next.disabled = !section.complete;
   hint.hidden = section.complete;
+  if (stepLabel.textContent !== texts.eyebrow) stepLabel.textContent = texts.eyebrow;
+  if (stepsLine && stepsLine.textContent !== texts.line) stepsLine.textContent = texts.line;
   if (stackVm) {
     stackBody.innerHTML = stackBodyHtml(stackVm);
     const sentence = stackLiveText(stackVm);

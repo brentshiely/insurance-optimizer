@@ -13,6 +13,12 @@ import { findForbidden, codeOnly, importsOf } from '../helpers/sourceScan.mjs';
 // Plain answers: Q1 (`policies`) holds the ticks, the rest is the user's own taps.
 const ans = (policies, more = {}) => ({ policies, ...more });
 
+// A stand-in for a text element: remembers its text and how many times it was written (Story S20).
+function fakeText(text = '') {
+  let value = text;
+  return { writes: 0, get textContent() { return value; }, set textContent(v) { value = v; this.writes += 1; } };
+}
+
 // ---------------------------------------------------------------------------------------------------------
 // A stand-in for the rendered screen: just enough of the element API that patchOverlapScreen uses.
 // ---------------------------------------------------------------------------------------------------------
@@ -36,6 +42,7 @@ function fakeEl(attrs = {}) {
 // button per option, all initially unselected and Continue disabled.
 function fakeScreen(sections, screenId) {
   const key = overlapScreenKey(sections, screenId);
+  const isQ1 = screenId === 'ovl:start';
   const section = sections.find((s) => 'ovl:' + s.id === screenId);
   const buttons = new Map();
   for (const q of section.questions) for (const o of q.options) buttons.set(q.id + '/' + o.id, fakeEl({ 'aria-pressed': 'false', 'data-oq': q.id, 'data-ov': o.id }));
@@ -50,8 +57,11 @@ function fakeScreen(sections, screenId) {
   const next = fakeEl({ id: 'ovl-next' });
   next.disabled = true;
   const hint = fakeEl({ id: 'ovl-hint' });
-  const els = { '#ovl-body': body, '#ovl-next': next, '#ovl-hint': hint };
-  return { stage: { querySelector: (sel) => els[sel] || null }, buttons, body, next, hint };
+  // every question screen has a step label; only Q1 has the live line under the list (Story S20)
+  const step = fakeText('old label');
+  const line = isQ1 ? fakeText('old line') : null;
+  const els = { '#ovl-body': body, '#ovl-next': next, '#ovl-hint': hint, '#ovl-step': step, '#ovl-steps': line };
+  return { stage: { querySelector: (sel) => els[sel] || null }, buttons, body, next, hint, step, line };
 }
 
 suite('patchOverlapScreen: answers update in place', (t) => {

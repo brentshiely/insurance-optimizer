@@ -9,8 +9,8 @@ import { OPS, validateStep, diffLines, goldenFileText } from './runner.mjs';
 import { QUESTIONS, SECTIONS } from '../../public/js/overlap/data/questions/index.mjs';
 import { POLICY_IDS } from '../../public/js/overlap/engine/constants.mjs';
 import { STACK_HEADING, STATUS_SENTENCES, EMPTY_NOTE } from '../../public/js/overlap-ui/stackView.mjs';
-import { ENTRY_HEADING, NEEDS_HINT_Q1 } from '../../public/js/overlap-ui/screens.mjs';
-import { EMPTY_TITLE } from '../../public/js/overlap-ui/viewModel.mjs';
+import { ENTRY_HEADING, NEEDS_HINT_Q1, entryStepsLine } from '../../public/js/overlap-ui/screens.mjs';
+import { EMPTY_TITLE, FINISH_LABEL, NOT_STARTED_LABEL, STEPS_LINE_EMPTY, STEPS_LINE_NONE, stepRange } from '../../public/js/overlap-ui/viewModel.mjs';
 
 const canRead = typeof read === 'function';   // jsc only; skipped under other runtimes
 const steps = (pred) => scenarios.flatMap(s => s.steps).filter(pred);
@@ -26,11 +26,16 @@ const goldenOf = (id) => parseGolden(read(`tests/browser/golden/${id}.mjs`));
 const lastText = (id) => { const g = goldenOf(id); return g[g.length - 1].text; };
 const stageOf = (text) => text.slice(text.indexOf('== stage ==\n') + 12, text.indexOf('\n== known =='));
 const knownOf = (text) => text.slice(text.indexOf('\n== known ==\n') + 13, text.indexOf('\n== progress =='));
-const progressOf = (text) => Number(text.slice(text.indexOf('\n== progress ==\n') + 16).replace('%', ''));
+// The progress line is "<aria-valuenow>% <aria-valuetext>", e.g. "25% Step 2 of 4" (Story S20).
+const progressLineOf = (text) => text.slice(text.indexOf('\n== progress ==\n') + 16);
+const progressOf = (text) => Number(/^(\d+(?:\.\d)?)%/.exec(progressLineOf(text))[1]);
+const progressWordsOf = (text) => progressLineOf(text).replace(/^\d+(?:\.\d)?% /, '');
+const EYEBROW = /^Step (\d+)(?: of (\d+))?(, then your list)?$/;
+const eyebrowOf = (text) => stageOf(text).split('\n')[0];
 const isEntry = (text) => stageOf(text).startsWith(ENTRY_HEADING + '\n');
-const isQ1 = (text) => stageOf(text).startsWith('Step 1\nYour policies\n');
-const isQuestionScreen = (text) => /^Step \d+( of \d+)?\n/.test(stageOf(text));
-const isActions = (text) => stageOf(text).startsWith('Your insurer action list\n');
+const isQ1 = (text) => /^Step 1( of \d+)?(, then your list)?\nYour policies\n/.test(stageOf(text));
+const isQuestionScreen = (text) => /^Step \d+( of \d+)?(, then your list)?\n/.test(stageOf(text));
+const isActions = (text) => stageOf(text).startsWith(FINISH_LABEL + '\nYour insurer action list\n');
 
 // ---- the scenario data ----------------------------------------------------------------------------------------------
 test('browser scenarios: well-formed plain data, at least 12', () => {
@@ -149,7 +154,7 @@ test('browser goldens: one well-formed golden per scenario, byte for byte what r
     assert.equal(golden.length, s.steps.length + 1, `${s.id}: golden has one entry for the load plus one per step`);
     golden.forEach((g, i) => {
       assert.equal(g.step, i, `${s.id}: step numbering`);
-      assert.ok(g.text.startsWith('== stage ==\n') && g.text.includes('\n== known ==\n') && /\n== progress ==\n\d+(\.\d)?%$/.test(g.text), `${s.id} step ${i}: text shape`);
+      assert.ok(g.text.startsWith('== stage ==\n') && g.text.includes('\n== known ==\n') && /\n== progress ==\n\d+(\.\d)?% [^\n]+$/.test(g.text), `${s.id} step ${i}: text shape`);
     });
     assert.equal(text, goldenFileText(s.id, golden), `${s.id}: file is exactly what record mode writes`);
   }
@@ -212,6 +217,118 @@ test('browser goldens: the progress bar stays at 0 on the entry screen and Q1, e
   }
 });
 
+// ---- the step indicator (Story S20) ------------------------------------------------------------------------------------
+test('browser goldens (steps): no screen anywhere says "Step k of N" with k above N, in the screen or in the progress bar', () => {
+  if (!canRead) return;
+  let seen = 0;
+  for (const s of scenarios) {
+    for (const g of goldenOf(s.id)) {
+      for (const m of g.text.matchAll(/Step (\d+) of (\d+)/g)) {
+        seen += 1;
+        assert.ok(Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2]), `${s.id} step ${g.step}: "${m[0]}"`);
+      }
+    }
+  }
+  assert.ok(seen > 300, `the scan read ${seen} "Step k of N" labels`);
+});
+
+test('browser goldens (steps): the progress bar and the screen agree on every screen: the same words, and a width of completed steps over the steps in all', () => {
+  if (!canRead) return;
+  for (const s of scenarios) {
+    for (const g of goldenOf(s.id)) {
+      const where = `${s.id} step ${g.step}`;
+      const words = progressWordsOf(g.text);
+      const pct = progressOf(g.text);
+      if (isEntry(g.text)) { assert.equal(words, NOT_STARTED_LABEL, where); assert.equal(pct, 0, where); continue; }
+      if (isActions(g.text)) { assert.equal(words, FINISH_LABEL, where); assert.equal(pct, 100, where); continue; }
+      assert.ok(isQuestionScreen(g.text), `${where}: a screen that is neither the entry screen, a question nor the list`);
+      assert.equal(words, eyebrowOf(g.text), `${where}: the bar says what the screen says`);
+      const m = EYEBROW.exec(words);
+      if (m[2] === undefined) { assert.equal(pct, 0, `${where}: Q1 with nothing ticked`); continue; }
+      // the page keeps one decimal for the width and rounds that to a whole number for aria-valuenow
+      assert.equal(pct, Math.round(Math.round((Number(m[1]) - 1) / Number(m[2]) * 1000) / 10), `${where}: ${words} is ${pct} percent`);
+      assert.equal((m[3] !== undefined), m[1] === m[2], `${where}: only the last step says the list is next`);
+    }
+  }
+});
+
+test('browser goldens (steps): once Q1 is answered the total never changes on the way to the list, each Continue moves one step on, and the last step is followed by the list', () => {
+  if (!canRead) return;
+  let continues = 0;
+  for (const s of scenarios) {
+    const g = goldenOf(s.id).map(x => x.text);
+    let total = null;
+    g.forEach((text, i) => {
+      const where = `${s.id} step ${i}`;
+      if (isEntry(text)) { total = null; return; }
+      if (isQ1(text)) { const m = EYEBROW.exec(eyebrowOf(text)); total = m[2] === undefined ? null : Number(m[2]); return; }
+      if (isQuestionScreen(text)) {
+        assert.equal(Number(EYEBROW.exec(eyebrowOf(text))[2]), total, `${where}: the total changed after Q1 was answered`);
+        return;
+      }
+      if (isActions(text) && i > 0 && s.steps[i - 1].op === 'next') {
+        continues += 1;
+        const prev = EYEBROW.exec(eyebrowOf(g[i - 1]));
+        assert.ok(prev !== null && prev[2] !== undefined && prev[1] === prev[2], `${where}: the list follows the last step, ${eyebrowOf(g[i - 1])}`);
+      }
+    });
+    s.steps.forEach((st, i) => {
+      if (st.op !== 'next' || !isQuestionScreen(g[i]) || !isQuestionScreen(g[i + 1])) return;
+      const a = EYEBROW.exec(eyebrowOf(g[i])), b = EYEBROW.exec(eyebrowOf(g[i + 1]));
+      assert.equal(Number(b[1]), Number(a[1]) + 1, `${s.id} step ${i + 1}: Continue goes one step on`);
+    });
+  }
+  assert.ok(continues >= scenarios.length - 2, `${continues} journeys reached the list through the last step`);
+});
+
+test('browser goldens (steps): Q1 says Step 1 of N as soon as something is ticked, with a live line that gives the same N; "None of these" goes straight to the list; nothing ticked invites a tick', () => {
+  if (!canRead) return;
+  const q1s = scenarios.flatMap(s => goldenOf(s.id).filter(x => isQ1(x.text)).map(x => ({ id: s.id, step: x.step, text: x.text })));
+  assert.ok(q1s.length > 50, `${q1s.length} Q1 screens recorded`);
+  let empty = 0, none = 0, one = 0, many = 0, only = 0;
+  for (const q of q1s) {
+    const stage = stageOf(q.text);
+    const ticked = (stage.match(/\[\*/g) || []).length;
+    const where = `${q.id} step ${q.step}`;
+    const m = EYEBROW.exec(eyebrowOf(q.text));
+    const line = stage.split('\n').find(l => l === STEPS_LINE_EMPTY || l === STEPS_LINE_NONE || l.startsWith('You ticked '));
+    assert.ok(line, `${where}: Q1 has its live line`);
+    if (ticked === 0) { empty += 1; assert.equal(line, STEPS_LINE_EMPTY, where); assert.equal(m[2], undefined, where); continue; }
+    assert.ok(m[2] !== undefined, `${where}: ticked, so the total shows`);
+    if (stage.includes('[*None of these]')) { none += 1; assert.equal(line, STEPS_LINE_NONE, where); assert.equal(m[2], '1', where); continue; }
+    const n = Number(m[2]);
+    const phrase = n === 1 ? 'this is the only step' : `there are ${n} steps in all`;
+    assert.equal(line, `You ticked ${ticked} ${ticked === 1 ? 'policy' : 'policies'}, so ${phrase}, then your list.`, where);
+    if (ticked === 1) one += 1; else many += 1;
+    if (n === 1) only += 1;
+  }
+  assert.ok(empty > 0 && none > 0 && one > 0 && many > 0 && only > 0, `all five states are recorded (${empty}, ${none}, ${one}, ${many}, ${only})`);
+});
+
+test('browser goldens (steps): the entry screen says the real range of steps, computed from the catalog', () => {
+  if (!canRead) return;
+  const r = stepRange();
+  const line = entryStepsLine(r);
+  assert.includes(line, `between ${r.min} and ${r.max} short steps`);
+  for (const s of scenarios) {
+    for (const g of goldenOf(s.id)) {
+      if (!isEntry(g.text)) continue;
+      assert.includes(stageOf(g.text), '\n' + line + '\n', `${s.id} step ${g.step}`);
+    }
+  }
+});
+
+test('browser goldens (steps): the list is labelled as the finish, "Your list", and never as a numbered step', () => {
+  if (!canRead) return;
+  for (const s of scenarios) {
+    for (const g of goldenOf(s.id)) {
+      if (!isActions(g.text)) continue;
+      assert.ok(!/Step \d/.test(stageOf(g.text)), `${s.id} step ${g.step}: the list carries no step number`);
+      assert.equal(progressWordsOf(g.text), 'Your list');
+    }
+  }
+});
+
 test('browser goldens: no screen of the retired prototype is recorded anywhere', () => {
   if (!canRead) return;
   const forbidden = [
@@ -260,7 +377,7 @@ test('browser goldens: every question section of the flow is recorded, with its 
   for (const sec of SECTIONS) {
     const seen = screens.filter(t => t.split('\n')[1] === sec.title);
     assert.ok(seen.length > 0, `no golden reaches the "${sec.title}" screen`);
-    for (const t of seen) assert.ok(sec.id === 'start' ? t.startsWith('Step 1\n') : /^Step ([2-9]|1\d) of \d+\n/.test(t), `${sec.id}: eyebrow`);
+    for (const t of seen) assert.ok(sec.id === 'start' ? /^Step 1( of \d+)?(, then your list)?\n/.test(t) : /^Step ([2-9]|1\d) of \d+(, then your list)?\n/.test(t), `${sec.id}: eyebrow`);
   }
 });
 

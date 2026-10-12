@@ -105,6 +105,9 @@ dd{margin:0;text-align:right;font-weight:600}
 .chips.stack{flex-direction:column;align-items:stretch}
 .chips.stack .chip{width:100%}
 .oq-needs{margin-top:-8px}
+/* Q1's live line under the policy list (Story S20): "You ticked 3 policies, so there are 4 steps in all, then your list."
+   Two lines of space are always held (the longest wording wraps to two at 375px), so a tick never moves the Continue row. */
+.ovl-steps{margin-top:-8px;min-height:3em;color:var(--ink);font-weight:600}
 .ovl-foot .link{min-height:44px;padding:0 12px;margin-left:-12px}
 h1[data-focus]:focus,h2[data-focus]:focus{outline-offset:4px}
 .tag.raise{color:var(--under);background:var(--under-bg)}

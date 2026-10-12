@@ -10,9 +10,11 @@
 // .link, .ghost) and the ovl- / oq- / al- / stk- classes in css/app.css. It writes no style attribute, so the
 // page's Content-Security-Policy needs no 'unsafe-inline' for styles.
 //
-//   entryScreenHtml(counting)                         the entry screen: what this is, the not-advice note, the privacy line
+//   entryScreenHtml(counting, range?)                 the entry screen: what this is, how many steps it takes, the not-advice note, the privacy line
 //   overlapScreenHtml(sections, screenId, backHtml, stackVm?)   one `ovl:<section>` screen (questions + Continue),
 //                                                     with the umbrella stack drawing (Story S14) when given
+//   overlapStepTexts(sections, screenId)              the step label (and Q1's live line) a screen shows, for dom.mjs to patch in place
+//   finishLabelHtml()                                 the "Your list" label above the action list (the finish is not a numbered step)
 //   questionHtml(question)                            one question as a labelled group of toggle buttons
 //   actionListHtml(vm, counting, stackVm?)            the "Your insurer action list" section, with the stack when given
 //   actionsFootHtml(backHtml)                         the Back and Start over row under the action list
@@ -21,7 +23,8 @@
 //   entryNoteHtml(counting)                           the not-advice note and privacy line
 //   privacyLine(counting)                             the privacy line (which one depends on whether answers are counted)
 import {
-  BUCKET_DESCRIPTIONS, BUCKET_LABELS, EMPHASIS_LABEL, INFO_NOTE, OVERLAP_SCREEN_PREFIX,
+  BUCKET_DESCRIPTIONS, BUCKET_LABELS, EMPHASIS_LABEL, FINISH_LABEL, INFO_NOTE, OVERLAP_SCREEN_PREFIX,
+  stepEyebrow, stepPlanFromSections, stepRange, stepsLine,
 } from './viewModel.mjs';
 import { stackViewHtml } from './stackView.mjs';
 
@@ -54,6 +57,20 @@ export const ENTRY_HEADING = 'Know exactly what to bring to every insurance agen
 export const ENTRY_INTRO = 'Tick the policies you have and answer a few quick questions. Your answers become a list to take to your agents and companies, with the reason to give for each item.';
 export const ENTRY_LEAD = 'Each item on your list is one of three things:';
 export const ENTRY_HOW = 'No name, no email, no sales call. Just a few taps about what you have, with nothing to type and nothing to upload.';
+
+/**
+ * The entry screen's line about how long this takes (Story S20). The numbers are the real range for the question catalog,
+ * from stepRange() in the view-model, never typed here: "between 1 and 11 short steps" today, and it follows the catalog
+ * if a section is ever added or removed. The list at the end is the finish, not one of the steps, which is why it is
+ * mentioned after them. `range` is { min, max } (default: stepRange()).
+ */
+export function entryStepsLine(range) {
+  const r = range || stepRange();
+  const unit = (n) => n + (n === 1 ? ' short step' : ' short steps');
+  if (r.min === r.max) return 'It takes ' + unit(r.max) + ', and then you get your list.';
+  return 'It takes between ' + r.min + ' and ' + unit(r.max) + ', depending on which policies you have, and then you get your list. ' +
+    'You will see how many as soon as you tick them.';
+}
 
 /** Intro line above the action list. */
 export const LIST_INTRO = 'Take this list to your insurer or agent. Each item says why it matters, what to ask and what to say.';
@@ -110,14 +127,9 @@ export function questionHtml(q) {
     '<div class="chips' + (stack ? ' stack' : '') + '"' + aria + '>' + q.options.map((o) => optionButton(q.id, o, 'chip')).join('') + '</div></div>';
 }
 
-// "Step 2 of 4". Q1 (the first section) says only "Step 1": how many steps follow depends on what is ticked there,
-// so a total on that screen would change under the reader's finger.
-function stepText(index, total) {
-  return index === 0 ? 'Step 1' : 'Step ' + (index + 1) + ' of ' + total;
-}
-
 // What must be equal before an answer can be patched in place: same screen, same position, same questions.
-// Q1's key has no total (its eyebrow has none), so ticking policies patches in place and does not redraw the screen.
+// Q1's key has no total (how many steps there are changes as policies are ticked), so ticking policies patches the
+// screen in place and does not redraw it: dom.mjs rewrites Q1's step label and live line (overlapStepTexts) instead.
 function screenKey(section, position, total) {
   return section.id + '|' + position + '|' + (position === 1 ? '' : total) + '|' + section.questions.map((q) => q.id).join(',');
 }
@@ -130,6 +142,29 @@ export function stackBodyHtml(stackVm) {
 /** The sentence a screen reader hears when the drawing changes (stackViewModel().ariaSummary), or ''. */
 export function stackLiveText(stackVm) {
   return stackVm && typeof stackVm.ariaSummary === 'string' ? stackVm.ariaSummary : '';
+}
+
+/**
+ * The words a question screen shows about where it is, worked out from the sections alone (Story S20):
+ * `{ eyebrow, line }`. `eyebrow` is "Step 2 of 4" ("Step 4 of 4, then your list" on the last, "Step 1" on Q1 before anything
+ * is ticked); `line` is Q1's live line under the policy list ("You ticked 3 policies, so there are 4 steps in all, then your
+ * list.") and null on every other screen. null when the screen id is not a section. dom.mjs writes these into the
+ * elements that are already on the page, so a tick on Q1 changes the words without drawing the screen again.
+ */
+export function overlapStepTexts(sections, screenId) {
+  const sid = sectionIdOf(screenId);
+  const index = sections.findIndex((s) => s.id === sid);
+  if (index < 0) return null;
+  const plan = stepPlanFromSections(sections);
+  return { eyebrow: stepEyebrow(plan, index + 1), line: index === 0 ? stepsLine(plan) : null };
+}
+
+/**
+ * The label above the action list: "Your list", the finish (the progress bar says the same words). The list is not a
+ * numbered step, so it has no "Step N". It sits outside the list's own section, so it is not printed.
+ */
+export function finishLabelHtml() {
+  return '<h3 class="pt">' + esc(FINISH_LABEL) + '</h3>';
 }
 
 // The umbrella stack on an overlap screen. The live region is a separate, stable element that already holds the
@@ -153,12 +188,17 @@ export function overlapScreenHtml(sections, screenId, backHtml, stackVm) {
   const index = sections.findIndex((s) => s.id === sid);
   if (index < 0) return '';
   const section = sections[index];
-  return '<h3 class="pt">' + stepText(index, sections.length) + '</h3>' +
-    '<h2 id="ovl-heading" tabindex="-1" data-focus>' + esc(section.title) + '</h2>' +
+  const texts = overlapStepTexts(sections, screenId);
+  // The label is aria-live="off" because #stage is a polite live region: when Q1's label changes with a tick, only the live
+  // line below the list should be read out. The heading is described by the label, so a person who lands on it hears
+  // "Step 2 of 4" along with the title.
+  return '<h3 class="pt" id="ovl-step" aria-live="off">' + esc(texts.eyebrow) + '</h3>' +
+    '<h2 id="ovl-heading" tabindex="-1" data-focus aria-describedby="ovl-step">' + esc(section.title) + '</h2>' +
     (section.reason !== '' ? '<p class="sub">' + esc(section.reason) + '</p>' : '') +
     '<div class="oqs" id="ovl-body" data-ovl-key="' + esc(screenKey(section, index + 1, sections.length)) + '">' +
       section.questions.map(questionHtml).join('') + '</div>' +
     (stackVm ? stackBlockHtml(stackVm) : '') +
+    (texts.line !== null ? '<p class="small ovl-steps" id="ovl-steps" role="status">' + esc(texts.line) + '</p>' : '') +
     '<p class="small oq-needs" id="ovl-hint"' + (section.complete ? ' hidden' : '') + '>' + esc(index === 0 ? NEEDS_HINT_Q1 : NEEDS_HINT) + '</p>' +
     '<div class="row spread foot ovl-foot">' + backHtml + '<button type="button" class="primary" id="ovl-next" data-act="next" aria-describedby="ovl-hint"' +
       (section.complete ? '' : ' disabled') + '>Continue</button></div>';
@@ -223,15 +263,16 @@ const ENTRY_ICONS = [
 
 /**
  * The entry screen: the policy icons, the reason to engage (what you leave with and who it is for), the three kinds of
- * item you will get (Raise, Drop, Question), the no-name/no-upload line, the not-advice note and the privacy line
- * (`counting` picks which one), and the button that starts it. The heading takes focus when the screen is shown again
+ * item you will get (Raise, Drop, Question), how many steps it takes (the real range, from `range` or stepRange()), the
+ * no-name/no-upload line, the not-advice note and the privacy line (`counting` picks which one), and the button that starts it. The heading takes focus when the screen is shown again
  * by Start over.
  */
-export function entryScreenHtml(counting) {
+export function entryScreenHtml(counting, range) {
   return '<div class="caco" aria-hidden="true">' + ENTRY_ICONS.map((d) => '<span><svg viewBox="0 0 24 24">' + d + '</svg></span>').join('') + '</div>' +
     '<h1 id="entry-heading" tabindex="-1" data-focus>' + esc(ENTRY_HEADING) + '</h1>' +
     '<p>' + esc(ENTRY_INTRO) + '</p>' +
     entryPreviewHtml() +
+    '<p>' + esc(entryStepsLine(range)) + '</p>' +
     '<p class="sub">' + esc(ENTRY_HOW) + '</p>' +
     entryNoteHtml(counting) +
     '<div class="row spread foot"><span></span><button type="button" class="primary" data-act="next">Get started</button></div>';

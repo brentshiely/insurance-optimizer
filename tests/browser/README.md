@@ -79,8 +79,12 @@ For each step, three parts, in this order:
 
 - `== stage ==`: the text of `#stage`, the card that holds the current screen.
 - `== known ==`: the text of `#known`, the "Your policies" panel (what Q1 says you hold).
-- `== progress ==`: the progress bar's value, as a percentage (`aria-valuenow`). The bar is 0 on the entry screen
-  and on Q1 (how many screens follow depends on what is ticked), 100 on the action list, and spread evenly between.
+- `== progress ==`: the progress bar's value and its words, as `<aria-valuenow>% <aria-valuetext>`, for example
+  `25% Step 2 of 4`. The percentage is completed steps over the steps in all: 0 on the entry screen and on Q1, 100 on
+  the action list, and spread evenly between. The words are what a screen reader says: `Not started` on the entry
+  screen, `Step 1` on Q1 until something is ticked, then `Step k of N` (`Step N of N, then your list` on the last
+  question step), and `Your list` on the list. They are the same words as the label above the screen's heading (the
+  tests compare them), so the bar and the screen cannot disagree. Story S20 added the words; the percentages did not change.
 
 Text is taken from the DOM, independent of CSS, one logical line per block, whitespace collapsed. Controls are
 written out so their state is part of the text: buttons as `[Auto insurance, ...]`, selected ones (the `sel`

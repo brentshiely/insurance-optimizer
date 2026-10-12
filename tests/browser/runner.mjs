@@ -108,13 +108,14 @@ export function visibleText(root) {
 }
 
 // Nothing on the page changes from run to run (no timer, no tap count, no date), so nothing is normalized: the
-// capture is the page's text as it is. The progress bar is in the capture as its aria-valuenow, a percentage,
-// because the wiring that moves it is page code that no unit test reaches; its width and colour are not (CSS).
+// capture is the page's text as it is. The progress bar is in the capture as its aria-valuenow, a percentage, followed by
+// its aria-valuetext, the words a screen reader says for it ("25% Step 2 of 4", "100% Your list"), because the wiring that
+// sets them is page code that no unit test reaches; its width and colour are not (CSS). Story S20 added the words.
 export function snapshotText(doc) {
   const stage = doc.getElementById("stage"), known = doc.getElementById("known"), bar = doc.getElementById("progress");
   return "== stage ==\n" + (stage ? visibleText(stage) : "(#stage missing)") +
     "\n== known ==\n" + (known ? visibleText(known) : "(#known missing)") +
-    "\n== progress ==\n" + (bar ? `${bar.getAttribute("aria-valuenow")}%` : "(#progress missing)");
+    "\n== progress ==\n" + (bar ? `${bar.getAttribute("aria-valuenow")}% ${bar.getAttribute("aria-valuetext") || "(no aria-valuetext)"}` : "(#progress missing)");
 }
 
 // ---------------------------------------------------------------------------------------------

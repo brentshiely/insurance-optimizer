@@ -8,10 +8,10 @@
 // pure view-models. Nothing is stored, read back or put in the URL, and nothing is typed or uploaded.
 import {
   overlapSections, applyAnswer, actionListViewModel, actionListText, liabilityStackModel, stackForScreen,
-  screenIds, progressPercent, policiesSummary, ENTRY_SCREEN_ID, ACTIONS_SCREEN_ID,
+  screenIds, progressState, policiesSummary, ENTRY_SCREEN_ID, ACTIONS_SCREEN_ID,
 } from './overlap-ui/viewModel.mjs';
 import { stackViewModel } from './overlap-ui/stackView.mjs';
-import { entryScreenHtml, overlapScreenHtml, actionListHtml, actionListErrorHtml, actionsFootHtml, knownHtml } from './overlap-ui/screens.mjs';
+import { entryScreenHtml, overlapScreenHtml, actionListHtml, actionListErrorHtml, actionsFootHtml, finishLabelHtml, knownHtml } from './overlap-ui/screens.mjs';
 import { patchOverlapScreen, restoreFocus, focusHeading, copyText, printList, COPY_OK, COPY_FAILED } from './overlap-ui/dom.mjs';
 import { startAnalytics, becameSelected, flagIdsOf } from './overlap-ui/analytics.mjs';
 import { ANALYTICS_CONFIG } from './config.mjs';
@@ -52,7 +52,7 @@ function actionsHtml() {
     console.error('Could not build the insurer action list', err);
     list = actionListErrorHtml(analytics.counting);
   }
-  return list + actionsFootHtml(backHtml());
+  return finishLabelHtml() + list + actionsFootHtml(backHtml());
 }
 
 function screenHtml(id) {
@@ -65,13 +65,21 @@ function showPolicies() {
   known.innerHTML = knownHtml(policiesSummary(answers));
 }
 
+// The progress bar and its words come from one place (progressState), so they cannot disagree: the width and aria-valuenow
+// are completed steps over the steps in all (0 to 100, and 100 on the list), aria-valuetext is the same words the screen
+// shows ("Step 2 of 4", "Your list"). Q1's words change as policies are ticked, so this runs after those taps too.
+function showProgress() {
+  const p = progressState(answers, index);
+  bar.style.width = p.percent + '%';
+  progress.setAttribute('aria-valuenow', String(Math.round(p.percent)));
+  progress.setAttribute('aria-valuetext', p.text);
+}
+
 function render() {
   const all = screenIds(answers);
   index = Math.max(0, Math.min(index, all.length - 1));
   stage.innerHTML = screenHtml(all[index]);
-  const pct = progressPercent(all, index);
-  bar.style.width = pct + '%';
-  progress.setAttribute('aria-valuenow', String(Math.round(pct)));
+  showProgress();
   showPolicies();
 }
 
@@ -91,6 +99,7 @@ function answer(questionId, optionId) {
   const id = screenIds(answers)[index];
   if (patchOverlapScreen(stage, overlapSections(answers), id, stackFor(id))) {
     showPolicies();
+    showProgress();
   } else {
     render();
     restoreFocus(stage, questionId, optionId);

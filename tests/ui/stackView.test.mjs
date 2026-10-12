@@ -887,7 +887,8 @@ function fakeStage(sections, screenId, withStack) {
   const hint = fakeEl();
   const stackBody = withStack ? fakeEl() : null;
   const stackLive = withStack ? fakeEl() : null;
-  const els = { '#ovl-body': body, '#ovl-next': next, '#ovl-hint': hint, '#stk-body': stackBody, '#stk-live': stackLive };
+  // the step label every question screen has (Story S20); the umbrella screens are never the first, so they have no live line
+  const els = { '#ovl-body': body, '#ovl-next': next, '#ovl-hint': hint, '#ovl-step': fakeEl(), '#stk-body': stackBody, '#stk-live': stackLive };
   return { stage: { querySelector: (sel) => els[sel] || null }, buttons, stackBody, stackLive, next };
 }
 

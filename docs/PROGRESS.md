@@ -28,4 +28,4 @@ One line per story, updated in the same commit that completes it. Commit SHAs: `
 | S17 | Entry screen gives a reason to engage | done |
 | S18 | Analytics: visits, visitors, answers, time spent | pending |
 | S19 | Cloudflare analytics: first-party events into Analytics Engine | pending |
-| S20 | Progress: say where you are and how many steps are left | pending |
+| S20 | Progress: say where you are and how many steps are left | done |

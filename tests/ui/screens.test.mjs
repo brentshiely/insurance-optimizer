@@ -160,8 +160,8 @@ suite('overlapScreenHtml: a screen of questions with a Continue that waits for e
 
   t('shows the "Step N of M" eyebrow, the title as a focusable heading, and the reason', () => {
     const html = overlapScreenHtml(sections, 'ovl:auto_gaps', BACK);
-    assert.equal(html.startsWith(`<h3 class="pt">Step ${autoIdx + 1} of ${sections.length}</h3>`), true);
-    assert.equal(html.includes('<h2 id="ovl-heading" tabindex="-1" data-focus>' + esc(sections[autoIdx].title) + '</h2>'), true);
+    assert.equal(html.startsWith(`<h3 class="pt" id="ovl-step" aria-live="off">Step ${autoIdx + 1} of ${sections.length}</h3>`), true);
+    assert.equal(html.includes('<h2 id="ovl-heading" tabindex="-1" data-focus aria-describedby="ovl-step">' + esc(sections[autoIdx].title) + '</h2>'), true);
     assert.equal(html.includes('<p class="sub">' + esc(sections[autoIdx].reason) + '</p>'), true);
   });
 
@@ -191,13 +191,13 @@ suite('overlapScreenHtml: a screen of questions with a Continue that waits for e
     assert.equal(/id="ovl-next"[^>]*disabled/.test(html), false);
   });
 
-  t('Q1\'s screen says only "Step 1" (how many steps follow depends on what is ticked there) and its key has no total, so ticking policies patches in place', () => {
+  t('Q1\'s screen says only "Step 1" until something is ticked, then "Step 1 of N" (Story S20); its key has no total, so ticking policies patches in place', () => {
     const none = overlapSections({});
     const some = overlapSections(ans(['auto', 'home', 'umbrella']));
     const a = overlapScreenHtml(none, 'ovl:start', BACK);
     const b = overlapScreenHtml(some, 'ovl:start', BACK);
-    assert.equal(a.startsWith('<h3 class="pt">Step 1</h3>'), true);
-    assert.equal(b.startsWith('<h3 class="pt">Step 1</h3>'), true);
+    assert.equal(a.startsWith('<h3 class="pt" id="ovl-step" aria-live="off">Step 1</h3>'), true);
+    assert.equal(b.startsWith('<h3 class="pt" id="ovl-step" aria-live="off">Step 1 of ' + some.length + '</h3>'), true);
     assert.equal(overlapScreenKey(none, 'ovl:start'), 'start|1||policies');
     assert.equal(overlapScreenKey(some, 'ovl:start'), overlapScreenKey(none, 'ovl:start'));
     assert.notEqual(none.length, some.length, 'the number of sections did change');

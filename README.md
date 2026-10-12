@@ -10,12 +10,12 @@ It is a fixed decision tree. No AI at runtime, no account, nothing typed, nothin
 
 ## The flow
 
-1. **Entry screen**: what this is, the "not insurance advice" note and the privacy line.
+1. **Entry screen**: what this is, how many steps it takes (the real range, worked out from the question catalog), the "not insurance advice" note and the privacy line.
 2. **Q1, "Which policies do you have?"**: auto, home, renters, umbrella, health, motorcycle, boat, and the "Other" items (rental car, towing or roadside, travel, phone, extended warranties, accidental death), or "None of these".
 3. **Only the relevant sections**, each with a one-line reason tied to what you ticked: umbrella limits, motorcycle or boat under the umbrella, umbrella scope, auto gaps, renters, health extras, home exclusions, deductibles against your cash cushion, credit cards, and extras detail. The umbrella screens draw the liability stack (the umbrella on top of the limits under it).
 4. **The insurer action list**, grouped Raise / Drop / Question, with Copy and Print.
 
-Back, Continue and Start over work throughout, and the progress bar follows the screens that apply to you.
+Back, Continue and Start over work throughout. The progress bar and the words above each screen say where you are: Q1 shows "Step 1 of N" as soon as you tick a policy and updates as you tick more, later screens say "Step k of N" (the last one says your list is next), and the action list is the finish, labelled "Your list", not a numbered step. N depends only on what you ticked in Q1 (DECISIONS S20-3).
 
 ## Run, test, preview
 
