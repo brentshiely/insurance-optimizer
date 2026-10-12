@@ -22,7 +22,7 @@ import { SOURCES } from '../../public/js/overlap/data/sources.mjs';
 import { SECTIONS } from '../../public/js/overlap/data/questions/index.mjs';
 import { CARD_CHOICES } from '../../public/js/overlap/data/questions/cards.mjs';
 import {
-  ENTRY_HEADING, ENTRY_INTRO, ENTRY_HOW, ENTRY_NOTE, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, PRIVACY_LINE_NONE, PRIVACY_LINE_COUNTING,
+  ENTRY_HEADING, ENTRY_INTRO, ENTRY_LEAD, ENTRY_HOW, ENTRY_NOTE, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, PRIVACY_LINE_NONE, PRIVACY_LINE_COUNTING,
 } from '../../public/js/overlap-ui/screens.mjs';
 import {
   INFO_NOTE, EMPTY_TITLE, EMPTY_MESSAGE, TEXT_HEADLINE, BUCKET_DESCRIPTIONS, EMPHASIS_LABEL,
@@ -326,7 +326,7 @@ suite('traceability: docs/TRACEABILITY.md', (t) => {
 
 // Text a person can read on the page, outside the flags: the entry screen, the notes, the hints, the list headings, every question and section.
 const PAGE_TEXT = [
-  ENTRY_HEADING, ENTRY_INTRO, ENTRY_HOW, ENTRY_NOTE, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, PRIVACY_LINE_NONE, PRIVACY_LINE_COUNTING,
+  ENTRY_HEADING, ENTRY_INTRO, ENTRY_LEAD, ENTRY_HOW, ENTRY_NOTE, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, PRIVACY_LINE_NONE, PRIVACY_LINE_COUNTING,
   INFO_NOTE, EMPTY_TITLE, EMPTY_MESSAGE, TEXT_HEADLINE, EMPHASIS_LABEL, BUCKET_DESCRIPTIONS.raise, BUCKET_DESCRIPTIONS.drop, BUCKET_DESCRIPTIONS.question,
 ];
 const HEALTH_FLAG = (id) => id.indexOf('health-') === 0 || id === 'deductible-exceeds-cushion-health';

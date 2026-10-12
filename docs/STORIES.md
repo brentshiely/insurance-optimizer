@@ -103,3 +103,7 @@ AC: Tests prove only allowlisted names/labels can be emitted, no free text or fi
 ## S16 - Ship readiness
 Docs finalized (`DECISIONS.md`, `OPEN-ITEMS.md` incl. licensing check and the commercial-source note), `docs/TRACEABILITY.md` mapping every SPEC requirement to code/tests, final full-spec conformance audit, end-to-end Browser pane run-throughs, README updated.
 AC: Every SPEC requirement traced; zero failing tests; no console errors; README accurate. Deploy is left to the owner (`npm run deploy`).
+
+## S17 - Entry screen gives a reason to engage (owner request, 2026-10-12)
+The home screen leads with what the person leaves with and who it is for: their answers become items to bring to their insurance agent(s) and company(ies). It previews the three kinds of item with the action list's own wording and keeps the no-name/no-upload trust line.
+AC: Heading and intro name agents and companies and the reason to give for each item; the preview comes from `BUCKET_LABELS`/`BUCKET_DESCRIPTIONS`; nothing is promised that the flow does not do; unit tests cover the copy, order and preview; only the entry screens of the browser goldens change (verified against a copy of the old goldens); full suite and golden replay green.

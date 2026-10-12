@@ -21,7 +21,7 @@
 //   entryNoteHtml(counting)                           the not-advice note and privacy line
 //   privacyLine(counting)                             the privacy line (which one depends on whether answers are counted)
 import {
-  BUCKET_LABELS, EMPHASIS_LABEL, INFO_NOTE, OVERLAP_SCREEN_PREFIX,
+  BUCKET_DESCRIPTIONS, BUCKET_LABELS, EMPHASIS_LABEL, INFO_NOTE, OVERLAP_SCREEN_PREFIX,
 } from './viewModel.mjs';
 import { stackViewHtml } from './stackView.mjs';
 
@@ -45,10 +45,15 @@ export function privacyLine(counting) {
 /** The informational-not-advice note for the entry screen (the action list has the longer INFO_NOTE). */
 export const ENTRY_NOTE = 'This is general information, not insurance advice, and this tool is not a licensed agent or broker.';
 
-/** The entry screen. It promises only what the flow does: closed-list taps, nothing typed, nothing uploaded. */
-export const ENTRY_HEADING = 'Your insurance has never been looked at as a whole. We built the thing that does.';
-export const ENTRY_INTRO = 'No name, no email, no sales call. Just a few taps about what you have, with nothing to type and nothing to upload.';
-export const ENTRY_HOW = 'Tick the policies you have. We ask a few quick questions about only those, then give you a list of what to raise, drop or ask your insurer about.';
+/**
+ * The entry screen. It leads with the reason to engage (what you walk away with, and who it is for: your answers become
+ * items to bring to your insurance agents and companies), previews the three kinds of item with the action list's own
+ * wording, and promises only what the flow does: closed-list taps, nothing typed, nothing uploaded.
+ */
+export const ENTRY_HEADING = 'Know exactly what to bring to every insurance agent and company you deal with.';
+export const ENTRY_INTRO = 'Tick the policies you have and answer a few quick questions. Your answers become a list to take to your agents and companies, with the reason to give for each item.';
+export const ENTRY_LEAD = 'Each item on your list is one of three things:';
+export const ENTRY_HOW = 'No name, no email, no sales call. Just a few taps about what you have, with nothing to type and nothing to upload.';
 
 /** Intro line above the action list. */
 export const LIST_INTRO = 'Take this list to your insurer or agent. Each item says why it matters, what to ask and what to say.';
@@ -198,6 +203,13 @@ export function entryNoteHtml(counting) {
   return '<div class="entry-notes"><p class="small">' + esc(ENTRY_NOTE) + '</p><p class="small">' + esc(privacyLine(counting)) + '</p></div>';
 }
 
+/** The three kinds of item the list holds, worded exactly as the action list words them (BUCKET_LABELS / BUCKET_DESCRIPTIONS). */
+function entryPreviewHtml() {
+  return '<div class="entry-preview"><p class="entry-lead">' + esc(ENTRY_LEAD) + '</p><ul class="entry-list">' +
+    ['raise', 'drop', 'question'].map((b) => '<li><span class="tag ' + b + '">' + esc(BUCKET_LABELS[b]) + '</span><span>' + esc(BUCKET_DESCRIPTIONS[b]) + '</span></li>').join('') +
+    '</ul></div>';
+}
+
 // The policy icons on the entry screen, drawn as they usually live: scattered, never lined up. The tilt of each is a
 // CSS rule (.caco span:nth-child), not a style attribute.
 const ENTRY_ICONS = [
@@ -210,15 +222,17 @@ const ENTRY_ICONS = [
 ];
 
 /**
- * The entry screen: the policy icons, what this is in a sentence, how it goes, the not-advice note and the privacy
- * line (`counting` picks which one), and the button that starts it. The heading takes focus when the screen is
- * shown again by Start over.
+ * The entry screen: the policy icons, the reason to engage (what you leave with and who it is for), the three kinds of
+ * item you will get (Raise, Drop, Question), the no-name/no-upload line, the not-advice note and the privacy line
+ * (`counting` picks which one), and the button that starts it. The heading takes focus when the screen is shown again
+ * by Start over.
  */
 export function entryScreenHtml(counting) {
   return '<div class="caco" aria-hidden="true">' + ENTRY_ICONS.map((d) => '<span><svg viewBox="0 0 24 24">' + d + '</svg></span>').join('') + '</div>' +
     '<h1 id="entry-heading" tabindex="-1" data-focus>' + esc(ENTRY_HEADING) + '</h1>' +
-    '<p class="sub">' + esc(ENTRY_INTRO) + '</p>' +
-    '<p>' + esc(ENTRY_HOW) + '</p>' +
+    '<p>' + esc(ENTRY_INTRO) + '</p>' +
+    entryPreviewHtml() +
+    '<p class="sub">' + esc(ENTRY_HOW) + '</p>' +
     entryNoteHtml(counting) +
     '<div class="row spread foot"><span></span><button type="button" class="primary" data-act="next">Get started</button></div>';
 }

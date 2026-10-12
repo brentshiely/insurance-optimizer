@@ -8,10 +8,11 @@ import { suite, assert } from '../harness.mjs';
 import {
   esc, questionHtml, overlapScreenHtml, overlapScreenKey, actionListHtml, actionListErrorHtml, actionsFootHtml,
   entryScreenHtml, knownHtml, sectionIdOf, PRIVACY_LINE, LIST_INTRO, NEEDS_HINT,
-  PRIVACY_LINE_COUNTING, ENTRY_NOTE, ENTRY_HEADING, ENTRY_INTRO, ENTRY_HOW, NEEDS_HINT_Q1,
+  PRIVACY_LINE_COUNTING, ENTRY_NOTE, ENTRY_HEADING, ENTRY_INTRO, ENTRY_LEAD, ENTRY_HOW, NEEDS_HINT_Q1,
 } from '../../public/js/overlap-ui/screens.mjs';
 import {
   overlapSections, applyAnswer, actionListViewModel, policiesSummary, INFO_NOTE, EMPHASIS_LABEL, EMPTY_TITLE, EMPTY_MESSAGE,
+  BUCKET_LABELS, BUCKET_DESCRIPTIONS,
 } from '../../public/js/overlap-ui/viewModel.mjs';
 import FIXTURE from '../fixtures/catalog.mjs';
 import { findForbidden, codeOnly, importsOf } from '../helpers/sourceScan.mjs';
@@ -50,7 +51,7 @@ suite('screens: the module is pure and its wording is plain', (t) => {
 
   t('user-facing wording is ASCII, has no dash characters, no placeholders and names no state', () => {
     const states = /Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming/;
-    const texts = [PRIVACY_LINE, PRIVACY_LINE_COUNTING, ENTRY_NOTE, ENTRY_HEADING, ENTRY_INTRO, ENTRY_HOW, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, actionListErrorHtml(),
+    const texts = [PRIVACY_LINE, PRIVACY_LINE_COUNTING, ENTRY_NOTE, ENTRY_HEADING, ENTRY_INTRO, ENTRY_LEAD, ENTRY_HOW, LIST_INTRO, NEEDS_HINT, NEEDS_HINT_Q1, actionListErrorHtml(),
       entryScreenHtml(false), entryScreenHtml(true), actionsFootHtml(BACK), knownHtml(policiesSummary({})), knownHtml(policiesSummary(ans(['auto', 'home'])))];
     for (const text of texts) {
       assert.equal(/^[\x20-\x7e]*$/.test(text), true, `ASCII only: ${text}`);
@@ -298,6 +299,7 @@ suite('the entry screen, the "Your policies" panel and the action list foot', (t
       const html = entryScreenHtml(counting);
       assert.equal(html.includes('<h1 id="entry-heading" tabindex="-1" data-focus>' + esc(ENTRY_HEADING) + '</h1>'), true);
       assert.equal(html.includes(esc(ENTRY_INTRO)), true);
+      assert.equal(html.includes(esc(ENTRY_LEAD)), true);
       assert.equal(html.includes(esc(ENTRY_HOW)), true);
       assert.equal(html.includes(esc(ENTRY_NOTE)), true);
       assert.equal(html.includes(esc(counting ? PRIVACY_LINE_COUNTING : PRIVACY_LINE)), true);
@@ -307,6 +309,29 @@ suite('the entry screen, the "Your policies" panel and the action list foot', (t
       assert.equal(html.includes('aria-hidden="true"'), true, 'the icons are decoration');
       assert.equal(count(html, '<svg'), 6);
     }
+  });
+
+  t('the entry screen gives the reason to engage: the answers become a list to bring to the person\'s insurance agents and companies', () => {
+    assert.match(ENTRY_HEADING, /agent/);
+    assert.match(ENTRY_HEADING, /company/);
+    assert.match(ENTRY_INTRO, /list to take to your agents and companies/);
+    assert.match(ENTRY_INTRO, /reason to give for each item/);
+    const html = entryScreenHtml(false);
+    const order = [ENTRY_HEADING, ENTRY_INTRO, ENTRY_LEAD, ENTRY_HOW, ENTRY_NOTE].map((x) => html.indexOf(esc(x)));
+    assert.equal(order.every((i) => i >= 0), true, 'every piece is on the screen');
+    assert.deepEqual(order.slice().sort((a, b) => a - b), order, 'the reason comes first, then the three kinds of item, then the trust line and the note');
+  });
+
+  t('the entry screen previews the three kinds of item with the action list\'s own words, in the list\'s order, tagged like the list', () => {
+    const html = entryScreenHtml(false);
+    let last = -1;
+    for (const b of ['raise', 'drop', 'question']) {
+      const li = '<li><span class="tag ' + b + '">' + esc(BUCKET_LABELS[b]) + '</span><span>' + esc(BUCKET_DESCRIPTIONS[b]) + '</span></li>';
+      const at = html.indexOf(li);
+      assert.equal(at > last, true, b + ' is previewed after the one before it, with the action list wording');
+      last = at;
+    }
+    assert.equal(count(html, '<li>'), 3);
   });
 
   t('the entry screen only promises what the flow does: taps, nothing typed, nothing uploaded, no state, no photo, no sample data', () => {
