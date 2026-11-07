@@ -300,7 +300,7 @@ Each is phrased as the question to ask.
 1. ~~Start screen asks for your state~~: agreed Nov 7, 2026. Start and the state map are one screen.
 2. ~~Car question~~: agreed Nov 7, 2026. Yes or no, not a count.
 3. ~~Auto insurance~~: agreed Nov 7, 2026. Assumed for anyone with a car, not asked.
-4. **Savings and "what you own" as their own single-tap screens (7 and 8).** That's two extra screens, but each is one tap, and the policy screens get shorter.
+4. ~~Money questions~~: agreed Nov 7, 2026. Each gets its own single-tap screen (7 and 8).
 5. **The home screen in hurricane states can have five questions.** In Florida: deductible, sewer backup, home value, hurricane deductible, and Citizens. That's the heaviest screen in the flow. The option is to split it in two in those states.
 6. **The last-resort plan question only in CA, FL, TX, and LA.** 33 states have a plan, but only these four produce a specific, high-dollar result. Asking everywhere adds a question most people answer "No."
 7. **"About two minutes" on the start screen.** I'll time it in the build and change it if it's not true.
