@@ -145,7 +145,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 **Choices:** Yes · No · Not sure
 **Why:** Most policies leave it out unless you add it.
 
-**Split:** Wherever this screen would have four or more questions, the last three (home value, hurricane deductible, plan) move to a second screen headed **Storms and your home**, with the sub "A few more about your home, because storm deductibles here work differently."
+**Split:** Wherever this screen would have four or more questions, the last three (home value, hurricane deductible, plan) move to a second screen headed **A few more about your home**, with the sub "[Florida] has [hurricane] rules that change what you'd pay." ([Earthquake] in California, where the split also happens.)
 
 **Q:** About what is your home worth?
 **Choices:** $250,000 · $400,000 · $600,000 · $800,000 · $1 million or more · Not sure
