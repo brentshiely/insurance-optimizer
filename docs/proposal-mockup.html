@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Check Proposal</title>
+<style>
+:root{
+  --ground:#F1F5F4; --surface:#FFFFFF; --ink:#14211E; --muted:#566864; --line:#D3DDDA;
+  --accent:#0B6B5D; --accent-ink:#FFFFFF; --accent-soft:#E0F0EC;
+  --gap:#A8322B; --gap-bg:#FBE4E1; --save:#9A6410; --save-bg:#FBF0DA;
+  --twice:#5546AE; --twice-bg:#EAE7FA; --know:#3E5C74; --know-bg:#E4ECF1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1514; --surface:#172220; --ink:#E7EFEC; --muted:#9BAFAA; --line:#2B3A37;
+    --accent:#4DC2AE; --accent-ink:#06211C; --accent-soft:#16332E;
+    --gap:#F29088; --gap-bg:#3D1B18; --save:#F0BE62; --save-bg:#3A2C10;
+    --twice:#B3A8F5; --twice-bg:#272048; --know:#9CC3DE; --know-bg:#1B2E3B;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.45 "Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;padding:24px 16px 48px}
+header{max-width:1240px;margin:0 auto 20px}
+header h1{font-size:22px;margin:0 0 4px}
+header p{margin:0;color:var(--muted);font-size:14px}
+.row{max-width:1240px;margin:0 auto;display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start}
+.cap{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.phone{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px 18px;min-height:600px;display:flex;flex-direction:column;gap:14px}
+h2{font-size:22px;line-height:1.2;margin:0}
+h3{font-size:16px;margin:0}
+p{margin:0}
+.sub{color:var(--muted)}
+.small{font-size:12px;color:var(--muted)}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:13px;font:inherit;font-weight:700;text-align:center}
+.btn.alt{background:var(--accent-soft);color:var(--accent)}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.step{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em;text-transform:uppercase}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.chk{border:1.5px solid var(--line);border-radius:999px;padding:8px 12px;font-size:14px}
+.chk.on{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.group{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.group.gap{color:var(--gap)} .group.save{color:var(--save)} .group.twice{color:var(--twice)} .group.know{color:var(--know)}
+.find{border-left:3px solid var(--line);padding:2px 0 2px 12px;display:flex;flex-direction:column;gap:3px}
+.find.gap{border-color:var(--gap)} .find.save{border-color:var(--save)} .find.twice{border-color:var(--twice)}
+.find b{font-size:15px}
+.find .todo{font-size:14px}
+.find .todo::before{content:"What to do: ";font-weight:700}
+.find a{font-size:12px;color:var(--muted)}
+.collapsed{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;color:var(--know);font-weight:600;font-size:14px}
+.field label{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
+.input{border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--muted)}
+.idk{display:flex;gap:8px;margin-top:6px}
+.idk span{border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.confirmed{background:var(--gap-bg);color:var(--gap);border-radius:10px;padding:10px 12px;font-size:14px}
+.notes{max-width:1240px;margin:28px auto 0;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.note b{display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Coverage Check, proposed flow</h1>
+  <p>Mockup, not working code. Example user: Minnesota homeowner, kids, two cars, a boat, AAA, life insurance only through work, no umbrella.</p>
+</header>
+
+<div class="row">
+  <div>
+    <p class="cap">1 · Start</p>
+    <div class="phone">
+      <h2>Find the gaps and double-payments in your insurance.</h2>
+      <p class="sub">About two minutes. No name, no email, no sales call.</p>
+      <ol class="steps">
+        <li>Tell us a little about your household.</li>
+        <li>Tap the insurance you already have.</li>
+        <li>Get a short list of what to fix and what to ask.</li>
+      </ol>
+      <p class="sub">You don't need your policies in front of you.</p>
+      <div style="flex:1"></div>
+      <div class="btn">Start my checkup</div>
+      <p class="small">General information, not insurance advice. We're not an agent or broker, and nothing you enter leaves this page.</p>
+    </div>
+  </div>
+
+  <div>
+    <p class="cap">3 · What you have</p>
+    <div class="phone">
+      <p class="step">Step 2 of 3</p>
+      <h2>Which of these do you already have?</h2>
+      <p class="sub">Tap all that apply. A best guess is fine.</p>
+      <div class="checks">
+        <span class="chk on">Auto</span><span class="chk on">Home</span><span class="chk">Renters</span>
+        <span class="chk">Umbrella</span><span class="chk on">Life insurance through work</span>
+        <span class="chk">Life insurance of my own</span><span class="chk on">Disability through work</span>
+        <span class="chk">Boat policy</span><span class="chk on">AAA or similar</span><span class="chk on">Health insurance</span>
+      </div>
+      <p class="small">Why we ask: this is what lets us spot coverage you're missing or paying for twice.</p>
+      <div style="flex:1"></div>
+      <div class="btn">Continue</div>
+    </div>
+  </div>
+
+  <div>
+    <p class="cap">5 · Your checkup</p>
+    <div class="phone">
+      <h2>Your checkup</h2>
+      <p class="sub">Based on your answers: 3 things to fix and 1 way to save.</p>
+
+      <p class="group gap">Fix first</p>
+      <div class="find gap">
+        <b>Your boat is barely covered.</b>
+        <span>You said you have a boat but no boat policy. A home policy usually pays about $1,000 for boat damage.</span>
+        <span class="todo">Get a boat insurance quote.</span>
+        <a href="#">ValuePenguin</a>
+      </div>
+      <div class="find gap">
+        <b>Your life insurance ends with your job.</b>
+        <span>Someone relies on your income, and your only coverage is through work.</span>
+        <span class="todo">Price a term policy of your own.</span>
+        <a href="#">Life Happens</a>
+      </div>
+      <div class="find gap">
+        <b>Your lawsuit protection looks low.</b>
+        <span>You said you have more than $300,000 to protect and no umbrella policy.</span>
+        <span class="todo">Ask what $1 million of umbrella coverage costs.</span>
+      </div>
+
+      <p class="group save">Could save</p>
+      <div class="find save">
+        <b>You may pay for towing twice.</b>
+        <span>You have AAA. Many auto policies add roadside help too.</span>
+        <span class="todo">Look for "roadside" on your auto bill and drop it.</span>
+      </div>
+
+      <div class="collapsed"><span>Good to know (2)</span><span>Show</span></div>
+      <div class="btn">Copy my list for my agent</div>
+      <div class="btn alt">Get exact dollar amounts</div>
+    </div>
+  </div>
+
+  <div>
+    <p class="cap">6 · Exact numbers (optional)</p>
+    <div class="phone">
+      <p class="step">Checking: Home</p>
+      <h2>Your home policy</h2>
+      <p class="sub">Fill in what you know. Skip anything you don't. We only use numbers you enter.</p>
+      <div class="field">
+        <label>How much would it cost to rebuild your home?</label>
+        <div class="input">$ e.g. 400,000</div>
+        <div class="idk"><span>I don't know</span></div>
+        <p class="hint">On your declarations page as "Dwelling" or "Coverage A."</p>
+      </div>
+      <div class="field">
+        <label>What's your deductible?</label>
+        <div class="input">$ e.g. 1,000</div>
+        <div class="idk"><span>I don't know</span></div>
+      </div>
+      <div class="confirmed"><b>Confirmed:</b> a $1,000 deductible is low for someone who could cover a $2,500 surprise. Raising it usually lowers your premium.</div>
+      <div style="flex:1"></div>
+      <div class="btn">Update my checkup</div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <div class="note"><b>What changes</b>14 screens become 9. About 1,450 words of reading becomes about 400. 34 answers become about 12 taps.</div>
+  <div class="note"><b>The rule that matters most</b>We never show a number as yours unless you typed it. Today's pre-filled sample values go away.</div>
+  <div class="note"><b>The payoff</b>One list at the end, with what to do and where the fact comes from, plus a copy button for a call with your agent.</div>
+</div>
+</body>
+</html>
