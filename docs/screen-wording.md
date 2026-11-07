@@ -8,7 +8,7 @@ How to read this:
 - **Shown when** says who sees a question. Anyone it doesn't apply to never sees it.
 - Nothing is pre-selected anywhere.
 - Every screen has a **Back** link and a plain progress bar. Single-answer screens move on as soon as you tap. Screens with more than one question have a **Continue** button.
-- ⚠️ marks a choice that affects conversion. Those are collected at the end for you to decide one at a time.
+- Conversion choices are listed at the end, all decided.
 
 Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life insurance only through work, no umbrella. That person sees **12 screens**, and 8 of them take a single tap.
 
@@ -71,7 +71,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 
 ---
 
-## 6. What you have ⚠️
+## 6. What you have
 
 **Q:** Which of these do you have?
 **Sub:** Tap only the ones you're sure about.
