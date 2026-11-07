@@ -1,6 +1,6 @@
 # Coverage Check: experience proposal
 
-Nov 7, 2026. Status: proposal, not yet agreed. Nothing here is built.
+Nov 7, 2026. Status: agreed and built. Exact copy lives in `docs/screen-wording.md`.
 
 ## The job
 

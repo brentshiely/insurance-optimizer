@@ -4,6 +4,8 @@ Sep 19, 2026 · Brent Shiely
 
 > **Status as of Sep 19, 2026.** The only valid code is `public/index.html` in this repo, deployed to Cloudflare Pages at https://coverage-check.pages.dev (project `coverage-check`, `npm run deploy`). The earlier offline file this document originally described is retired and will not be recovered. Several items in "Architecture as it exists today" describe that retired version and are **not yet in the current code**; they are called out inline below and belong on the build list in "What to build, in order".
 >
+> **Rebuilt Nov 7, 2026.** `public/index.html` now implements the memory-only flow in `docs/experience-proposal.md`, with the copy in `docs/screen-wording.md`. The "Architecture as it exists today" section below describes the previous build (`POLICY`, `QUAL`, `BASE`, sample-data fields, sidebar) and is superseded; the state data tables and `SRC` registry carried over unchanged. The disclaimer (build step 2) is done.
+>
 > **No documents (decided Nov 7, 2026).** This prototype takes no documents of any kind: no upload, no photo, no document reading. Users answer from memory only. The document-extraction plan below is withdrawn, and the upload/photo buttons in the current code are to be removed. See `docs/experience-proposal.md` for how the questions change as a result.
 
 ## What this is
@@ -68,7 +70,7 @@ Whatever gets extracted should pre-fill the relevant policy's fields (dwelling c
 Proposed sequence for the online version, to be confirmed with Brent before each step:
 
 1. **State-driven findings and the unbuilt pieces of the "Architecture" section**: the state data tables (wind deductible, earthquake/CEA and New Madrid with real dollar math, FAIR Plan / last resort, SDI states, credit-scoring rules, UM-mandatory, boat mandates), the `powersports` policy, the full-name state dropdown, and `src`/`url` citations on per-policy findings. This is the personalization backbone the rest sits on.
-2. **Plain-language disclaimer** (informational, not advice, not a licensed agent). Small, and must exist before real users.
+2. ~~Plain-language disclaimer~~ (done Nov 7, 2026: start and results screens).
 3. ~~Document extraction~~ (withdrawn Nov 7, 2026: no documents in this prototype; users answer from memory).
 4. **Missing coverage types**: flood (NFIP), scheduled valuables, landlord/rental-dwelling.
 5. Opt-in local persistence, roadside credit-card nuance, multi-file split, real-device mobile pass.

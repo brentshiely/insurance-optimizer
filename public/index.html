@@ -4,147 +4,119 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="author" content="Brent Shiely">
-<title>Coverage Check Prototype</title>
+<meta name="description" content="Find the gaps and double-payments in your insurance. About two minutes. No name, no email, no sales call.">
+<title>Coverage Check</title>
 <style>
 :root{
   --ground:#F1F5F4; --surface:#FFFFFF; --ink:#14211E; --muted:#566864; --line:#D3DDDA;
   --accent:#0B6B5D; --accent-ink:#FFFFFF; --accent-soft:#E0F0EC;
-  --over:#9A6410; --over-bg:#FBF0DA; --under:#A8322B; --under-bg:#FBE4E1;
-  --twice:#5546AE; --twice-bg:#EAE7FA; --ok:#2F6B3A; --ok-bg:#E3F1E5;
-  --info:#3E5C74; --info-bg:#E4ECF1;
+  --fix:#A8322B; --fix-bg:#FBE4E1; --save:#9A6410; --save-bg:#FBF0DA;
+  --twice:#5546AE; --twice-bg:#EAE7FA; --ask:#0B6B5D; --know:#3E5C74; --know-bg:#E4ECF1;
 }
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
     --ground:#0E1514; --surface:#172220; --ink:#E7EFEC; --muted:#9BAFAA; --line:#2B3A37;
     --accent:#4DC2AE; --accent-ink:#06211C; --accent-soft:#16332E;
-    --over:#F0BE62; --over-bg:#3A2C10; --under:#F29088; --under-bg:#3D1B18;
-    --twice:#B3A8F5; --twice-bg:#272048; --ok:#8FD19A; --ok-bg:#16301B;
-    --info:#9CC3DE; --info-bg:#1B2E3B;
+    --fix:#F29088; --fix-bg:#3D1B18; --save:#F0BE62; --save-bg:#3A2C10;
+    --twice:#B3A8F5; --twice-bg:#272048; --ask:#4DC2AE; --know:#9CC3DE; --know-bg:#1B2E3B;
   }
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--ground);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;padding-inline:16px;padding-block:24px 48px}
+body{background:var(--ground);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;padding-inline:16px;padding-block:20px 48px}
 [hidden]{display:none!important}
-.shell{max-width:1040px;margin:0 auto;display:grid;gap:20px;grid-template-columns:1fr}
-@media (min-width:880px){.shell{grid-template-columns:minmax(0,1fr) 300px;align-items:start}}
-.brand{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
-.brand b{font-size:18px;letter-spacing:.01em}
-.brand span{color:var(--muted);font-size:13px}
+.shell{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.brand{font-weight:700;font-size:17px;letter-spacing:.01em}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .bar{height:4px;background:var(--line);border-radius:14px 14px 0 0;overflow:hidden}
-.bar i{border-radius:0}
 .bar i{display:block;height:100%;background:var(--accent);transition:width .25s ease}
-.pad{padding:28px;display:flex;flex-direction:column;gap:20px;min-height:380px}
-@media (max-width:480px){.pad{padding:20px}}
-.caco{display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;padding:6px 4px 2px;color:var(--muted)}
-.caco svg{width:34px;height:34px;display:block;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.pad{padding:26px;display:flex;flex-direction:column;gap:18px;min-height:420px}
+@media (max-width:480px){.pad{padding:20px 18px}}
+.caco{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:4px 2px 0;color:var(--muted)}
+.caco svg{width:32px;height:32px;display:block;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
 .caco span{display:block}
-@media (max-width:480px){.caco{gap:10px 16px}.caco svg{width:28px;height:28px}}
-h1{font-size:clamp(24px,4vw,32px);line-height:1.15;margin:0;text-wrap:balance;font-weight:700}
-h2{font-size:20px;line-height:1.25;margin:0;text-wrap:balance}
-h3.pt{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+@media (max-width:480px){.caco{gap:10px 16px}.caco svg{width:26px;height:26px}}
+h1{font-size:clamp(25px,5vw,32px);line-height:1.15;margin:0;text-wrap:balance}
+h2{font-size:22px;line-height:1.25;margin:0;text-wrap:balance}
 p{margin:0}
 .sub{color:var(--muted)}
 .small{font-size:13px;color:var(--muted)}
-.opts{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.why{font-size:14px;color:var(--muted)}
+.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
 button{font:inherit;color:inherit;cursor:pointer}
-.opt{position:relative;min-height:68px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;font-size:18px;font-weight:600;transition:border-color .12s,background .12s,transform .08s}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.opts{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.opt{min-height:64px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;font-size:18px;font-weight:600;padding:10px;transition:border-color .12s,background .12s,transform .08s}
 .opt:hover{border-color:var(--accent)}
 .opt:active{transform:scale(.98)}
 .opt.sel{border-color:var(--accent);background:var(--accent-soft)}
-.opt small{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
-:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.link{background:none;border:0;padding:0;color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:14px}
-.chip.sel{border-color:var(--accent);background:var(--accent-soft)}
-.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px 20px;font-weight:700;font-size:16px}
-.primary:disabled{opacity:.45;cursor:not-allowed}
-.ghost{background:var(--accent-soft);color:var(--accent);border:1.5px dashed var(--accent);border-radius:12px;padding:12px 16px;font-weight:700;font-size:14px;display:flex;gap:8px;align-items:center;justify-content:center;text-align:center;cursor:pointer}
-.scanbox{display:flex;flex-direction:column;gap:10px}
-.scanbox .ghost{min-height:44px}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 14px;font-size:15px;text-align:left}
+.chip:hover{border-color:var(--accent)}
+.chip.sel{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.link{background:none;border:0;padding:0;color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px 22px;font-weight:700;font-size:16px}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .spread{justify-content:space-between}
-.foot{margin-top:auto;position:sticky;bottom:0;background:var(--surface);padding-block:14px 6px;border-top:1px solid var(--line)}
-.state{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.foot{margin-top:auto;position:sticky;bottom:0;background:var(--surface);padding-block:14px 4px;border-top:1px solid var(--line)}
 .usmap{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;max-width:520px}
 .usmap button{aspect-ratio:1;min-width:0;padding:0;border:1.5px solid var(--line);background:var(--surface);border-radius:6px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.02em}
 .usmap button:hover{border-color:var(--accent);color:var(--accent)}
 .usmap button.sel{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
 @media (max-width:480px){.usmap button{font-size:9px}}
-select,input[type=number]{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
-input[type=number]{font-variant-numeric:tabular-nums}
-.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;white-space:nowrap}
-.tag.over{color:var(--over);background:var(--over-bg)}
-.tag.under{color:var(--under);background:var(--under-bg)}
-.tag.twice{color:var(--twice);background:var(--twice-bg)}
-.tag.ok{color:var(--ok);background:var(--ok-bg)}
-.tag.info{color:var(--info);background:var(--info-bg)}
-.list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
-.item{display:grid;grid-template-columns:118px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:start}
-@media (max-width:480px){.item{grid-template-columns:1fr;gap:6px}}
-.src{display:block;margin-top:4px;font-size:12px;color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--muted)}
-.src:hover{color:var(--accent);border-color:var(--accent)}
-.finding{border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px}
-.verdict{display:flex;flex-direction:column;gap:6px}
-.totals{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-.total{border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px}
-.total b{font-size:26px;font-variant-numeric:tabular-nums;line-height:1.1}
-.total.over{background:var(--over-bg);color:var(--over)}
-.total.under{background:var(--under-bg);color:var(--under)}
-.total.twice{background:var(--twice-bg);color:var(--twice)}
-.total span{font-size:13px;font-weight:600}
-aside{display:flex;flex-direction:column;gap:20px}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
-.panel h3{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px}
-dt{color:var(--muted)}
-dd{margin:0;text-align:right;font-weight:600}
-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
-td{padding:3px 0;border-bottom:1px solid var(--line)}
-td:last-child{text-align:right}
-.policy-grid{display:grid;gap:20px;grid-template-columns:1fr;align-items:start}
-@media (min-width:640px){.policy-grid{grid-template-columns:minmax(0,1fr) 180px}}
-.fields{display:flex;flex-direction:column;gap:14px}
-.field label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
-.field .amt{position:relative}
-.field .amt span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
-.field .amt input{padding-left:22px}
-.field .amt.pct span{left:auto;right:10px}
-.field .amt.pct input{padding-left:10px;padding-right:28px}
-.toggle{display:flex;gap:8px}
-.toggle button{flex:1;min-height:40px;border:1.5px solid var(--line);background:var(--surface);border-radius:9px;font-weight:600;font-size:14px}
-.toggle button.sel{border-color:var(--accent);background:var(--accent-soft)}
-.scanned{color:var(--accent);font-size:13px;font-weight:600}
-.qrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-.qrow:first-child{border-top:1px solid var(--line)}
-.qrow p{font-weight:600;font-size:15px}
-.yn2{display:flex;gap:8px;flex:0 0 auto}
-.yn2 button{min-width:64px;min-height:38px;border:1.5px solid var(--line);background:var(--surface);border-radius:9px;font-weight:600;font-size:14px}
-.yn2 button.sel{border-color:var(--accent);background:var(--accent-soft)}
+select{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;max-width:100%}
+.q{display:flex;flex-direction:column;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
+.q:first-of-type{border-top:0;padding-top:0}
+.q label,.q .ql{font-weight:600}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{min-height:42px;border:1.5px solid var(--line);background:var(--surface);border-radius:9px;font-weight:600;font-size:15px;padding:6px 14px}
+.seg button:hover{border-color:var(--accent)}
+.seg button.sel{border-color:var(--accent);background:var(--accent-soft)}
+.note{font-size:13px;color:var(--accent);font-weight:600}
+.group{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:6px 0 -6px}
+.group.fix{color:var(--fix)} .group.save{color:var(--save)} .group.twice{color:var(--twice)} .group.ask{color:var(--ask)} .group.know{color:var(--know)}
+.find{border-left:3px solid var(--line);padding:2px 0 2px 14px;display:flex;flex-direction:column;gap:4px}
+.find.fix{border-color:var(--fix)} .find.save{border-color:var(--save)} .find.twice{border-color:var(--twice)} .find.ask{border-color:var(--ask)} .find.know{border-color:var(--know)}
+.find b{font-size:16px;line-height:1.3}
+.find .w{font-size:15px}
+.find .todo{font-size:15px}
+.find .todo strong{font-weight:700}
+.find a{font-size:13px;color:var(--muted);text-underline-offset:3px;align-self:flex-start}
+.find a:hover{color:var(--accent)}
+details{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+details>summary{cursor:pointer;font-weight:700;color:var(--know);list-style-position:inside}
+details[open]>summary{margin-bottom:14px}
+details .stack{display:flex;flex-direction:column;gap:16px}
+.more>summary{color:var(--accent)}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.actions button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px 8px;font-weight:700;font-size:15px}
+@media (max-width:440px){.actions{grid-template-columns:1fr}}
+.status{min-height:20px;font-size:14px;color:var(--accent);font-weight:600;text-align:center}
+.results{display:flex;flex-direction:column;gap:18px}
+.debug{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:13px}
+.debug table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.debug td{padding:2px 0;border-bottom:1px solid var(--line)}
+.debug td:last-child{text-align:right}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{
+  body{background:#fff;color:#000;padding:0}
+  .bar,.foot,.actions,.status,.noprint,.debug,.caco{display:none!important}
+  .card{border:0}
+  .pad{padding:0;min-height:0}
+  details{border:0;padding:0}
+  details>summary{list-style:none}
+  .find a::after{content:" (" attr(href) ")";word-break:break-all}
+}
 </style>
 </head>
 <body>
 <div class="shell">
-  <div class="brand"><b>Coverage Check</b><span>Prototype. Editable sample data. Nothing leaves this page.</span></div>
+  <div class="brand">Coverage Check</div>
   <main class="card">
     <div class="bar"><i id="bar" style="width:0"></i></div>
     <div class="pad" id="stage" aria-live="polite"></div>
   </main>
-  <aside>
-    <div class="panel">
-      <h3>What we know</h3>
-      <dl id="known"></dl>
-      <p class="small">No name. No address. No email.</p>
-    </div>
-    <div class="panel">
-      <h3>Prototype telemetry</h3>
-      <table id="tele"></table>
-      <p class="small">Seconds per screen. This is the drop-off instrument.</p>
-    </div>
-  </aside>
+  <div class="debug" id="debug" hidden><b>Debug: seconds per screen</b><table id="tele"></table></div>
 </div>
 
 <script>
@@ -222,11 +194,6 @@ var SRC={
 };
 function cite(f,key){ f.src=SRC[key].src; f.url=SRC[key].url; return f }
 var GRID=[{"x":0,"y":0,"key":"AK"},{"x":11,"y":0,"key":"ME"},{"x":9,"y":1,"key":"VT"},{"x":10,"y":1,"key":"NH"},{"x":11,"y":1,"key":"MA"},{"x":1,"y":2,"key":"WA"},{"x":2,"y":2,"key":"MT"},{"x":3,"y":2,"key":"ND"},{"x":4,"y":2,"key":"SD"},{"x":5,"y":2,"key":"MN"},{"x":6,"y":2,"key":"WI"},{"x":7,"y":2,"key":"MI"},{"x":9,"y":2,"key":"NY"},{"x":10,"y":2,"key":"CT"},{"x":11,"y":2,"key":"RI"},{"x":1,"y":3,"key":"OR"},{"x":2,"y":3,"key":"ID"},{"x":3,"y":3,"key":"WY"},{"x":4,"y":3,"key":"NE"},{"x":5,"y":3,"key":"IA"},{"x":6,"y":3,"key":"IL"},{"x":7,"y":3,"key":"IN"},{"x":8,"y":3,"key":"OH"},{"x":9,"y":3,"key":"PA"},{"x":10,"y":3,"key":"NJ"},{"x":0,"y":4,"key":"CA"},{"x":1,"y":4,"key":"NV"},{"x":2,"y":4,"key":"UT"},{"x":3,"y":4,"key":"CO"},{"x":4,"y":4,"key":"KS"},{"x":5,"y":4,"key":"MO"},{"x":6,"y":4,"key":"KY"},{"x":7,"y":4,"key":"WV"},{"x":8,"y":4,"key":"DC"},{"x":9,"y":4,"key":"MD"},{"x":10,"y":4,"key":"DE"},{"x":2,"y":5,"key":"AZ"},{"x":3,"y":5,"key":"NM"},{"x":4,"y":5,"key":"OK"},{"x":5,"y":5,"key":"AR"},{"x":6,"y":5,"key":"TN"},{"x":7,"y":5,"key":"VA"},{"x":8,"y":5,"key":"NC"},{"x":3,"y":6,"key":"TX"},{"x":4,"y":6,"key":"LA"},{"x":5,"y":6,"key":"MS"},{"x":6,"y":6,"key":"AL"},{"x":7,"y":6,"key":"GA"},{"x":8,"y":6,"key":"SC"},{"x":0,"y":7,"key":"HI"},{"x":7,"y":7,"key":"FL"}];
-function usMap(){
-  return '<div class="usmap" role="group" aria-label="Choose your state">'+GRID.map(function(t){
-    return '<button style="grid-column:'+(t.x+1)+';grid-row:'+(t.y+1)+'" class="'+(t.key===S.state?'sel':'')+'" data-state="'+t.key+'" title="'+t.key+'" aria-label="'+t.key+'">'+t.key+'</button>';
-  }).join("")+'</div>';
-}
 var ICONS={
   car:'<path d="M5 16.5V12l2.4-5h9.2L19 12v4.5"/><path d="M5 12h14"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/><path d="M9.1 17h5.8"/>',
   home:'<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/>',
@@ -237,447 +204,459 @@ var ICONS={
 };
 // The "cacophony": a household's policies, drawn as they usually live, scattered and never lined up.
 var CACO=[["car",-11,2],["home",7,-5],["key",-6,6],["boat",12,-2],["heart",-9,4],["umbrella",5,-6]];
+
+// Sources added for the memory-only flow (verified Nov 7, 2026).
+SRC.umbrella={src:"Insurance Information Institute",url:"https://www.iii.org/article/what-is-an-umbrella-liability-policy"};
+SRC.dedAuto={src:"Insurance Information Institute",url:"https://www.iii.org/article/nine-ways-to-lower-your-auto-insurance-costs"};
+SRC.dedHome={src:"Insurance Information Institute",url:"https://www.iii.org/article/12-ways-to-lower-your-homeowners-insurance-costs"};
+SRC.rentNamed={src:"Insurance Information Institute",url:"https://www.iii.org/article/renters-insurance"};
+SRC.rentLandlord={src:"NAIC",url:"https://content.naic.org/article/consumer-insight-renting-your-home-protect-your-belongings-renters-insurance"};
+SRC.lifeWork={src:"Life Happens",url:"https://lifehappens.org/blog/4-things-you-probably-dont-know-about-your-life-insurance-at-work/"};
+SRC.flood={src:"FEMA",url:"https://www.fema.gov/flood-insurance"};
+SRC.sewer={src:"Policygenius",url:"https://www.policygenius.com/homeowners-insurance/what-is-water-backup-coverage/"};
+
+var EXTRAS=["Boat","Jet ski","Motorcycle","RV","ATV","E-bike"];
+var WATERCRAFT=["Boat","Jet ski"];
+var PLAN={CA:"the California FAIR Plan",FL:"Citizens",TX:"TWIA",LA:"Louisiana Citizens"};
+var PLAN_SHORT={CA:"The FAIR Plan",FL:"Citizens",TX:"TWIA",LA:"Louisiana Citizens"};
+var GROUPS=[["fix","Fix first"],["save","Could save"],["twice","Paying twice"],["ask","Ask your agent"],["know","Good to know"]];
+var SHOW_UP_FRONT=5;
+var SITE="coverage-check.pages.dev";
+
+var DEBUG=/[?&]debug\b/.test(location.search);
+
+function fresh(state){return {state:state||"",home:"",dep:"",car:"",extras:[],have:{},cushion:"",assets:"",ans:{},i:0,times:[],t0:Date.now(),start:Date.now()}}
+var S=fresh();
+var stage=document.getElementById("stage"),bar=document.getElementById("bar");
+
+/* ---------- helpers ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function money(n){return "$"+Math.round(n).toLocaleString("en-US")}
+function listWords(a){return a.length<2?a.join(""):a.slice(0,-1).join(", ")+(a.length>2?",":"")+" and "+a[a.length-1]}
+function lc(x){return x==="RV"||x==="ATV"?x:x.toLowerCase()}
+function inList(l,v){return l.indexOf(v)>-1}
+function owns(){return S.home==="Own"}
+function rents(){return S.home==="Rent"}
+function hasCar(){return S.car==="Yes"}
+function relied(){return S.dep==="Yes"}
+function water(){return S.extras.filter(function(x){return inList(WATERCRAFT,x)})}
+function num(v){return typeof v==="number"?v:null}
+
+/* ---------- what you have (screen 6) ---------- */
+function haveList(){
+  var st=S.state,l=[];
+  if(owns()) l.push(["home","Home insurance"]);
+  if(rents()){l.push(["rentMine","Renters insurance in my name"]);l.push(["rentOther","Renters insurance in someone else's name (like a roommate)"]);}
+  if(owns()) l.push(["flood","Flood insurance"]);
+  if(owns()&&inList(EQ_STATES,st)) l.push(["eq","Earthquake insurance"]);
+  l.push(["umb","Umbrella policy (extra lawsuit protection)"]);
+  l.push(["lifeWork","Life insurance through work"]);
+  l.push(["lifeOwn","Life insurance of my own"]);
+  if(relied()) l.push(["dis","Disability insurance (through work or my own)"]);
+  l.push(["health","Health insurance"]);
+  if(hasCar()) l.push(["club","AAA or another auto club"]);
+  return l;
+}
+function has(k){return !!S.have[k]&&haveList().some(function(x){return x[0]===k})}
+
+/* ---------- policy questions ---------- */
+var YNS=[["Yes","Yes"],["No","No"],["ns","Not sure"]];
+function autoQs(){
+  var q=[{k:"collDed",label:"What's your collision deductible?",why:"It's what you pay before insurance pays for damage to your car.",
+    opts:[[500,"$500 or less"],[1000,"$1,000"],[2000,"$2,000 or more"],["ns","Not sure"]]}];
+  if(has("club")) q.push({k:"roadside",label:"Does your auto policy include roadside help or towing?",why:"You have an auto club, which already includes it.",opts:YNS});
+  return q;
+}
+function homeQs(){
+  var st=S.state,sn=stateName(st),q=[];
+  q.push({k:"homeDed",label:"What's your deductible?",why:"It's what you pay before insurance pays on a claim.",
+    opts:[[500,"$500"],[1000,"$1,000"],[2500,"$2,500"],[5000,"$5,000 or more"],["ns","Not sure"]]});
+  q.push({k:"sewer",label:"Does it cover water backing up from a drain or sewer?",why:"Most policies leave it out unless you add it.",opts:YNS});
+  var wind=inList(WINDSTATES,st),caEq=st==="CA"&&!has("eq");
+  if(wind||caEq) q.push({k:"worth",label:"About what is your home worth?",why:"Some deductibles here are a percentage of your coverage, so we'll show them in dollars.",
+    opts:[[250000,"$250,000"],[400000,"$400,000"],[600000,"$600,000"],[800000,"$800,000"],[1000000,"$1 million or more"],["ns","Not sure"]]});
+  if(wind) q.push({k:"wind",label:"What's your hurricane or windstorm deductible?",why:"In "+sn+", it's usually a percentage of your coverage, not a flat amount.",
+    opts:[[1,"1%"],[2,"2%"],[5,"5%"],[10,"10%"],["flat","A flat dollar amount"],["ns","Not sure"]]});
+  if(PLAN[st]) q.push({k:"plan",label:"Is your home insured through "+PLAN[st]+"?",why:PLAN_SHORT[st]+" covers less than a regular policy.",opts:YNS});
+  return q;
+}
+function homeSplit(){return homeQs().length>=4}
+function toyQs(){
+  var q=S.extras.map(function(x){
+    return {k:"own_"+x,label:"Does your "+lc(x)+" have its own insurance policy?",opts:YNS};
+  });
+  var w=water();
+  if(w.length&&w.some(function(x){var v=S.ans["own_"+x];return v==="No"||v==="ns"})){
+    q.push({k:"boatVal",label:"About what would it cost to replace your "+listWords(w.map(lc)).replace(" and "," or ")+"?",why:"We'll show how much of it a home policy wouldn't pay.",
+      opts:[[5000,"$5,000"],[15000,"$15,000"],[30000,"$30,000"],[60000,"$60,000 or more"],["ns","Not sure"]]});
+  }
+  return q;
+}
+
+/* ---------- screen order ---------- */
+function order(){
+  var o=["start","home","dep","car","motor","have"];
+  if(hasCar()||has("home")) o.push("cushion");
+  o.push("assets");
+  if(hasCar()) o.push("auto");
+  if(has("home")){o.push("home1"); if(homeSplit()) o.push("home2");}
+  if(S.extras.length) o.push("toys");
+  o.push("results");
+  return o;
+}
+
+/* ---------- results ---------- */
+function item(g,h,why,todo,src){var f={g:g,h:h,why:why,todo:todo||""}; if(src&&SRC[src]){f.src=SRC[src].src;f.url=SRC[src].url} return f}
+function liveAns(){
+  var qs=[],o={};
+  if(hasCar()) qs=qs.concat(autoQs());
+  if(has("home")) qs=qs.concat(homeQs());
+  if(S.extras.length) qs=qs.concat(toyQs());
+  qs.forEach(function(q){if(S.ans[q.k]!==undefined) o[q.k]=S.ans[q.k]});
+  return o;
+}
+function findings(){
+  var st=S.state,sn=stateName(st),a=liveAns(),out=[];
+  var worth=num(a.worth),worthTxt=worth?"a home worth about "+money(worth):"";
+  var cushionNo=S.cushion==="No",cushionYes=S.cushion==="Yes";
+  var w=water(),mandate=BOAT_MANDATE_STATES[st];
+  var wNo=w.filter(function(x){return a["own_"+x]==="No"});
+  var wNs=w.filter(function(x){return a["own_"+x]==="ns"});
+  var wYes=w.filter(function(x){return a["own_"+x]==="Yes"});
+  var bv=num(a.boatVal);
+
+  /* Fix first */
+  if(wNo.length){
+    var noun=listWords(wNo.map(lc)),are=wNo.length>1?"are":"is",isnt=wNo.length>1?"aren't":"isn't";
+    out.push(item("fix","Your "+noun+" "+are+" barely covered.",
+      "You said your "+noun+" "+isnt+" on "+(wNo.length>1?"their":"its")+" own policy"+(bv?" and would cost about "+money(bv)+" to replace":"")+". A home policy usually pays about $1,000 for boat damage.",
+      "Get a boat insurance quote.","boatHome"));
+    if(mandate){
+      var jet=inList(wNo,"Jet ski");
+      out.push(item("fix",sn+(jet?" requires insurance on your jet ski.":" may require insurance on your boat."),
+        sn+" requires "+mandate.text+", and you said yours has no policy.",
+        "Get a boat insurance quote that meets the state minimum.",mandate.src));
+    }
+  }
+  if(a.own_Motorcycle==="No"&&st!=="FL")
+    out.push(item("fix","Your motorcycle needs its own policy.","You said it isn't insured on its own. Every state but Florida requires liability insurance on a motorcycle.","Get a motorcycle insurance quote.","moto"));
+  if(relied()&&has("lifeWork")&&!has("lifeOwn"))
+    out.push(item("fix","Your life insurance ends with your job.","Someone relies on your income, and your only life insurance is through work. That coverage usually ends when the job does.","Price a term life policy of your own.","lifeWork"));
+  if(relied()&&!has("lifeWork")&&!has("lifeOwn"))
+    out.push(item("fix","No life insurance, and someone relies on you.","You said someone relies on your income and didn't mark any life insurance.","Price a term life policy."));
+  if(relied()&&!has("dis")){
+    var di=STATE_DI[st],diTxt="";
+    if(di) diTxt=" "+sn+"'s "+di.name+" pays "+(di.amt?di.amt+(di.amt.indexOf(",")>-1?", ":" "):"")+"for "+di.dur+", then stops.";
+    out.push(item("fix","Nothing replaces your pay if you can't work.","Someone relies on your income, and you didn't mark disability insurance."+diTxt,
+      "Ask your employer about long-term disability coverage, or price a policy of your own.",di?di.src:null));
+  }
+  if(S.assets==="Yes"&&!has("umb"))
+    out.push(item("fix","Your lawsuit protection may be low.","You said what you own comes to more than $300,000, and you didn't mark an umbrella policy.","Ask your agent what $1 million of umbrella coverage costs.","umbrella"));
+  if(rents()&&!has("rentMine")&&!has("rentOther"))
+    out.push(item("fix","Your landlord's insurance doesn't cover your things.","You rent and didn't mark renters insurance. A landlord's policy covers the building, not your belongings or your liability.","Get a renters insurance quote.","rentLandlord"));
+  if(rents()&&has("rentOther")&&!has("rentMine"))
+    out.push(item("fix","You may not be covered by that renters policy.","You said it's in someone else's name. A roommate or partner usually isn't covered unless they're named on the policy.","Ask to be added to it by name, or get your own.","rentNamed"));
+  if(owns()&&!has("home"))
+    out.push(item("fix","Your home has no insurance.","You own your home and didn't mark home insurance.","Get a home insurance quote."));
+  if(a.sewer==="No")
+    out.push(item("fix","Sewer backup isn't covered.","You said your home policy doesn't cover it. It's left out of most policies unless you add it, usually for $30 to $70 a year.","Ask your agent to add water backup coverage.","sewer"));
+  var windSrc=st==="FL"?"windFL":"wind";
+  if(num(a.wind)&&worth){
+    var wd=worth*a.wind/100;
+    if(cushionNo&&wd>2500)
+      out.push(item("fix","A storm could cost you "+money(wd)+" first.","Your "+a.wind+"% hurricane deductible on "+worthTxt+" is about "+money(wd)+", and you said a $2,500 surprise would be hard.","Ask about a lower hurricane deductible.",windSrc));
+    else
+      out.push(item("know","Your hurricane deductible is about "+money(wd)+".","Your "+a.wind+"% hurricane deductible on "+worthTxt+" comes to about "+money(wd)+" before insurance pays.","",windSrc));
+  }
+  if(st==="CA"&&owns()&&!has("eq")){
+    var eqWhy="California law requires your insurer to offer earthquake coverage. "+(worth?"On "+worthTxt+", a CEA policy's deductible would be "+money(worth*0.05)+" to "+money(worth*0.25)+".":"A CEA policy's deductible would be 5% to 25% of your coverage.")+" Without one, the rebuild is on you.";
+    out.push(item("fix","Earthquakes aren't covered on your home.",eqWhy,"Ask your agent for an earthquake quote.","ceaDed"));
+  }
+  if(a.plan==="Yes"){
+    if(st==="CA") out.push(item("fix","The FAIR Plan covers fire only.","You said your home is on the California FAIR Plan. Without a second policy, you have no theft, water, or liability coverage.","Ask about a \"difference in conditions\" policy.","caFair"));
+    if(st==="TX") out.push(item("fix","TWIA covers only wind and hail.","You said your home is insured through TWIA. Fire, theft, and everything else need a separate policy.","Make sure you have a second policy for everything else.","twia"));
+    if(st==="FL"&&worth&&worth>=800000) out.push(item("fix","Citizens may drop your home.","Citizens won't insure homes that cost $700,000 or more to rebuild, outside Miami-Dade and Monroe. You picked about "+money(worth)+".","Start shopping private insurers now.","flCitizens"));
+    if(st==="FL"&&worth===600000) out.push(item("know","Your home is close to Citizens' limit.","Citizens won't insure homes that cost $700,000 or more to rebuild, outside Miami-Dade and Monroe. You picked about $600,000.","Check the rebuild cost at each renewal.","flCitizens"));
+    if(st==="LA") out.push(item("know","Louisiana Citizens doesn't cover flood.","You said your home is insured through Louisiana Citizens. Flood needs its own policy.","","laCitizens"));
+  }
+
+  /* Could save */
+  if(cushionYes){
+    var lows=[],dsrc=null;
+    if(num(a.collDed)===500){lows.push("a $500 collision deductible");dsrc="dedAuto"}
+    if(num(a.homeDed)&&a.homeDed<=1000){lows.push("a "+money(a.homeDed)+" home deductible");dsrc="dedHome"}
+    if(lows.length) out.push(item("save",lows.length>1?"Your deductibles may be lower than you need.":"Your deductible may be lower than you need.",
+      "You picked "+listWords(lows)+(lows.length>1?",":"")+" and said you could cover a $2,500 surprise.","Get a quote with a higher deductible and compare the price.",dsrc));
+  }
+  if(S.dep==="No"&&has("lifeOwn"))
+    out.push(item("save","You may not need that life policy.","You said no one relies on your income, and you have life insurance of your own.","Check whether you still need it before it renews."));
+
+  /* Paying twice */
+  if(a.roadside==="Yes"&&has("club"))
+    out.push(item("twice","You may pay for towing twice.","You have an auto club, and you said your auto policy includes roadside help too.","Ask to remove roadside help from your auto policy."));
+
+  /* Ask your agent */
+  if(a.sewer==="ns") out.push(item("ask","Does my home policy cover sewer backup?","You weren't sure. It's left out of most policies unless you add it.","","sewer"));
+  if(a.roadside==="ns"&&has("club")) out.push(item("ask","Does my auto policy include roadside help?","You weren't sure, and your auto club already covers it."));
+  if(a.wind==="ns"){
+    var wWhy=st==="FL"
+      ? "In Florida, it's usually 2% to 10% of your coverage."+(worth?" On "+worthTxt+", that's "+money(worth*0.02)+" to "+money(worth*0.10)+".":"")
+      : "In "+sn+", it's usually a percentage of your coverage."+(worth?" At 2%, you'd pay the first "+money(worth*0.02)+" on "+worthTxt+".":"");
+    out.push(item("ask","What is my hurricane deductible in dollars?",wWhy,"",windSrc));
+  }
+  if(a.plan==="ns") out.push(item("ask","Am I on "+PLAN[st]+"?","You weren't sure. "+PLAN_SHORT[st]+" covers less than a regular policy.","",{CA:"caFair",FL:"flCitizens",TX:"twia",LA:"laCitizens"}[st]));
+  if(wNs.length) out.push(item("ask","Is my "+listWords(wNs.map(lc))+" covered, and for how much?","You weren't sure. A home policy usually pays about $1,000 for boat damage.","","boatHome"));
+  S.extras.forEach(function(x){
+    if(inList(WATERCRAFT,x)) return;
+    if(a["own_"+x]==="ns") out.push(item("ask","Is my "+lc(x)+" insured on its own policy?","You weren't sure. Home and auto policies cover very little of it."));
+  });
+  if(wYes.length) out.push(item("ask","Does my boat policy pay agreed value or actual cash value?","Actual cash value subtracts wear and age from a total-loss payout. Agreed value doesn't.","","boatIII"));
+  if(has("umb")){
+    var under=[];
+    if(hasCar()) under.push("$250,000 of auto");
+    if(owns()) under.push("$300,000 of home");
+    var pols=[];if(hasCar())pols.push("auto");if(owns())pols.push("home");if(rents())pols.push("renters");
+    out.push(item("ask","Do my "+(pols.length?listWords(pols)+" ":"")+"limits meet my umbrella's minimums?","You have an umbrella policy. "+(under.length?"Most insurers want about "+listWords(under)+" liability underneath":"Most insurers require certain liability limits underneath")+", or there's a gap it won't cover.","","umbrella"));
+  }
+  if(hasCar()&&has("health")&&!inList(NOFAULT,st)) out.push(item("ask","Do I need medical payments coverage if I have health insurance?","You have health insurance. Auto \"med pay\" can cover the same injuries.","","medpay"));
+  if(hasCar()) out.push(item("ask","Is my uninsured motorist coverage as high as my liability coverage?","You drive. This pays for your injuries when the other driver has no insurance, and more than 1 in 7 drivers had none in 2023."+(inList(UM_MANDATORY_STATES,st)?" "+sn+" requires it but lets you pick the amount.":""),"","uninsured"));
+
+  /* Good to know */
+  if(hasCar()&&inList(NOFAULT,st)){
+    var pm=PIP_MIN[st];
+    out.push(item("know",sn+" requires injury coverage on every auto policy.","It's a no-fault state, so you can't drop it."+(pm?" The minimum is "+pm[0]+".":st==="MI"?" Michigan lets you choose a level.":""),"",pm?pm[1]:st==="MI"?"miPip":"nofault"));
+  }
+  if(owns()&&!has("flood"))
+    out.push(item("know","Home insurance doesn't cover floods.","You own your home and didn't mark flood insurance. That's true everywhere, in a flood zone or not.","Check your flood risk and ask about a flood policy.","flood"));
+  if(relied()&&has("dis")&&STATE_DI[st]){
+    var d2=STATE_DI[st];
+    out.push(item("know","Your state's paid leave fills only the first weeks.",sn+"'s "+d2.name+" covers "+d2.dur+". Check that your disability policy starts paying by then.","","ltdGap"));
+  }
+  if(owns()&&!has("eq")&&inList(EQ_STATES,st)&&st!=="CA"){
+    if(inList(NEWMADRID_STATES,st))
+      out.push(item("know","Earthquakes aren't covered by home insurance.",sn+" sits on the New Madrid seismic zone. Rebuilding after a quake would be out of pocket without separate coverage."+(st==="MO"?" In Missouri's most exposed counties, only about 1 home in 10 is covered.":""),"",st==="MO"?"moTakeup":"newMadrid"));
+    else
+      out.push(item("know","Earthquakes aren't covered by home insurance.",sn+" is one of 16 states USGS rates as having a higher chance of damaging shaking. A quake isn't covered without separate coverage.","","eqStates"));
+  }
+  if(a.own_RV==="No") out.push(item("know","A motorhome needs its own policy; a trailer partly rides on your car's.","A motorhome needs liability coverage that meets "+sn+"'s auto minimums. A towed trailer's damage to others is usually covered by your car's policy, but not damage to the trailer itself.","","rv"));
+  if(a["own_E-bike"]==="No") out.push(item("know","An e-bike may not be covered while you're riding it.","A home or renters policy may cover it at home, but often not on the road, and usually with a low cap.","","ebike"));
+  if(a.own_Motorcycle==="No"&&st==="FL") out.push(item("know","Florida doesn't require motorcycle insurance.","Nothing else you have covers you while riding, though.","","moto"));
+  return out;
+}
+
+function findHTML(f){
+  return '<div class="find '+f.g+'"><b>'+esc(f.h)+'</b><span class="w">'+esc(f.why)+'</span>'+
+    (f.todo?'<span class="todo"><strong>What to do:</strong> '+esc(f.todo)+'</span>':'')+
+    (f.url?'<a href="'+esc(f.url)+'" target="_blank" rel="noopener">'+esc(f.src)+'</a>':'')+'</div>';
+}
+function grouped(list){
+  var h="";
+  GROUPS.forEach(function(g){
+    var l=list.filter(function(f){return f.g===g[0]});
+    if(l.length) h+='<p class="group '+g[0]+'">'+g[1]+'</p>'+l.map(findHTML).join("");
+  });
+  return h;
+}
+function countLine(all){
+  var c=function(g){return all.filter(function(f){return f.g===g}).length};
+  var parts=[],n;
+  if((n=c("fix"))) parts.push(n+(n===1?" thing":" things")+" to fix");
+  if((n=c("save"))) parts.push(n+(n===1?" way":" ways")+" to save");
+  if((n=c("twice"))) parts.push(n+(n===1?" thing":" things")+" you may pay for twice");
+  if((n=c("ask"))) parts.push(n+(n===1?" question":" questions")+" to ask");
+  return parts.length?"Based on your answers: "+listWords(parts)+".":"";
+}
+function shareText(all){
+  var lines=["My insurance checkup ("+stateName(S.state)+")",""];
+  [["fix","FIX FIRST"],["save","COULD SAVE"],["twice","PAYING TWICE"],["ask","QUESTIONS FOR MY AGENT"],["know","GOOD TO KNOW"]].forEach(function(g){
+    var l=all.filter(function(f){return f.g===g[0]});
+    if(!l.length) return;
+    lines.push(g[1]);
+    l.forEach(function(f){lines.push("- "+f.h+(f.todo?" "+f.todo:""))});
+    lines.push("");
+  });
+  lines.push("Made with Coverage Check: "+SITE);
+  lines.push("General information, not insurance advice.");
+  return lines.join("\n");
+}
+
+/* ---------- rendering ---------- */
+function back(){return '<button class="link" data-act="back">Back</button>'}
+function single(key,choices,cur){
+  return '<div class="opts">'+choices.map(function(c){
+    return '<button class="opt'+(cur===c[0]?' sel':'')+'" data-set="'+key+'" data-v="'+esc(c[0])+'">'+esc(c[1])+'</button>';
+  }).join("")+'</div>';
+}
+function qBlock(q){
+  var cur=S.ans[q.k];
+  return '<div class="q"><span class="ql" id="ql_'+esc(q.k)+'">'+esc(q.label)+'</span>'+
+    '<div class="seg" role="group" aria-labelledby="ql_'+esc(q.k)+'">'+q.opts.map(function(o){
+      return '<button class="'+(cur===o[0]?'sel':'')+'" aria-pressed="'+(cur===o[0])+'" data-ans="'+esc(q.k)+'" data-v="'+esc(o[0])+'" data-num="'+(typeof o[0]==="number")+'">'+esc(o[1])+'</button>';
+    }).join("")+'</div>'+
+    (cur==="ns"?'<p class="note">Added to your questions for your agent.</p>':(q.why?'<p class="why">'+esc(q.why)+'</p>':''))+'</div>';
+}
+var MEMO='<p class="sub">Answer from memory. "Not sure" is fine. It becomes a question for your agent.</p>';
+function policyScreen(title,sub,qs){
+  return '<h2>'+esc(title)+'</h2>'+sub+qs.map(qBlock).join("")+
+    '<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Continue</button></div>';
+}
 function cacophony(){
   return '<div class="caco" aria-hidden="true">'+CACO.map(function(c){
     return '<span style="transform:rotate('+c[1]+'deg) translateY('+c[2]+'px)"><svg viewBox="0 0 24 24">'+ICONS[c[0]]+'</svg></span>';
   }).join("")+'</div>';
 }
-var BASE=["home","tenure","dep","veh","toys","qualify","insight"];
-var EXTRAS=["Boat","Jet ski","RV","Motorcycle","ATV","E-bike"];
-var WATERCRAFT=["Boat","Jet ski"];
-var TAGNAME={over:"Overspending",under:"Underprotected",twice:"Paying twice",ok:"Looks right",info:"Worth knowing"};
-var LIAB_OPTS=[[25,"25/50/25"],[50,"50/100/50"],[100,"100/300/100"],[250,"250/500/250"]];
-var HOMELIAB_OPTS=[[100,"$100,000"],[300,"$300,000"],[500,"$500,000"],[1000,"$1,000,000"]];
-
-var QUAL=[
- {id:"health",q:"Do you have health insurance, through work or elsewhere?"},
- {id:"cushion",q:"Do you have $2,500 in savings you could spend today if you had to?"},
- {id:"assets300",unsure:true,q:function(){
-   return S.a.home==="Rent"
-     ? "Do you have more than $300,000 in the bank, in retirement accounts, or in other savings?"
-     : "If you sold your home today and added up your savings, would that come to more than $300,000?";
- }},
- {id:"roadsideAlt",q:"Do you have an auto club membership (like AAA) or a credit card that includes free roadside help (like Chase Sapphire Reserve)?"}
-];
-
-var POLICY={
- auto:{name:"Auto",premiumDefault:1742,
-  fields:[
-   {key:"liability",label:"Liability limits",type:"select",opts:LIAB_OPTS,def:50},
-   {key:"umuim",label:"Uninsured/underinsured motorist",type:"select",opts:LIAB_OPTS,def:50},
-   {key:"medpay",label:"Medical payments limit",type:"money",def:5000},
-   {key:"collDed",label:"Collision deductible",type:"select",opts:[[250,"$250"],[500,"$500"],[1000,"$1,000"],[2500,"$2,500"]],def:500},
-   {key:"roadside",label:"Roadside assistance on this policy",type:"yesno",def:"Yes"},
-   {key:"premium",label:"Annual premium",type:"money",def:1742}
-  ],
-  findings:function(v,q){
-   var out=[];
-   if(v.roadside==="Yes"&&q.roadsideAlt==="Yes") out.push({t:"twice",msg:"Roadside help is covered twice: on this policy and through your club or card. Dropping it here typically saves $25-$40 a year."});
-   var st=S.state,sn=stateName(st);
-   if(v.medpay>0&&q.health==="Yes"){
-     if(NOFAULT.indexOf(st)>-1){
-       var pm=PIP_MIN[st];
-       out.push(cite({t:"info",msg:sn+" is a no-fault state, so injury coverage on your auto policy is required and can't be dropped."+(pm?" The required minimum is "+pm[0]+".":st==="MI"?" Michigan lets you choose a level; unlimited is the default if you never chose.":"")+" Ask your insurer about coordinating it with your health plan so it pays second, which usually lowers the price."},pm?pm[1]:st==="MI"?"miPip":"nofault"));
-     } else out.push(cite({t:"twice",msg:"Your health plan already pays for injuries from a crash. This "+money(v.medpay)+" limit largely repeats it."},"medpay"));
-   }
-   if(v.umuim<v.liability){
-     var lab=function(n){return LIAB_OPTS.find(function(o){return o[0]===n})[1]};
-     out.push(cite({t:"under",msg:"Your uninsured motorist limit ("+lab(v.umuim)+") is lower than the liability you carry for others ("+lab(v.liability)+"). This is the coverage that pays for your own injuries when the other driver has no insurance, and in 2023 more than one in seven drivers didn't."+(UM_MANDATORY_STATES.indexOf(st)>-1?" "+sn+" requires the coverage but lets you pick the amount.":"")+" Matching it to your liability limit is usually inexpensive."},"uninsured"));
-   }
-   if(v.collDed<=500&&q.cushion==="Yes") out.push({t:"over",msg:"A $"+v.collDed.toLocaleString()+" deductible is low given the savings you have on hand. Raising it to $1,000 typically saves $80-$100 a year."});
-   if(v.liability<=50&&q.assets300==="Yes") out.push({t:"under",msg:"Your "+LIAB_OPTS.find(function(o){return o[0]===v.liability})[1]+" limits leave what you own above that exposed in a serious crash."});
-   return out;
-  }},
- home:{name:"Home",premiumDefault:1850,
-  fields:[
-   {key:"dwelling",label:"Dwelling coverage",type:"money",def:450000},
-   {key:"contents",label:"Personal property / contents",type:"money",def:225000},
-   {key:"liability",label:"Liability limit",type:"select",opts:HOMELIAB_OPTS,def:300},
-   {key:"deductible",label:"Deductible",type:"select",opts:[[500,"$500"],[1000,"$1,000"],[2500,"$2,500"],[5000,"$5,000"]],def:2500},
-   {key:"waterBackup",label:"Water / sewer backup endorsement",type:"yesno",def:"No"},
-   {key:"windDed",label:"Hurricane or windstorm deductible (percent of dwelling coverage)",type:"percent",def:2,show:function(){return WINDSTATES.indexOf(S.state)>-1}},
-   {key:"lastResort",label:"Is this through your state's last-resort plan (FAIR Plan, Citizens, or TWIA)?",type:"yesno",def:"No",show:function(){return LASTRESORT_STATES.indexOf(S.state)>-1}},
-   {key:"eq",label:"Earthquake coverage (separate policy or added on)",type:"yesno",def:"No",show:function(){return EQ_STATES.indexOf(S.state)>-1}},
-   {key:"eqDed",label:"Earthquake deductible (percent of dwelling coverage)",type:"percent",def:15,show:function(){return EQ_STATES.indexOf(S.state)>-1&&S.p.home&&S.p.home.eq==="Yes"}},
-   {key:"premium",label:"Annual premium",type:"money",def:1850}
-  ],
-  findings:function(v,q){
-   var out=[];
-   if(v.deductible<=1000&&q.cushion==="Yes") out.push({t:"over",msg:"Your $"+v.deductible.toLocaleString()+" home deductible is low relative to your savings. A higher deductible usually lowers the premium more than the risk costs you."});
-   if(v.liability<=300&&q.assets300==="Yes") out.push({t:"under",msg:"Your home liability limit is on the low end for what you have to protect."});
-   if(v.waterBackup==="No") out.push({t:"under",msg:"Water and sewer backup is excluded from most standard home policies and is one of the most common claims."});
-   var st=S.state,sn=stateName(st);
-   if(WINDSTATES.indexOf(st)>-1&&v.windDed>0&&v.dwelling>0){
-     var wd=v.dwelling*v.windDed/100;
-     var base="In "+sn+", hurricane and windstorm deductibles are a percentage of your dwelling coverage, not a flat amount. Your "+v.windDed+"% on "+money(v.dwelling)+" means the first "+money(wd)+" of a storm claim comes out of your pocket.";
-     if(q.cushion==="No"&&wd>2500) out.push(cite({t:"under",msg:base+" You said $2,500 isn't sitting in savings right now, so that's a real gap on the day it matters."},st==="FL"?"windFL":"wind"));
-     else out.push(cite({t:"info",msg:base+(st==="FL"?" Florida insurers must offer 2%, 5%, and 10% options, so you can choose the trade-off.":"")},st==="FL"?"windFL":"wind"));
-   }
-   if(EQ_STATES.indexOf(st)>-1&&v.dwelling>0){
-     if(v.eq==="Yes"&&v.eqDed>0){
-       var ed=v.dwelling*v.eqDed/100;
-       out.push(cite({t:"info",msg:"Your "+v.eqDed+"% earthquake deductible on "+money(v.dwelling)+" of dwelling coverage is "+money(ed)+"."+(st==="CA"?" With a CEA policy that amount is subtracted from the claim payment; you don't have to pay it up front.":"")},st==="CA"?"ceaDedTip":"eqExcluded"));
-     } else if(st==="CA"){
-       out.push(cite({t:"under",msg:"Earthquake damage is excluded from your home policy, and California law requires your insurer to offer it. A CEA policy on your "+money(v.dwelling)+" of dwelling coverage would carry a deductible of 5% to 25%, that's "+money(v.dwelling*0.05)+" to "+money(v.dwelling*0.25)+" subtracted from a claim. Without it, the full rebuild is on you."},"ceaDed"));
-     } else if(NEWMADRID_STATES.indexOf(st)>-1){
-       out.push(cite({t:"info",msg:"Earthquake damage is excluded from a standard home policy, and "+sn+" sits on the New Madrid seismic zone. Without separate coverage, rebuilding your "+money(v.dwelling)+" home after a quake would be entirely out of pocket."+(st==="MO"?" In Missouri's most exposed counties, only about 1 home in 10 is now covered.":"")+" Whether it's worth it depends on where in the state you are."},st==="MO"?"moTakeup":"newMadrid"));
-     } else {
-       out.push(cite({t:"info",msg:"Earthquake damage is excluded from a standard home policy, and "+sn+" is one of 16 states USGS rates as having a relatively high chance of damaging shaking. This says nothing about your specific home; it's just worth knowing that your "+money(v.dwelling)+" of dwelling coverage doesn't apply to a quake."},"eqStates"));
-     }
-   }
-   if(v.lastResort==="Yes"){
-     if(st==="CA") out.push(cite({t:"under",msg:"The California FAIR Plan covers fire only. Unless you also carry a separate 'difference in conditions' policy, you have no liability, theft, or water-damage coverage on this home, whatever the liability limit above says."},"caFair"));
-     else if(st==="FL"&&v.dwelling>=700000) out.push(cite({t:"under",msg:"Citizens won't insure homes with a replacement cost of $700,000 or more outside Miami-Dade and Monroe, and yours is listed at "+money(v.dwelling)+". Expect a non-renewal and plan for the private market now."},"flCitizens"));
-     else if(st==="FL") out.push(cite({t:"info",msg:"Citizens drops homes whose replacement cost reaches $700,000 (outside Miami-Dade and Monroe). Yours is at "+money(v.dwelling)+", so watch the inflation adjustment at each renewal."},"flCitizens"));
-     else if(st==="TX") out.push(cite({t:"under",msg:"TWIA covers wind and hail only, by law. Fire, theft, and everything else need a separate policy, and flood needs its own. If this is your only home policy, most of your dwelling coverage isn't there."},"twia"));
-     else if(st==="LA") out.push(cite({t:"info",msg:"Louisiana Citizens doesn't cover flood, and won't pay living expenses if a flood makes your home unlivable. Flood coverage is a separate policy."},"laCitizens"));
-     else out.push(cite({t:"info",msg:sn+"'s last-resort plan usually costs more and covers less than a standard policy. It's worth re-shopping the private market each year to see if you can get out."},"lastResort"));
-   }
-   return out;
-  }},
- renters:{name:"Renters",premiumDefault:180,
-  fields:[
-   {key:"liability",label:"Liability limit",type:"select",opts:[[50,"$50,000"],[100,"$100,000"],[300,"$300,000"]],def:50},
-   {key:"belongings",label:"Belongings limit",type:"money",def:20000},
-   {key:"deductible",label:"Deductible",type:"money",def:500},
-   {key:"namedInsured",label:"Named insured",type:"select",opts:[["me","You"],["other","Someone else you pay for"]],def:"me"},
-   {key:"premium",label:"Annual premium",type:"money",def:180}
-  ],
-  findings:function(v,q){
-   var out=[];
-   if(v.namedInsured==="other") out.push({t:"under",msg:"When the policy is in someone else's name but you pay for it, it often lives under a separate account. A cancelled predecessor can look like a lapse from your side."});
-   if(v.belongings<15000) out.push({t:"under",msg:"This limit may be set to a generic renter's baseline rather than what would actually need replacing."});
-   if(v.liability<=50&&q.assets300==="Yes") out.push({t:"under",msg:"This is the lowest liability limit typically available. Worth a look given what else you own."});
-   return out;
-  }},
- powersports:{name:"Boat and powersports",premiumDefault:0,
-  fields:[
-   {key:"covered",label:"Do these have their own policy, separate from your auto and home?",type:"yesno",def:"No"},
-   {key:"value",label:"What they would cost to replace today, all together",type:"money",def:15000},
-   {key:"liability",label:"Liability limit on that policy",type:"money",def:100000,show:function(){return S.p.powersports&&S.p.powersports.covered==="Yes"}},
-   {key:"hullType",label:"How the boat or jet ski is valued",type:"select",opts:[["acv","Actual cash value"],["agreed","Agreed value"],["unsure","Not sure"]],def:"unsure",show:function(){return S.p.powersports&&S.p.powersports.covered==="Yes"&&S.extras.some(function(x){return WATERCRAFT.indexOf(x)>-1})}},
-   {key:"premium",label:"Annual premium",type:"money",def:0,show:function(){return S.p.powersports&&S.p.powersports.covered==="Yes"}}
-  ],
-  findings:function(v,q){
-   var out=[],st=S.state,sn=stateName(st),x=S.extras;
-   var water=x.some(function(t){return WATERCRAFT.indexOf(t)>-1}),moto=x.indexOf("Motorcycle")>-1,rv=x.indexOf("RV")>-1,ebike=x.indexOf("E-bike")>-1;
-   var mandate=BOAT_MANDATE_STATES[st];
-   if(water&&v.covered==="No"){
-     if(mandate) out.push(cite({t:"under",msg:sn+" requires "+mandate.text+", and you said yours isn't separately insured."},mandate.src));
-     if(v.value>1000) out.push(cite({t:"under",msg:"A home policy typically pays only about $1,000 for damage to a boat, and gives no liability coverage for a jet ski or a motor above about 25 horsepower. You said yours would cost "+money(v.value)+" to replace, so roughly "+money(v.value-1000)+" of that is uninsured."},"boatHome"));
-   }
-   if(water&&v.covered==="Yes"){
-     if(mandate&&v.liability<mandate.min) out.push(cite({t:"under",msg:"Your "+money(v.liability)+" liability limit is below what "+sn+" requires: "+mandate.text+"."},mandate.src));
-     if(v.hullType==="acv") out.push(cite({t:"info",msg:"Actual cash value pays replacement cost minus depreciation; agreed value pays the amount you and the insurer set in advance. On a total loss of a "+money(v.value)+" boat, that difference is the depreciation."},"boatIII"));
-     if(v.hullType==="unsure") out.push(cite({t:"info",msg:"Check whether the policy pays actual cash value or agreed value. Actual cash value subtracts depreciation from a total-loss payout; agreed value doesn't."},"boatIII"));
-   }
-   if(moto&&v.covered==="No"){
-     if(st==="FL") out.push(cite({t:"info",msg:"Florida is the one state that doesn't require liability insurance on a motorcycle. Nothing on an auto or home policy pays if you hurt someone while riding, though, so it's a real choice rather than a default."},"moto"));
-     else out.push(cite({t:"under",msg:"Every state except Florida requires liability insurance on a motorcycle, and you said yours isn't separately insured. An auto or home policy doesn't cover it on the road."},"moto"));
-   }
-   if(rv&&v.covered==="No") out.push(cite({t:"info",msg:"A motorhome needs its own liability policy that meets "+sn+"'s auto minimums. A towable trailer is usually covered for damage it causes by your tow vehicle's policy, but not for damage to the trailer itself."},"rv"));
-   if(ebike&&v.covered==="No") out.push(cite({t:"info",msg:"A home or renters policy may cover an e-bike while it's at home, but often not while you're riding it, and usually with a low cap. Whether a separate policy makes sense depends on what yours is worth."},"ebike"));
-   return out;
-  }},
- life:{name:"Life",premiumDefault:0,
-  fields:[
-   {key:"faceAmount",label:"Face amount",type:"money",def:250000},
-   {key:"source",label:"Source",type:"select",opts:[["employer","Through work"],["personal","Personal policy"],["both","Both"]],def:"employer"},
-   {key:"term",label:"Type",type:"select",opts:[["term","Term"],["whole","Whole/permanent"]],def:"term"},
-   {key:"premium",label:"Annual premium",type:"money",def:0}
-  ],
-  findings:function(v,q){
-   var out=[];
-   if(v.source==="employer") out.push({t:"under",msg:"You said someone relies on your income, and this is employer-only. That kind of coverage usually ends the day the job does, and rarely transfers automatically to a new employer."});
-   if(v.faceAmount<500000) out.push({t:"under",msg:"You said someone relies on your income. A common starting point is 10x income; this is worth comparing against your household's actual number."});
-   return out;
-  }},
- disability:{name:"Disability",premiumDefault:0,
-  fields:[
-   {key:"hasLTD",label:"Long-term disability coverage",type:"yesno",def:"Yes"},
-   {key:"percent",label:"Percent of income replaced",type:"percent",def:60},
-   {key:"monthlyCap",label:"Monthly benefit cap",type:"money",def:6000},
-   {key:"premium",label:"Annual premium",type:"money",def:0}
-  ],
-  findings:function(v,q){
-   var out=[];
-   var di=STATE_DI[S.state],sn=stateName(S.state);
-   if(v.hasLTD==="No"&&di) out.push(cite({t:"under",msg:"You said someone relies on your income, and there's no long-term disability coverage. "+sn+"'s "+di.name+" would pay "+(di.amt?di.amt+" for ":"for ")+di.dur+", and then stop. A disability that lasts longer than that is exactly what long-term coverage is for."},di.src));
-   else if(v.hasLTD==="No") out.push({t:"under",msg:"You said someone relies on your income, and there's no long-term disability coverage on file. If you couldn't work for a year, nothing here replaces that income."});
-   else if(di) out.push(cite({t:"info",msg:sn+"'s "+di.name+" covers the first stretch of a disability ("+di.dur+"). Check that your long-term policy's waiting period isn't longer than that, or there's a gap in the middle where neither pays."},"ltdGap"));
-   if(v.hasLTD==="Yes"&&v.percent<60) out.push({t:"under",msg:"You said someone relies on your income. This replaces less than the typical 60% most long-term disability plans target."});
-   return out;
-  }},
- lifecheck:{name:"Life insurance",premiumDefault:0,
-  fields:[
-   {key:"hasLife",label:"Do you currently have any life insurance?",type:"yesno",def:"No"},
-   {key:"premium",label:"Annual premium",type:"money",def:0}
-  ],
-  findings:function(v,q){
-   var out=[];
-   if(v.hasLife==="Yes"&&v.premium>0) out.push({t:"over",msg:"You said no one relies on your income. $"+v.premium.toLocaleString()+" a year in life insurance may be covering a need you no longer have, worth a second look before the next renewal."});
-   else if(v.hasLife==="Yes") out.push({t:"info",msg:"You said no one relies on your income but still carry a policy. Whether to keep it is a personal call, not a coverage gap."});
-   return out;
-  }}
-};
-
-var S={state:"",a:{},extras:[],i:0,q:{},p:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};
-var stage=document.getElementById("stage"),bar=document.getElementById("bar");
-
-function buildQueue(){
-  var q=[],iq=[],a=S.a;
-  if(a.veh&&a.veh!=="0") q.push("auto");
-  if(a.home==="Own"||a.home==="Both") q.push("home");
-  if(a.home==="Rent"||a.home==="Both") q.push("renters");
-  if(S.extras.length) q.push("powersports");
-  if(a.dep==="Yes"){iq.push("life");iq.push("disability")}
-  else if(a.dep==="No"){iq.push("lifecheck")}
-  S.queue=q; S.incomeQueue=iq;
-}
-function allPolicies(){ return S.queue.concat(S.incomeQueue) }
-function order(){
-  buildQueue();
-  return BASE.concat(S.queue.map(function(x){return "p:"+x}),["umbrella"],S.incomeQueue.map(function(x){return "p:"+x}),["summary"]);
-}
-function screenLabel(id){
-  if(id.indexOf("p:")===0) return POLICY[id.slice(2)].name;
-  return {home:"Welcome",tenure:"Own or rent",dep:"Income",veh:"Vehicles",toys:"Anything else with a motor",insight:"First look",qualify:"A few quick checks",umbrella:"Umbrella",summary:"Summary"}[id];
-}
-function fieldVal(pid,f){ if(S.p[pid]===undefined) S.p[pid]={}; if(S.p[pid][f.key]===undefined) S.p[pid][f.key]=f.def; return S.p[pid][f.key]; }
-function visibleFields(pid){ return POLICY[pid].fields.filter(function(f){return !f.show||f.show()}) }
-function pValues(pid){
-  var out={}; visibleFields(pid).forEach(function(f){out[f.key]=fieldVal(pid,f)}); return out;
-}
-
-function go(n){ S.times.push({s:screenLabel(order()[S.i]),t:(Date.now()-S.t0)/1000}); S.t0=Date.now(); S.i=n; render(); }
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-function opts(key,list,hint){
-  return '<div class="opts">'+list.map(function(o){
-    return '<button class="opt'+(S.a[key]===o?' sel':'')+'" data-q="'+key+'" data-v="'+o+'">'+o+(hint&&hint[o]?'<small>'+hint[o]+'</small>':'')+'</button>';
+function usMap(){
+  return '<div class="usmap" role="group" aria-label="Choose your state">'+GRID.map(function(t){
+    return '<button style="grid-column:'+(t.x+1)+';grid-row:'+(t.y+1)+'" class="'+(t.key===S.state?'sel':'')+'" data-state="'+t.key+'" aria-label="'+STATE_NAMES[t.key]+'">'+t.key+'</button>';
   }).join("")+'</div>';
 }
-function back(){return S.i>0?'<button class="link" data-act="back">Back</button>':'<span></span>'}
 
-function insightsList(){
-  var a=S.a,out=[];
-  if(a.home==="Own"||a.home==="Both"){
-    if(S.q.cushion==="Yes") out.push({t:"over",msg:"You can cover a $2,500 surprise, so you can probably afford to raise your deductible. Most people never do: only 31% review their insurance every year, and nearly half only look after a price hike, or never.",src:"Big “I” / Trusted Choice survey",url:"https://www.independentagent.com/news/only-3-in-10-americans-review-insurance-annually-often-waiting-until-problems-arise/"});
-    else out.push({t:"ok",msg:"Deductibles are commonly set once at purchase and rarely revisited: only 31% of Americans review any insurance annually. Since you said $2,500 isn't sitting in savings right now, a low deductible is probably right for you.",src:"Big “I” / Trusted Choice survey",url:"https://www.independentagent.com/news/only-3-in-10-americans-review-insurance-annually-often-waiting-until-problems-arise/"});
-    out.push({t:"info",msg:"Standard homeowners policies exclude flood damage everywhere, regardless of whether your home is in a mapped flood zone. Coverage takes a separate policy, through the National Flood Insurance Program or a private insurer. This isn't a claim about your risk, just how the policy is written.",src:"FEMA",url:"https://www.fema.gov/flood-insurance"});
-    out.push({t:"info",msg:"Water and sewer backup is excluded from standard homeowners policies by default. It typically takes its own endorsement, costing $30-$70 a year. We'll help you check whether yours already has it.",src:"Policygenius",url:"https://www.policygenius.com/homeowners-insurance/what-is-water-backup-coverage/"});
-  }
-  if(a.home==="Rent"||a.home==="Both"){
-    out.push({t:"info",msg:"A landlord's policy protects the building. It does not cover a tenant's belongings or personal liability, whatever your own renters policy looks like.",src:"National Association of Insurance Commissioners",url:"https://content.naic.org/article/consumer-insight-renting-your-home-protect-your-belongings-renters-insurance"});
-  }
-  if(a.dep==="Yes"){
-    out.push({t:"info",msg:"If your life insurance is only through an employer, it typically ends, or must be converted at a higher cost, the day the job does. Whether that applies to you depends on which kind you have, and we'll ask you that in a minute.",src:"Life Happens",url:"https://lifehappens.org/blog/4-things-you-probably-dont-know-about-your-life-insurance-at-work/"});
-  }
-  if(a.dep==="No"){
-    out.push({t:"info",msg:"51% of American adults hold some form of life insurance, and ownership is closely tied to having dependents who rely on your income. This is general context, not a claim about what you currently hold.",src:"LIMRA 2025 Insurance Barometer Study",url:"https://www.limra.com/siteassets/newsroom/liam/2025/2025_facts_about_life_insurance.pdf"});
-  }
-  if(a.veh&&a.veh!=="0"){
-    if(S.q.health==="Yes"&&NOFAULT.indexOf(S.state)>-1) out.push({t:"info",msg:"You have health insurance, and "+stateName(S.state)+" requires injury coverage on every auto policy, so you can't drop it. What you can do is ask your insurer to coordinate it with your health plan so it pays second, which usually lowers the price. We'll check that in a minute."});
-    else if(S.q.health==="Yes") out.push({t:"twice",msg:"You have health insurance, so this likely applies to you: auto medical payments coverage can pay for the same injury your health plan already covers. A September 2026 Massachusetts appeals court case addressed insurers preventing exactly that kind of duplicate payment.",src:"Insurance Journal",url:"https://www.insurancejournal.com/news/east/2026/09/15/885119.htm"});
-    else out.push({t:"ok",msg:"Auto medical payments coverage can duplicate a health plan for drivers who have one. Since you said you don't, yours is likely doing real work rather than overlapping anything.",src:"Insurance Journal",url:"https://www.insurancejournal.com/news/east/2026/09/15/885119.htm"});
-    if(S.q.roadsideAlt==="Yes") out.push({t:"twice",msg:"You already have roadside help through a club or card. If your auto policy also covers it, you're paying for the same tow twice. We'll help you check that in a minute."});
-  }
-  if(S.extras.some(function(x){return WATERCRAFT.indexOf(x)>-1})){
-    out.push(cite({t:"info",msg:"You told us you have a boat or jet ski. Most states don't require boat insurance the way they require auto insurance (Arkansas and Utah do, for jet skis and larger motorboats), and a homeowners policy typically pays only about $1,000 for a boat with no liability coverage for a jet ski. Whether that leaves a real gap depends on what you're actually carrying."},"boatHome"));
-  }
-  if(S.extras.indexOf("E-bike")>-1){
-    out.push({t:"info",msg:"You told us you have an e-bike. Some states classify a higher-powered one as a moped or motorcycle, which can require its own policy, and even where that doesn't apply, homeowners and renters coverage for e-bike theft or damage is inconsistent and often capped low.",src:"Policygenius",url:"https://www.policygenius.com/homeowners-insurance/does-homeowners-insurance-cover-bikes/"});
-  }
-  var RANK={twice:0,over:0,under:0,ok:1,info:2};
-  out.sort(function(a,b){return RANK[a.t]-RANK[b.t]});
-  return out;
-}
-
-function findingRow(x){
-  return '<div class="item"><span><span class="tag '+x.t+'">'+TAGNAME[x.t]+'</span></span><span>'+esc(x.msg)+(x.src?' <a class="src" href="'+x.url+'" target="_blank" rel="noopener">'+esc(x.src)+'</a>':'')+'</span></div>';
-}
-function money(n){return "$"+Math.round(n).toLocaleString()}
-function fieldRow(pid,f){
-  var v=fieldVal(pid,f),id="f_"+pid+"_"+f.key;
-  if(f.type==="select"){
-    return '<div class="field"><label for="'+id+'">'+f.label+'</label><select id="'+id+'" data-p="'+pid+'" data-k="'+f.key+'">'+
-      f.opts.map(function(o){return '<option value="'+o[0]+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>'}).join("")+'</select></div>';
-  }
-  if(f.type==="yesno"){
-    return '<div class="field"><label>'+f.label+'</label><div class="toggle">'+["Yes","No"].map(function(o){return '<button class="'+(v===o?'sel':'')+'" data-p="'+pid+'" data-k="'+f.key+'" data-v="'+o+'">'+o+'</button>'}).join("")+'</div></div>';
-  }
-  var pct=f.type==="percent";
-  return '<div class="field"><label for="'+id+'">'+f.label+'</label><div class="amt'+(pct?' pct':'')+'"><span>'+(pct?'%':'$')+'</span><input id="'+id+'" type="number" inputmode="numeric" min="0" '+(pct?'max="100" ':'')+'step="1" value="'+v+'" data-p="'+pid+'" data-k="'+f.key+'"></div></div>';
-}
-function listWords(a){ return a.length<2?a.join(""):a.slice(0,-1).join(", ")+(a.length>2?",":"")+" and "+a[a.length-1] }
-function policyReason(pid){
-  var n=S.a.veh==="1"?"1 vehicle":S.a.veh+" vehicles";
-  return {
-    auto:"You told us you have "+n+", so here's what we need for your auto policy.",
-    home:"You told us you own your home, so here's what we need for your home policy.",
-    renters:"You told us you rent, so here's what we need for your renters policy.",
-    powersports:"You told us you have "+listWords(S.extras.map(function(x){var w=x.toLowerCase();return (/^[aeiou]/.test(w)||w==="rv"?"an ":"a ")+w}))+", so here's what we need to check how "+(S.extras.length===1?"it's":"they're")+" covered.",
-    life:"You told us someone relies on your income, so here's what we need for your life insurance.",
-    disability:"You told us someone relies on your income, so here's what we need for your disability coverage.",
-    lifecheck:"You told us no one relies on your income, so we're just checking whether you're still paying for life insurance you may not need."
-  }[pid];
-}
-function policyScreen(pid){
-  var pol=POLICY[pid],v=pValues(pid),finds=pol.findings(v,S.q);
-  var ap=allPolicies();
-  var h='<h3 class="pt">Policy '+((ap.indexOf(pid))+1)+' of '+ap.length+'</h3>'+
-    '<h2>'+pol.name+' policy</h2><p class="sub">'+esc(policyReason(pid))+'</p>'+
-    '<div class="policy-grid"><div class="fields">'+visibleFields(pid).map(function(f){return fieldRow(pid,f)}).join("")+'</div>'+
-    '<div class="scanbox">'+
-      '<label class="ghost" for="cam_'+pid+'" tabindex="0">Take a photo</label><input id="cam_'+pid+'" class="scanfile" type="file" accept="image/*" capture="environment" data-p="'+pid+'" hidden>'+
-      '<label class="ghost" for="doc_'+pid+'" tabindex="0">Choose a file</label><input id="doc_'+pid+'" class="scanfile" type="file" accept="image/*,.pdf" data-p="'+pid+'" hidden>'+
-      (S.scanned[pid]?'<p class="scanned">"'+esc(S.scanned[pid])+'" added.</p><p class="small">This prototype does not read it yet, so the fields stay as you left them. Nothing is uploaded either way, reading would happen right here on the page.</p>'
-        :'<p class="small">Nothing is uploaded either way. Reading would happen right here on the page.</p>')+
-    '</div></div>'+
-    (finds.length?'<div><h3 class="pt">Worth a look</h3><div class="list">'+finds.map(findingRow).join("")+'</div></div>'
-      :'<div class="item" style="border:none;padding:0"><span><span class="tag ok">Looks right</span></span><span>Nothing stands out on this policy given what you have told us.</span></div>')+
-    '<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Continue</button></div>';
-  return h;
-}
-
+var openMore=false,openKnow=false,statusMsg="";
 function render(){
-  var id=order()[S.i],h="";
-  bar.style.width=(S.i/(order().length-1)*100)+"%";
-  if(id==="home"){
+  var o=order(); if(S.i>=o.length) S.i=o.length-1;
+  var id=o[S.i],h="";
+  bar.style.width=(S.i/(o.length-1)*100)+"%";
+  if(id==="start"){
     h=cacophony()+
-      '<h1>Your insurance has never been looked at as a whole. We built the thing that does.</h1>'+
-      '<p class="sub">No name, no email, no sales call. Just your own numbers, put together for once.</p>'+
-      '<h2>Which state are you in?</h2>'+
+      '<h1>Find the gaps and double-payments in your insurance.</h1>'+
+      '<p class="sub">About two minutes. No name, no email, no sales call.</p>'+
+      '<ol class="steps"><li>Answer a few quick questions.</li><li>Tap the insurance you have.</li><li>Get a short list of what to fix and what to ask.</li></ol>'+
+      '<p><b>You don\'t need your policies in front of you. Tap your state to start.</b></p>'+
       usMap()+
-      '<p><label class="link" for="st">Or pick from a list</label> <select id="st" aria-label="State"><option value=""'+(S.state===""?' selected':'')+'>Choose a state…</option>'+STATES_BY_NAME.map(function(s){return '<option value="'+s+'"'+(s===S.state?' selected':'')+'>'+STATE_NAMES[s]+'</option>'}).join("")+'</select></p>'+
-      '<div class="row spread foot">'+back()+'<button class="primary" data-act="next"'+(S.state?'':' disabled')+'>Get started</button></div>';
+      '<p><label class="link" for="st">Or pick from a list</label> <select id="st" aria-label="State"><option value="">Choose a state…</option>'+STATES_BY_NAME.map(function(s){return '<option value="'+s+'"'+(s===S.state?' selected':'')+'>'+STATE_NAMES[s]+'</option>'}).join("")+'</select></p>'+
+      '<p class="small">General information, not insurance advice. We\'re not an agent or broker. Nothing you enter leaves this page unless you share it.</p>';
   }
-  if(id==="tenure"){
-    h='<h2>Do you own or rent your home?</h2>'+opts("home",["Own","Rent","Both"])+
-      '<div class="row spread foot">'+back()+'</div>';
+  if(id==="home"){
+    h='<h2>Do you own or rent your home?</h2>'+single("home",[["Own","Own"],["Rent","Rent"],["Neither","Neither"]],S.home)+
+      '<p class="why">Owners and renters need different coverage.</p><div class="row foot">'+back()+'</div>';
   }
   if(id==="dep"){
-    h='<h2>Does anyone rely on your income?</h2><p class="sub">A partner, kids, a parent. A yes or no is all we need.</p>'+opts("dep",["Yes","No"])+
-      '<div class="row spread foot">'+back()+'</div>';
+    h='<h2>Does anyone rely on your income?</h2><p class="sub">A partner, kids, or a parent you help support.</p>'+single("dep",[["Yes","Yes"],["No","No"]],S.dep)+
+      '<p class="why">This decides whether life and disability coverage matter for you.</p><div class="row foot">'+back()+'</div>';
   }
-  if(id==="veh"){
-    h='<h2>How many vehicles in your household?</h2>'+opts("veh",["0","1","2","3+"],{"2":"Most common"})+
-      '<div class="row spread foot">'+back()+'</div>';
+  if(id==="car"){
+    h='<h2>Do you have a car, truck, or van?</h2>'+single("car",[["Yes","Yes"],["No","No"]],S.car)+
+      '<p class="why">If you drive, we\'ll check your auto policy.</p><div class="row foot">'+back()+'</div>';
   }
-  if(id==="toys"){
-    h='<h2>Anything else with a motor?</h2><p class="sub">Boat, jet ski, RV, motorcycle. Tap all that apply.</p>'+
-      '<div class="chips">'+
-        '<button class="chip'+(S.extras.length===0?' sel':'')+'" data-x="__none">None of these</button>'+
-        EXTRAS.map(function(x){return '<button class="chip'+(S.extras.indexOf(x)>-1?' sel':'')+'" data-x="'+x+'">'+x+'</button>'}).join("")+
-      '</div>'+
+  if(id==="motor"){
+    h='<h2>Anything else with a motor?</h2><p class="sub">Tap all that apply.</p>'+
+      '<div class="chips">'+EXTRAS.map(function(x){var on=inList(S.extras,x);return '<button class="chip'+(on?' sel':'')+'" aria-pressed="'+on+'" data-x="'+x+'">'+x+'</button>'}).join("")+
+      '<button class="chip" data-x="__none">None of these</button></div>'+
+      '<p class="why">These are often less covered than people think.</p>'+
+      '<div class="row spread foot">'+back()+(S.extras.length?'<button class="primary" data-act="next">Continue</button>':'')+'</div>';
+  }
+  if(id==="have"){
+    h='<h2>Which of these do you have?</h2><p class="sub">Tap only the ones you\'re sure about.</p>'+
+      '<div class="chips">'+haveList().map(function(x){var on=!!S.have[x[0]];return '<button class="chip'+(on?' sel':'')+'" aria-pressed="'+on+'" data-have="'+x[0]+'">'+esc(x[1])+'</button>'}).join("")+
+      '<button class="chip" data-have="__none">None of these</button></div>'+
+      '<p class="why">This is how we spot coverage you\'re missing or paying for twice.</p>'+
       '<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Continue</button></div>';
   }
-  if(id==="insight"){
-    var ins=insightsList();
-    h='<h2>Based on what you told us</h2>'+
-      '<div class="list">'+ins.map(findingRow).join("")+'</div>'+
-      '<p class="sub">One page turns any of these into an exact dollar amount.</p>'+
-      '<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Check my '+POLICY[allPolicies()[0]].name+' policy</button></div>';
+  if(id==="cushion"){
+    h='<h2>Could you pay a $2,500 surprise bill from savings today?</h2>'+single("cushion",[["Yes","Yes"],["No","No"]],S.cushion)+
+      '<p class="why">This tells us whether your deductibles fit your savings.</p><div class="row foot">'+back()+'</div>';
   }
-  if(id==="qualify"){
-    var relevant=QUAL.filter(function(qq){return qq.id!=="roadsideAlt" || (S.a.veh&&S.a.veh!=="0")});
-    var done=relevant.every(function(qq){return S.q[qq.id]});
-    h='<h2>A few easy ones</h2><p class="sub">These answers help us help you. Once you add a policy, we’ll turn them into real dollar amounts. We only ask these once.</p>'+
-      relevant.map(function(qq){var choices=qq.unsure?["Yes","No","Not sure"]:["Yes","No"];var qtext=typeof qq.q==="function"?qq.q():qq.q;return '<div class="qrow"><p>'+qtext+'</p><div class="yn2">'+choices.map(function(o){return '<button class="'+(S.q[qq.id]===o?'sel':'')+'" data-qual="'+qq.id+'" data-v="'+o+'">'+o+'</button>'}).join("")+'</div></div>'}).join("")+
-      '<div class="row spread foot">'+back()+'<button class="primary" data-act="next"'+(done?'':' disabled')+'>Continue</button></div>';
+  if(id==="assets"){
+    h='<h2>'+(owns()?'If you sold your home today and added your savings, would it come to more than $300,000?':'Do you have more than $300,000 in savings and retirement accounts?')+'</h2>'+
+      single("assets",[["Yes","Yes"],["No","No"],["ns","Not sure"]],S.assets)+
+      '<p class="why">The more you own, the more a lawsuit could take.</p><div class="row foot">'+back()+'</div>';
   }
-  if(id.indexOf("p:")===0){
-    h=policyScreen(id.slice(2));
+  if(id==="auto") h=policyScreen("Your auto policy",MEMO,autoQs());
+  if(id==="home1"){var hq=homeQs(); h=policyScreen("Your home policy",MEMO,homeSplit()?hq.slice(0,2):hq)}
+  if(id==="home2") h=policyScreen("A few more about your home",'<p class="sub">'+esc(stateName(S.state))+' has '+(inList(WINDSTATES,S.state)?'hurricane':'earthquake')+' rules that change what you\'d pay.</p>',homeQs().slice(2));
+  if(id==="toys"){
+    var names=S.extras.map(lc),title="Your "+listWords(names);
+    h=policyScreen(title.charAt(0)+title.slice(1),'<p class="sub">Home and auto policies cover very little of these. "Not sure" is fine.</p>',toyQs());
   }
-  if(id==="umbrella"){
-    var hasAuto=S.p.auto,hasHome=S.p.home;
-    var uv=S.p.umbrella||(S.p.umbrella={hasUmbrella:"No",limit:1000000});
-    var floorGap=(hasAuto&&hasAuto.liability<=100)||(hasHome&&hasHome.liability<=300);
-    h='<h2>Umbrella</h2><p class="sub">No new document needed. This just compares what you already told us about your liability limits and your assets.</p>'+
-      '<div class="field"><label>Do you carry an umbrella policy?</label><div class="toggle">'+["Yes","No"].map(function(o){return '<button class="'+(uv.hasUmbrella===o?'sel':'')+'" data-umb="hasUmbrella" data-v="'+o+'">'+o+'</button>'}).join("")+'</div></div>';
-    var uf=[];
-    if(S.q.assets300==="Not sure"){
-      uf.push({t:"info",msg:"You weren't sure whether your savings and home would clear $300,000. Once you are, this screen can say whether an umbrella is worth it."});
-    } else {
-      if(uv.hasUmbrella==="No"&&S.q.assets300==="Yes") uf.push({t:"under",msg:"You said your savings and home would clear $300,000, and you don't carry an umbrella. Your auto and home liability limits are the only ceiling on a lawsuit, and given what you have, that ceiling looks low."});
-      if(uv.hasUmbrella==="Yes"&&floorGap) uf.push({t:"under",msg:"Umbrella policies usually require underlying auto and home liability limits to meet a floor. One of yours looks below that floor, which can mean a gap the umbrella never actually covers."});
-      if(uv.hasUmbrella==="No"&&S.q.assets300==="No") uf.push({t:"ok",msg:"You said your savings and home wouldn't clear $300,000. An umbrella usually isn't the priority at that level."});
-      if(uv.hasUmbrella==="Yes"&&!floorGap) uf.push({t:"ok",msg:"Your underlying auto and home limits look consistent with a typical umbrella requirement."});
-    }
-    h+=(uf.length?'<div class="list">'+uf.map(findingRow).join("")+'</div>':'');
-    h+='<div class="row spread foot">'+back()+'<button class="primary" data-act="next">Continue</button></div>';
+  if(id==="results"){
+    var all=findings();
+    var main=all.filter(function(f){return f.g!=="know"}),know=all.filter(function(f){return f.g==="know"});
+    var front=main.slice(0,SHOW_UP_FRONT),rest=main.slice(SHOW_UP_FRONT);
+    var cl=countLine(all);
+    h='<div class="results"><h2>Your checkup</h2>'+(cl?'<p class="sub">'+esc(cl)+'</p>':'')+
+      (main.length?grouped(front):know.length?'<p>Nothing urgent to fix. Here\'s what\'s worth knowing.</p>':'<p>Nothing stood out from your answers. If things change, like buying a car or a home, run the checkup again.</p>')+
+      (rest.length?'<details class="more"'+(openMore?' open':'')+' data-d="more"><summary>Show '+rest.length+' more</summary><div class="stack">'+grouped(rest)+'</div></details>':'')+
+      (know.length?'<details'+(openKnow||!main.length?' open':'')+' data-d="know"><summary>Good to know ('+know.length+')</summary><div class="stack">'+know.map(findHTML).join("")+'</div></details>':'')+
+      '<div class="actions"><button data-act="share">Share my list</button><button data-act="copy">Copy my list</button><button data-act="print">Print my list</button></div>'+
+      '<p class="status" role="status">'+esc(statusMsg)+'</p>'+
+      '<div class="row spread noprint">'+back()+'<button class="link" data-act="restart">Start over</button></div>'+
+      '<p class="small">General information, not insurance advice. We\'re not an agent or broker.</p></div>';
   }
-  if(id==="summary"){
-    var over=0,twice=0,under=0;
-    allPolicies().forEach(function(pid){POLICY[pid].findings(pValues(pid),S.q).forEach(function(r){if(r.t==="over")over++;if(r.t==="twice")twice++;if(r.t==="under")under++})});
-    var uv=S.p.umbrella;
-    if(uv&&S.q.assets300!=="Not sure"){ if(uv.hasUmbrella==="No"&&S.q.assets300==="Yes") under++; if(uv.hasUmbrella==="Yes"&&((S.p.auto&&S.p.auto.liability<=100)||(S.p.home&&S.p.home.liability<=300))) under++; }
-    var secs=Math.round((Date.now()-S.start)/1000);
-    var ap=allPolicies();
-    h='<h2>Your coverage, checked</h2>'+
-      '<div class="totals"><div class="total over"><b>'+over+'</b><span>'+(over===1?'place':'places')+' you may be overspending</span></div>'+
-      '<div class="total twice"><b>'+twice+'</b><span>'+(twice===1?'thing':'things')+' likely paid for twice</span></div>'+
-      '<div class="total under"><b>'+under+'</b><span>'+(under===1?'gap':'gaps')+' in protection</span></div></div>'+
-      '<p>Checked '+ap.length+' '+(ap.length===1?'policy':'policies')+' plus umbrella. '+S.taps+' taps, '+secs+' seconds. We still do not know your name.</p>'+
-      '<p class="sub">Add a real declarations page any time to replace these sample numbers with yours.</p>'+
-      '<div class="row spread foot"><button class="link" data-act="restart">Start over</button><span></span></div>';
-  }
-  stage.innerHTML=h; known(); tele();
-}
-function known(){
-  var rows=[["State",S.state],["Home",S.a.home||"?"],["Relies on income",S.a.dep||"?"],["Vehicles",S.a.veh||"?"]];
-  if(S.extras.length) rows.push(["Also",S.extras.join(", ")]);
-  var ap=allPolicies();
-  if(ap.length) rows.push(["Policies checked",ap.filter(function(p){return S.p[p]}).length+" / "+ap.length]);
-  document.getElementById("known").innerHTML=rows.map(function(r){return "<dt>"+r[0]+"</dt><dd>"+esc(r[1])+"</dd>"}).join("");
+  stage.innerHTML=h;
+  if(DEBUG) tele();
 }
 function tele(){
-  document.getElementById("tele").innerHTML=S.times.length?S.times.map(function(x){return "<tr><td>"+esc(x.s)+"</td><td>"+x.t.toFixed(1)+"s</td></tr>"}).join(""):"<tr><td>No screens completed yet</td><td></td></tr>";
+  document.getElementById("debug").hidden=false;
+  var total=(Date.now()-S.start)/1000;
+  document.getElementById("tele").innerHTML=S.times.map(function(x){return "<tr><td>"+esc(x.s)+"</td><td>"+x.t.toFixed(1)+"s</td></tr>"}).join("")+"<tr><td><b>Total so far</b></td><td><b>"+total.toFixed(1)+"s</b></td></tr>";
 }
+
+function go(n){
+  var o=order(); S.times.push({s:o[S.i],t:(Date.now()-S.t0)/1000}); S.t0=Date.now();
+  S.i=Math.max(0,Math.min(n,order().length-1)); statusMsg=""; render(); window.scrollTo(0,0);
+}
+var moving=false;
+function advance(){if(moving)return;moving=true;setTimeout(function(){moving=false;go(S.i+1)},160)}
+
+function copyText(t){
+  if(navigator.clipboard&&window.isSecureContext) return navigator.clipboard.writeText(t);
+  return new Promise(function(res,rej){
+    var ta=document.createElement("textarea");ta.value=t;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy")?res():rej()}catch(e){rej(e)}
+    document.body.removeChild(ta);
+  });
+}
+function setStatus(m){statusMsg=m;var el=stage.querySelector(".status");if(el)el.textContent=m}
+function doCopy(){copyText(shareText(findings())).then(function(){setStatus("Copied. Paste it anywhere.")},function(){setStatus("Couldn't copy on this device. Try Print instead.")})}
+
 stage.addEventListener("click",function(e){
   var b=e.target.closest("button"); if(!b) return;
-  if(b.dataset.state){S.state=b.dataset.state;S.taps++;render();return}
-  if(b.dataset.q){S.a[b.dataset.q]=b.dataset.v;S.taps++;
-    setTimeout(function(){go(S.i+1)},140); return}
+  if(b.dataset.state){S.state=b.dataset.state;render();advance();return}
+  if(b.dataset.set){
+    var k=b.dataset.set,v=b.dataset.v,prev=S[k];S[k]=v;
+    if(k==="home"&&prev!==v) S.have={};
+    if(k==="dep"&&v==="No") delete S.have.dis;
+    if(k==="car"&&v==="No"){delete S.have.club;delete S.ans.collDed;delete S.ans.roadside}
+    render();advance();return}
   if(b.dataset.x){
-    S.taps++;
-    if(b.dataset.x==="__none"){S.extras=[];setTimeout(function(){go(S.i+1)},140);return}
-    var k=S.extras.indexOf(b.dataset.x);k>-1?S.extras.splice(k,1):S.extras.push(b.dataset.x);
+    if(b.dataset.x==="__none"){S.extras=[];advance();return}
+    var i=S.extras.indexOf(b.dataset.x);i>-1?S.extras.splice(i,1):S.extras.push(b.dataset.x);
+    S.extras.sort(function(p,q){return EXTRAS.indexOf(p)-EXTRAS.indexOf(q)});
     render();return}
-  if(b.dataset.qual){S.q[b.dataset.qual]=b.dataset.v;S.taps++;render();return}
-  if(b.dataset.umb){S.p.umbrella[b.dataset.umb]=b.dataset.v;S.taps++;render();return}
-  if(b.dataset.p&&b.dataset.k){ // yesno field toggle button
-    if(S.p[b.dataset.p]===undefined)S.p[b.dataset.p]={};
-    S.p[b.dataset.p][b.dataset.k]=b.dataset.v;S.taps++;render();return}
+  if(b.dataset.have){
+    if(b.dataset.have==="__none"){S.have={};render();advance();return}
+    var hk=b.dataset.have;S.have[hk]=!S.have[hk];
+    if(hk==="rentMine"&&S.have.rentMine) S.have.rentOther=false;
+    if(hk==="rentOther"&&S.have.rentOther) S.have.rentMine=false;
+    render();return}
+  if(b.dataset.ans){
+    var av=b.dataset.num==="true"?Number(b.dataset.v):b.dataset.v;
+    S.ans[b.dataset.ans]=S.ans[b.dataset.ans]===av?undefined:av;
+    var y=window.scrollY;render();window.scrollTo(0,y);return}
   var act=b.dataset.act;
   if(act==="back") go(S.i-1);
   if(act==="next") go(S.i+1);
-  if(act==="restart"){S={state:S.state,a:{},extras:[],i:0,q:{},p:{},scanned:{},queue:null,taps:0,times:[],t0:Date.now(),start:Date.now()};render()}
+  if(act==="restart"){S=fresh(S.state);openMore=openKnow=false;render();window.scrollTo(0,0)}
+  if(act==="copy") doCopy();
+  if(act==="share"){
+    var t=shareText(findings());
+    if(navigator.share) navigator.share({title:"My insurance checkup",text:t}).catch(function(err){if(err&&err.name!=="AbortError") doCopy()});
+    else doCopy();
+  }
+  if(act==="print"){
+    stage.querySelectorAll("details").forEach(function(d){d.open=true});
+    window.print();
+  }
 });
+stage.addEventListener("toggle",function(e){
+  if(e.target.dataset&&e.target.dataset.d==="more") openMore=e.target.open;
+  if(e.target.dataset&&e.target.dataset.d==="know") openKnow=e.target.open;
+},true);
 stage.addEventListener("change",function(e){
-  if(e.target.id==="st"){S.state=e.target.value;render()}
-  if(e.target.classList&&e.target.classList.contains("scanfile")){
-    if(e.target.files&&e.target.files[0]){S.scanned[e.target.dataset.p]=e.target.files[0].name;S.taps++;render()}
-    return;
-  }
-  if(e.target.dataset&&e.target.dataset.p&&e.target.dataset.k){
-    var pid=e.target.dataset.p,k=e.target.dataset.k,f=POLICY[pid].fields.find(function(x){return x.key===k});
-    var val=e.target.value; if(f.type==="select") val=Number(val); else if(f.type!=="yesno") val=Number(val)||0;
-    if(S.p[pid]===undefined)S.p[pid]={}; S.p[pid][k]=val; render();
-  }
+  if(e.target.id==="st"&&e.target.value){S.state=e.target.value;go(1)}
 });
-stage.addEventListener("input",function(e){
-  if(e.target.tagName==="INPUT"&&e.target.dataset.p){
-    var pid=e.target.dataset.p,k=e.target.dataset.k;
-    if(S.p[pid]===undefined)S.p[pid]={}; S.p[pid][k]=Number(e.target.value)||0;
-  }
-});
-stage.addEventListener("keydown",function(e){
-  if(e.target.tagName==="LABEL"&&e.target.htmlFor&&(e.key==="Enter"||e.key===" ")){
-    e.preventDefault();
-    var input=document.getElementById(e.target.htmlFor);
-    if(input) input.click();
-  }
-});
+window.addEventListener("afterprint",function(){render()});
 render();
 })();
 </script>

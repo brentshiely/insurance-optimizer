@@ -1,9 +1,12 @@
 # Coverage Check
 
-A tap-and-go wizard that shows where a household may be overspending, underprotected, or paying twice across auto, home, renters, life, and disability insurance. No PII is collected and nothing leaves the browser.
+A two-minute checkup that finds gaps and double-payments in a household's insurance and ends with a short list of what to fix, where to save, and what to ask an agent. Answers come from memory: no documents, no PII, and nothing leaves the browser unless the person shares their list.
 
 - `public/index.html` is the whole app: vanilla HTML/CSS/JS, no build step. This is the source of truth.
-- `coverage-check-wizard-handoff.md` is the product spec and principles. Read it before changing findings copy or logic.
+- `docs/screen-wording.md` is the approved copy for every screen and result.
+- `docs/experience-proposal.md` explains the flow and the content rules.
+- `coverage-check-wizard-handoff.md` holds the product principles. Read it before changing findings copy or logic.
+- Add `?debug` to the URL to see seconds per screen and total time.
 
 ## Run locally
 

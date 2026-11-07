@@ -1,6 +1,6 @@
 # Coverage Check: screen-by-screen wording
 
-Nov 7, 2026. Draft for review. Layout and conversion choices are agreed; the wording itself is still open for markup. Nothing here is built. Mark up anything: words, order, choices.
+Nov 7, 2026. Approved and built in `public/index.html`. Mark up anything: words, order, choices.
 
 How to read this:
 
@@ -101,7 +101,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 **Q:** Could you pay a $2,500 surprise bill from savings today?
 **Choices:** Yes · No
 **Why:** This tells us whether your deductibles fit your savings.
-**Shown when:** You have a car, or home or renters insurance.
+**Shown when:** You have a car or home insurance. (Renters skip it: no renters result uses the answer.)
 
 ---
 
@@ -191,6 +191,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 - The top five items show up front, highest priority first. The rest sit behind "Show [4] more."
 - Empty groups don't appear.
 - If nothing needs fixing: "Nothing urgent to fix. Here's what's worth knowing."
+- If there's nothing at all: "Nothing stood out from your answers. If things change, like buying a car or a home, run the checkup again."
 
 **Each item:**
 - **Headline** (bold)
@@ -242,9 +243,9 @@ Brackets are filled from the person's answers.
 4. **Your life insurance ends with your job.** Someone relies on your income, and your only life insurance is through work. That coverage usually ends when the job does. *Price a term life policy of your own.* (Life Happens)
 5. **No life insurance, and someone relies on you.** You said someone relies on your income and didn't mark any life insurance. *Price a term life policy.*
 6. **Nothing replaces your pay if you can't work.** Someone relies on your income, and you didn't mark disability insurance. [Minnesota Paid Leave pays up to $1,423 a week for up to 12 weeks, then stops.] *Ask your employer about long-term disability coverage, or price a policy of your own.* (State program source, when one applies)
-7. **Your lawsuit protection may be low.** You said what you own comes to more than $300,000, and you didn't mark an umbrella policy. *Ask your agent what $1 million of umbrella coverage costs.* (Source to add)
+7. **Your lawsuit protection may be low.** You said what you own comes to more than $300,000, and you didn't mark an umbrella policy. *Ask your agent what $1 million of umbrella coverage costs.* (Insurance Information Institute)
 8. **Your landlord's insurance doesn't cover your things.** You rent and didn't mark renters insurance. A landlord's policy covers the building, not your belongings or your liability. *Get a renters insurance quote.* (NAIC)
-9. **You may not be covered by that renters policy.** You said it's in someone else's name. *Ask to be added to it by name, or get your own.* (Source to add)
+9. **You may not be covered by that renters policy.** You said it's in someone else's name. A roommate or partner usually isn't covered unless they're named on the policy. *Ask to be added to it by name, or get your own.* (Insurance Information Institute)
 10. **Your home has no insurance.** You own your home and didn't mark home insurance. *Get a home insurance quote.*
 11. **Sewer backup isn't covered.** You said your home policy doesn't cover it. It's left out of most policies unless you add it, usually for $30 to $70 a year. *Ask your agent to add water backup coverage.* (Policygenius)
 12. **A storm could cost you [$8,000] first.** Your [2%] hurricane deductible on a home worth about [$400,000] is about [$8,000], and you said a $2,500 surprise would be hard. *Ask about a lower hurricane deductible.* (Florida Dept. of Financial Services / Insurance Information Institute) *If you said you could cover a $2,500 surprise, the same dollar figure shows under Good to know instead.*
@@ -255,7 +256,7 @@ Brackets are filled from the person's answers.
 
 ### Could save
 
-17. **Your deductibles may be lower than you need.** You picked a [$500] [collision] deductible and said you could cover a $2,500 surprise. *Get a quote with a higher deductible and compare the price.* (Source to add)
+17. **Your deductibles may be lower than you need.** You picked a [$500] [collision] deductible and said you could cover a $2,500 surprise. *Get a quote with a higher deductible and compare the price.* (Insurance Information Institute)
 18. **You may not need that life policy.** You said no one relies on your income, and you have life insurance of your own. *Check whether you still need it before it renews.*
 
 ### Paying twice
@@ -271,7 +272,7 @@ Each is phrased as the question to ask.
 22. **What is my hurricane deductible in dollars?** In [Florida], it's usually 2% to 10% of your coverage. On a home worth about [$400,000], that's [$8,000] to [$40,000]. (Florida Dept. of Financial Services)
 23. **Is my uninsured motorist coverage as high as my liability coverage?** You drive. This pays for your injuries when the other driver has no insurance, and more than 1 in 7 drivers had none in 2023. [Minnesota requires it but lets you pick the amount.] (Insurance Research Council via III)
 24. **Do I need medical payments coverage if I have health insurance?** You have health insurance. Auto "med pay" can cover the same injuries. *(Not shown in no-fault states, where #29 shows instead.)* (Insurance Journal)
-25. **Do my auto and home limits meet my umbrella's minimums?** You have an umbrella policy. Most require certain limits underneath, or there's a gap it won't cover. (Source to add)
+25. **Do my [auto and home] limits meet my umbrella's minimums?** You have an umbrella policy. Most insurers want about [$250,000 of auto and $300,000 of home] liability underneath, or there's a gap it won't cover. (Insurance Information Institute)
 26. **Is my [boat] covered, and for how much?** You weren't sure. A home policy usually pays about $1,000 for boat damage. (ValuePenguin)
 27. **Does my boat policy pay agreed value or actual cash value?** Actual cash value subtracts wear and age from a total-loss payout. Agreed value doesn't. (Insurance Information Institute)
 28. **Am I on [plan name]?** You weren't sure. [Plan name] covers less than a regular policy. (Plan source)
@@ -288,7 +289,7 @@ Each is phrased as the question to ask.
 
 ### Dropped from today's version
 
-- **Unsourced savings estimates**, like "typically saves $80 to $100 a year." They break the citation rule. Items 7, 9, 17, and 25 need a real source before launch. I'll find one for each during the build.
+- **Unsourced savings estimates**, like "typically saves $80 to $100 a year." They break the citation rule. Items 7, 9, 17, and 25 now cite the Insurance Information Institute.
 - **"10 times your income" for life insurance.** It's unsourced, and we don't ask income.
 - **Every limit question:** liability limits, uninsured motorist limits, med pay limits, percent of income replaced. People can't answer these from memory. They now come back as "Ask your agent" items.
 - **Annual premium questions.** No result used them.
