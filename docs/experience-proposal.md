@@ -38,7 +38,7 @@ Measured on a phone, for a Minnesota homeowner with kids, two cars, and a boat:
 One flow, no optional extras. The recommendations come from the user's answers about each policy they have, so every policy they checked gets its own short screen.
 
 1. **Start.** "Find the gaps and double-payments in your insurance." Three short lines on how it works. One button. Disclaimer in small print.
-2. **About your household:** state, own or rent, does anyone rely on your income, how many vehicles, anything else with a motor.
+2. **About your household**, one question per screen, auto-advancing on tap: state, own or rent, does anyone rely on your income, how many vehicles, anything else with a motor.
 3. **Which of these do you have?** One checklist, tap all that apply: auto, home, renters, umbrella, life through work, life on your own, disability through work, boat or powersports policy, AAA or similar, health insurance.
 4. **One short screen per policy checked.** Two to four tap questions, answerable from memory:
    - Nothing is pre-selected. Every question offers **Not sure**.
@@ -77,5 +77,5 @@ No uploads, photos, or document reading, now or as a later add-on to this protot
 ## Open decisions
 
 1. ~~Structure~~: agreed Nov 7, 2026. One flow with one short screen per policy (see above).
-2. Keep one question per screen for the household step, or put all five on one screen?
+2. ~~Household layout~~: agreed Nov 7, 2026. One question per screen, auto-advancing, no Continue button.
 3. Should the checkup offer a printable version, or is "copy my list" enough?
