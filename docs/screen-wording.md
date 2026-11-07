@@ -1,6 +1,6 @@
 # Coverage Check: screen-by-screen wording
 
-Nov 7, 2026. Draft for review. Nothing here is built. Mark up anything: words, order, choices.
+Nov 7, 2026. Draft for review. Layout and conversion choices are agreed; the wording itself is still open for markup. Nothing here is built. Mark up anything: words, order, choices.
 
 How to read this:
 
@@ -297,7 +297,7 @@ Each is phrased as the question to ask.
 
 ---
 
-## Conversion choices for you to decide (one at a time)
+## Conversion choices (all decided Nov 7, 2026)
 
 1. ~~Start screen asks for your state~~: agreed Nov 7, 2026. Start and the state map are one screen.
 2. ~~Car question~~: agreed Nov 7, 2026. Yes or no, not a count.
@@ -305,4 +305,4 @@ Each is phrased as the question to ask.
 4. ~~Money questions~~: agreed Nov 7, 2026. Each gets its own single-tap screen (7 and 8).
 5. ~~Heavy home screen~~: agreed Nov 7, 2026. Split in two wherever the home screen would have four or more questions.
 6. ~~Last-resort plan question~~: agreed Nov 7, 2026. Asked only in California, Florida, Texas, and Louisiana.
-7. **"About two minutes" on the start screen.** I'll time it in the build and change it if it's not true.
+7. ~~Time estimate~~: agreed Nov 7, 2026. Keep it, time a light case (renter, no car) and a heavy case (Florida homeowner with a boat) in the build, and use the number that holds for most people.
