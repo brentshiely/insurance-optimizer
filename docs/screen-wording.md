@@ -52,7 +52,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 
 ---
 
-## 4. Car ⚠️
+## 4. Car
 
 **Q:** Do you have a car, truck, or van?
 **Choices:** Yes · No
@@ -298,7 +298,7 @@ Each is phrased as the question to ask.
 ## Conversion choices for you to decide (one at a time)
 
 1. ~~Start screen asks for your state~~: agreed Nov 7, 2026. Start and the state map are one screen.
-2. **"Do you have a car?" instead of "How many vehicles?"** No result uses the count, so yes or no is one easier tap.
+2. ~~Car question~~: agreed Nov 7, 2026. Yes or no, not a count.
 3. **Auto insurance assumed, not asked.** It saves a tap. The cost is that we can't catch the rare driver with no insurance.
 4. **Savings and "what you own" as their own single-tap screens (7 and 8).** That's two extra screens, but each is one tap, and the policy screens get shorter.
 5. **The home screen in hurricane states can have five questions.** In Florida: deductible, sewer backup, home value, hurricane deductible, and Citizens. That's the heaviest screen in the flow. The option is to split it in two in those states.
