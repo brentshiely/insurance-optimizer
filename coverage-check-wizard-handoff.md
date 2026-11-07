@@ -3,6 +3,8 @@
 Sep 19, 2026 · Brent Shiely
 
 > **Status as of Sep 19, 2026.** The only valid code is `public/index.html` in this repo, deployed to Cloudflare Pages at https://coverage-check.pages.dev (project `coverage-check`, `npm run deploy`). The earlier offline file this document originally described is retired and will not be recovered. Several items in "Architecture as it exists today" describe that retired version and are **not yet in the current code**; they are called out inline below and belong on the build list in "What to build, in order".
+>
+> **No documents (decided Nov 7, 2026).** This prototype takes no documents of any kind: no upload, no photo, no document reading. Users answer from memory only. The document-extraction plan below is withdrawn, and the upload/photo buttons in the current code are to be removed. See `docs/experience-proposal.md` for how the questions change as a result.
 
 ## What this is
 
@@ -15,7 +17,7 @@ The prototype lives in a single self-contained file: `coverage-check-wizard.html
 These came from direct, repeated, emphatic feedback during development. Do not relax any of them without asking first:
 
 1. **No PII, ever.** No name, address, or email is collected at any point. State is the only location signal, picked explicitly by the user (tappable map or dropdown) — never inferred from IP or any other passive signal.
-2. **Nothing leaves the browser.** All computation is client-side. No network calls carry user-entered data anywhere. Document/photo processing, when built for real, must happen in-browser (see "Document extraction" below) — a server-side vision-LLM fallback is allowed only as an explicit, separately-consented exception, never the default path.
+2. **Nothing leaves the browser.** All computation is client-side. No network calls carry user-entered data anywhere. (This prototype also takes no documents at all; see the status note above.)
 3. **Every objective claim needs a citation.** Any statement about "households like yours," state requirements, industry norms, or typical figures must be backed by a real, checkable third-party source (state DOI, NAIC, a named study, a named industry publication) with a link, not an invented statistic. The prototype currently sources: NAIC (hurricane deductibles), USGS via III.org (earthquake risk states), the Missouri Dept. of Commerce and Insurance (New Madrid zone), Experian and a WA Insurance Commissioner order via Consumer Reports (credit-scoring rules), The Standard's 2026 state disability/PFML reference guide, AgentSync (state insurer-of-last-resort list), SkiSafe (boat insurance state mandates and ACV vs. agreed value), Matic (homeowners' boat coverage sublimits), and the California Earthquake Authority and California FAIR Plan directly. **Before shipping to real users, re-verify the highest-dollar-impact claims (CEA deductible math, boat liability minimums) against primary regulator sources directly** — several of the above are reputable secondary sources, not primary filings.
 4. **Population facts are not personal accusations.** A generic "people like you often..." statement is FUD if it isn't actually computed from the user's own answers. The tag system enforces this: `over` / `under` / `twice` / `ok` are reserved for findings genuinely derived from what the user entered; `info` is for true-but-neutral state/population facts that aren't claims about this specific user.
 5. **Plain language throughout.** No insurance jargon, no internal/UI language leaking into copy ("home equity," "next screen," "generic patterns" have all been explicitly rejected in review). Every question should read like a friend asking, not a form.
@@ -40,7 +42,9 @@ These came from direct, repeated, emphatic feedback during development. Do not r
 
 **Fake / placeholder — needs real work before shipping:**
 
-### Document / photo extraction (highest priority — explicitly flagged as needed next)
+### Document / photo extraction (withdrawn Nov 7, 2026: no documents in this prototype)
+Kept for history only. Do not build any of this. The upload and photo buttons are to be removed, not wired up.
+
 The upload and "take a photo" buttons on each policy screen currently only capture a filename and display it; the underlying field values remain sample/editable data. The UI is honest about this (`"This prototype does not read it yet"`), but that honesty is also a dead end for a real user who tries to use the feature.
 
 Build order, as discussed and agreed:
@@ -56,7 +60,7 @@ Whatever gets extracted should pre-fill the relevant policy's fields (dwelling c
 - **No legal/advice disclaimer anywhere in the UI.** Before real users see this, it needs plain-language framing that this is informational, not insurance advice, and the tool is not a licensed agent or broker.
 - **Citation verification pass.** Several sources are reputable secondary aggregators rather than primary regulatory filings — re-verify before treating dollar figures as authoritative, especially the CEA earthquake deductible math and the boat insurance state minimums.
 - **Roadside assistance finding** doesn't yet distinguish free credit-card roadside benefits (e.g., a card that includes it standard) from pay-per-use ones (most cards) — flagged during development, never fixed.
-- **Single-file architecture** should probably be split into a proper multi-file project once PDF.js/Tesseract.js get added, for maintainability.
+- **Single-file architecture** may be worth splitting into multiple files as it grows, for maintainability.
 - **Mobile testing** — the map and sticky footer were designed with mobile tap-targets in mind, but this has not been tested on real devices, only reasoned about.
 
 ## What to build, in order
@@ -65,7 +69,7 @@ Proposed sequence for the online version, to be confirmed with Brent before each
 
 1. **State-driven findings and the unbuilt pieces of the "Architecture" section**: the state data tables (wind deductible, earthquake/CEA and New Madrid with real dollar math, FAIR Plan / last resort, SDI states, credit-scoring rules, UM-mandatory, boat mandates), the `powersports` policy, the full-name state dropdown, and `src`/`url` citations on per-policy findings. This is the personalization backbone the rest sits on.
 2. **Plain-language disclaimer** (informational, not advice, not a licensed agent). Small, and must exist before real users.
-3. **Document extraction**, PDF.js first, Tesseract.js fallback, all in-browser (see below).
+3. ~~Document extraction~~ (withdrawn Nov 7, 2026: no documents in this prototype; users answer from memory).
 4. **Missing coverage types**: flood (NFIP), scheduled valuables, landlord/rental-dwelling.
 5. Opt-in local persistence, roadside credit-card nuance, multi-file split, real-device mobile pass.
 

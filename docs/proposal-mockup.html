@@ -40,9 +40,9 @@ p{margin:0}
 .chk{border:1.5px solid var(--line);border-radius:999px;padding:8px 12px;font-size:14px}
 .chk.on{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
 .group{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
-.group.gap{color:var(--gap)} .group.save{color:var(--save)} .group.twice{color:var(--twice)} .group.know{color:var(--know)}
+.group.gap{color:var(--gap)} .group.save{color:var(--save)} .group.twice{color:var(--twice)} .group.know{color:var(--know)} .group.ask{color:var(--accent)}
 .find{border-left:3px solid var(--line);padding:2px 0 2px 12px;display:flex;flex-direction:column;gap:3px}
-.find.gap{border-color:var(--gap)} .find.save{border-color:var(--save)} .find.twice{border-color:var(--twice)}
+.find.gap{border-color:var(--gap)} .find.save{border-color:var(--save)} .find.twice{border-color:var(--twice)} .find.ask{border-color:var(--accent)}
 .find b{font-size:15px}
 .find .todo{font-size:14px}
 .find .todo::before{content:"What to do: ";font-weight:700}
@@ -53,7 +53,7 @@ p{margin:0}
 .idk{display:flex;gap:8px;margin-top:6px}
 .idk span{border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px}
 .hint{font-size:12px;color:var(--muted);margin-top:4px}
-.confirmed{background:var(--gap-bg);color:var(--gap);border-radius:10px;padding:10px 12px;font-size:14px}
+.confirmed{background:var(--save-bg);color:var(--save);border-radius:10px;padding:10px 12px;font-size:14px}
 .notes{max-width:1240px;margin:28px auto 0;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
 .note b{display:block;margin-bottom:4px}
@@ -105,7 +105,7 @@ p{margin:0}
     <p class="cap">5 · Your checkup</p>
     <div class="phone">
       <h2>Your checkup</h2>
-      <p class="sub">Based on your answers: 3 things to fix and 1 way to save.</p>
+      <p class="sub">Based on your answers: 3 things to fix, 1 way to save, and 1 question to ask.</p>
 
       <p class="group gap">Fix first</p>
       <div class="find gap">
@@ -133,30 +133,34 @@ p{margin:0}
         <span class="todo">Look for "roadside" on your auto bill and drop it.</span>
       </div>
 
+      <p class="group ask">Ask your agent</p>
+      <div class="find ask">
+        <b>Does my home policy cover sewer backup?</b>
+        <span>You own your home. Most policies leave sewer backup out unless you add it, and it's a common basement claim.</span>
+      </div>
+
       <div class="collapsed"><span>Good to know (2)</span><span>Show</span></div>
       <div class="btn">Copy my list for my agent</div>
-      <div class="btn alt">Get exact dollar amounts</div>
+      <div class="btn alt">Answer a few more about one policy</div>
     </div>
   </div>
 
   <div>
-    <p class="cap">6 · Exact numbers (optional)</p>
+    <p class="cap">6 · More about one policy (optional)</p>
     <div class="phone">
-      <p class="step">Checking: Home</p>
-      <h2>Your home policy</h2>
-      <p class="sub">Fill in what you know. Skip anything you don't. We only use numbers you enter.</p>
-      <div class="field">
-        <label>How much would it cost to rebuild your home?</label>
-        <div class="input">$ e.g. 400,000</div>
-        <div class="idk"><span>I don't know</span></div>
-        <p class="hint">On your declarations page as "Dwelling" or "Coverage A."</p>
-      </div>
+      <p class="step">Your home policy</p>
+      <h2>What do you know about it?</h2>
+      <p class="sub">Answer from memory. "Not sure" is a fine answer. It becomes a question for your agent.</p>
       <div class="field">
         <label>What's your deductible?</label>
-        <div class="input">$ e.g. 1,000</div>
-        <div class="idk"><span>I don't know</span></div>
+        <div class="checks"><span class="chk">$500</span><span class="chk on">$1,000</span><span class="chk">$2,500</span><span class="chk">$5,000+</span><span class="chk">Not sure</span></div>
       </div>
-      <div class="confirmed"><b>Confirmed:</b> a $1,000 deductible is low for someone who could cover a $2,500 surprise. Raising it usually lowers your premium.</div>
+      <div class="field">
+        <label>Does it cover water backing up from a drain?</label>
+        <div class="checks"><span class="chk">Yes</span><span class="chk">No</span><span class="chk on">Not sure</span></div>
+        <p class="hint">Added to your questions for your agent.</p>
+      </div>
+      <div class="confirmed"><b>Could save:</b> you picked a $1,000 deductible and said you could cover a $2,500 surprise. A higher deductible usually lowers your premium.</div>
       <div style="flex:1"></div>
       <div class="btn">Update my checkup</div>
     </div>
@@ -165,7 +169,8 @@ p{margin:0}
 
 <div class="notes">
   <div class="note"><b>What changes</b>14 screens become 9. About 1,450 words of reading becomes about 400. 34 answers become about 12 taps.</div>
-  <div class="note"><b>The rule that matters most</b>We never show a number as yours unless you typed it. Today's pre-filled sample values go away.</div>
+  <div class="note"><b>The rule that matters most</b>We never show a number as yours unless you picked it. Today's pre-filled sample values go away.</div>
+  <div class="note"><b>No documents, ever</b>Everything comes from what you know off the top of your head. "Not sure" turns into a question for your agent instead of a guess.</div>
   <div class="note"><b>The payoff</b>One list at the end, with what to do and where the fact comes from, plus a copy button for a call with your agent.</div>
 </div>
 </body>
