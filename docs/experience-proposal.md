@@ -35,12 +35,12 @@ Measured on a phone, for a Minnesota homeowner with kids, two cars, and a boat:
 
 ## The experience (agreed Nov 7, 2026)
 
-One flow, no optional extras. The recommendations come from the user's answers about each policy they have, so every policy they checked gets its own short screen.
+One flow, no optional extras. The recommendations come from the user's answers. A plain progress bar shows how close they are to done.
 
 1. **Start.** "Find the gaps and double-payments in your insurance." Three short lines on how it works. One button. Disclaimer in small print.
 2. **About your household**, one question per screen, auto-advancing on tap: state, own or rent, does anyone rely on your income, how many vehicles, anything else with a motor.
 3. **Which of these do you have?** One checklist, tap all that apply: auto, home, renters, umbrella, life through work, life on your own, disability through work, boat or powersports policy, AAA or similar, health insurance.
-4. **One short screen per policy checked.** Two to four tap questions, answerable from memory:
+4. **A short screen only for policies whose answers change the result** (agreed Nov 7, 2026): auto, home or renters, and boat or powersports. Life and disability through work, health insurance, and AAA get no screen; checking the box is enough to produce their findings. Each screen has two to four tap questions, answerable from memory:
    - Nothing is pre-selected. Every question offers **Not sure**.
    - Findings are computed **only** from answers the user picked.
    - Dollar math uses the user's own pick and says so, for example "a 2% storm deductible on the $400,000 you picked is about $8,000."
@@ -51,7 +51,7 @@ One flow, no optional extras. The recommendations come from the user's answers a
    - Every item has the same four parts: a plain headline, why it applies ("You said..."), what to do, and the source.
    - Action: **Copy my list for my agent** (plain text, nothing sent anywhere).
 
-Length depends on what the user has: someone with auto and renters sees two policy screens, someone with five policies sees five. The savings come from asking less on each screen, not from skipping screens.
+Length depends on what the user has. The Minnesota example (auto, home, boat, life and disability through work) is 11 screens, most of them single taps. The savings come from asking less on each screen, not from skipping screens.
 
 No uploads, photos, or document reading, now or as a later add-on to this prototype.
 
@@ -78,4 +78,4 @@ No uploads, photos, or document reading, now or as a later add-on to this protot
 
 1. ~~Structure~~: agreed Nov 7, 2026. One flow with one short screen per policy (see above).
 2. ~~Household layout~~: agreed Nov 7, 2026. One question per screen, auto-advancing, no Continue button.
-3. Should the checkup offer a printable version, or is "copy my list" enough?
+3. Should the results offer a printable version, or is "copy my list" enough?
