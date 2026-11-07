@@ -14,7 +14,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 
 ---
 
-## 1. Start (also asks for your state) ⚠️
+## 1. Start (also asks for your state)
 
 **Headline:** Find the gaps and double-payments in your insurance.
 
@@ -297,7 +297,7 @@ Each is phrased as the question to ask.
 
 ## Conversion choices for you to decide (one at a time)
 
-1. **Start screen asks for your state.** Merging Start and the state map saves a screen, and the first tap gets people going. The cost is a longer first screen on phones.
+1. ~~Start screen asks for your state~~: agreed Nov 7, 2026. Start and the state map are one screen.
 2. **"Do you have a car?" instead of "How many vehicles?"** No result uses the count, so yes or no is one easier tap.
 3. **Auto insurance assumed, not asked.** It saves a tap. The cost is that we can't catch the rare driver with no insurance.
 4. **Savings and "what you own" as their own single-tap screens (7 and 8).** That's two extra screens, but each is one tap, and the policy screens get shorter.
