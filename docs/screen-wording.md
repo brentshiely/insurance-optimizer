@@ -161,7 +161,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 **Q:** Is your home insured through [plan name]?
 **Choices:** Yes · No · Not sure
 **Why:** [Plan name] covers less than a regular policy.
-**Shown when:** California (California FAIR Plan), Florida (Citizens), Texas (TWIA), and Louisiana (Louisiana Citizens). ⚠️
+**Shown when:** California (California FAIR Plan), Florida (Citizens), Texas (TWIA), and Louisiana (Louisiana Citizens).
 
 ---
 
@@ -304,5 +304,5 @@ Each is phrased as the question to ask.
 3. ~~Auto insurance~~: agreed Nov 7, 2026. Assumed for anyone with a car, not asked.
 4. ~~Money questions~~: agreed Nov 7, 2026. Each gets its own single-tap screen (7 and 8).
 5. ~~Heavy home screen~~: agreed Nov 7, 2026. Split in two wherever the home screen would have four or more questions.
-6. **The last-resort plan question only in CA, FL, TX, and LA.** 33 states have a plan, but only these four produce a specific, high-dollar result. Asking everywhere adds a question most people answer "No."
+6. ~~Last-resort plan question~~: agreed Nov 7, 2026. Asked only in California, Florida, Texas, and Louisiana.
 7. **"About two minutes" on the start screen.** I'll time it in the build and change it if it's not true.
