@@ -49,7 +49,7 @@ One flow, no optional extras. The recommendations come from the user's answers. 
    - **Fix first** (gaps), **Could save money**, **Paying twice**, **Ask your agent** (from "Not sure" answers), and a collapsed **Good to know**.
    - Five items or fewer shown up front.
    - Every item has the same four parts: a plain headline, why it applies ("You said..."), what to do, and the source.
-   - Action: **Copy my list for my agent** (plain text, nothing sent anywhere).
+   - Actions (agreed Nov 7, 2026): **Share my list** as the one full-width main button (opens the phone's share menu), with **Copy** and **Print** as smaller links beneath it. Plain text, and the page sends nothing anywhere.
 
 Length depends on what the user has. The Minnesota example (auto, home, boat, life and disability through work) is 11 screens, most of them single taps. The savings come from asking less on each screen, not from skipping screens.
 
@@ -78,4 +78,4 @@ No uploads, photos, or document reading, now or as a later add-on to this protot
 
 1. ~~Structure~~: agreed Nov 7, 2026. One flow with one short screen per policy (see above).
 2. ~~Household layout~~: agreed Nov 7, 2026. One question per screen, auto-advancing, no Continue button.
-3. Should the results offer a printable version, or is "copy my list" enough?
+3. ~~Keeping the results~~: agreed Nov 7, 2026. Share, copy, and print, with Share as the main button.
