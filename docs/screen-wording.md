@@ -131,7 +131,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 
 ---
 
-## 10. Your home policy ⚠️
+## 10. Your home policy
 
 **Shown when:** You tapped Home insurance.
 **Heading:** Your home policy
@@ -144,6 +144,8 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 **Q:** Does it cover water backing up from a drain or sewer?
 **Choices:** Yes · No · Not sure
 **Why:** Most policies leave it out unless you add it.
+
+**Split:** Wherever this screen would have four or more questions, the last three (home value, hurricane deductible, plan) move to a second screen headed **Storms and your home**, with the sub "A few more about your home, because storm deductibles here work differently."
 
 **Q:** About what is your home worth?
 **Choices:** $250,000 · $400,000 · $600,000 · $800,000 · $1 million or more · Not sure
@@ -301,6 +303,6 @@ Each is phrased as the question to ask.
 2. ~~Car question~~: agreed Nov 7, 2026. Yes or no, not a count.
 3. ~~Auto insurance~~: agreed Nov 7, 2026. Assumed for anyone with a car, not asked.
 4. ~~Money questions~~: agreed Nov 7, 2026. Each gets its own single-tap screen (7 and 8).
-5. **The home screen in hurricane states can have five questions.** In Florida: deductible, sewer backup, home value, hurricane deductible, and Citizens. That's the heaviest screen in the flow. The option is to split it in two in those states.
+5. ~~Heavy home screen~~: agreed Nov 7, 2026. Split in two wherever the home screen would have four or more questions.
 6. **The last-resort plan question only in CA, FL, TX, and LA.** 33 states have a plan, but only these four produce a specific, high-dollar result. Asking everywhere adds a question most people answer "No."
 7. **"About two minutes" on the start screen.** I'll time it in the build and change it if it's not true.
