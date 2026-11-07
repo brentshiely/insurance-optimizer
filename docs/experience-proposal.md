@@ -33,31 +33,27 @@ Measured on a phone, for a Minnesota homeowner with kids, two cars, and a boat:
 5. **Internal language leaks.** "Prototype telemetry: this is the drop-off instrument," "Editable sample data," "Policy 1 of 4," "11 taps, 50 seconds." Tags like "Overspending" read as accusations.
 6. **No disclaimer, no next step, no way to keep the result.**
 
-## The proposed experience
+## The experience (agreed Nov 7, 2026)
 
-Two tiers. **Tier 1** gives a useful answer in about two minutes using only things people know off the top of their head. **Tier 2** is optional: a few more memory questions about one policy at a time, to turn a general item into a specific one with a dollar figure.
-
-### Tier 1: the checkup (about 2 minutes, no documents)
+One flow, no optional extras. The recommendations come from the user's answers about each policy they have, so every policy they checked gets its own short screen.
 
 1. **Start.** "Find the gaps and double-payments in your insurance." Three short lines on how it works. One button. Disclaimer in small print.
-2. **About you**, one tap per screen, auto-advancing: state, own or rent, does anyone rely on your income, how many vehicles, anything else with a motor.
-3. **What do you already have?** One checklist screen, tap all that apply: auto, home, renters, umbrella, life through work, life on your own, disability through work, boat or powersports policy, AAA or similar, health insurance. People know this without looking anything up, and it drives most of the high-value findings.
-4. **Two money questions**, each with a one-line reason: could you cover a $2,500 surprise today, and would your savings plus home come to more than $300,000.
-5. **Your checkup.** One prioritized list on one screen:
+2. **About your household:** state, own or rent, does anyone rely on your income, how many vehicles, anything else with a motor.
+3. **Which of these do you have?** One checklist, tap all that apply: auto, home, renters, umbrella, life through work, life on your own, disability through work, boat or powersports policy, AAA or similar, health insurance.
+4. **One short screen per policy checked.** Two to four tap questions, answerable from memory:
+   - Nothing is pre-selected. Every question offers **Not sure**.
+   - Findings are computed **only** from answers the user picked.
+   - Dollar math uses the user's own pick and says so, for example "a 2% storm deductible on the $400,000 you picked is about $8,000."
+   - Shared money questions (could you cover a $2,500 surprise, savings plus home over $300,000) are asked once, on the first policy screen that needs them.
+5. **Your results.** One prioritized list on one screen:
    - **Fix first** (gaps), **Could save money**, **Paying twice**, **Ask your agent** (from "Not sure" answers), and a collapsed **Good to know**.
    - Five items or fewer shown up front.
    - Every item has the same four parts: a plain headline, why it applies ("You said..."), what to do, and the source.
-   - Actions: **Copy my list for my agent** (plain text, nothing sent anywhere) and **Answer a few more about one policy**.
+   - Action: **Copy my list for my agent** (plain text, nothing sent anywhere).
 
-That's 9 screens and about 12 taps to a result a person can act on.
+Length depends on what the user has: someone with auto and renters sees two policy screens, someone with five policies sees five. The savings come from asking less on each screen, not from skipping screens.
 
-### Tier 2: more about one policy (optional, from memory)
-
-- Two to four tap questions per policy, nothing selected to start. Every question offers **Not sure**.
-- Findings are computed **only** from answers the user picked. Nothing pre-selected is ever treated as theirs.
-- Dollar math uses the user's own pick and says so, for example "a 2% storm deductible on the $400,000 you picked is about $8,000."
-- When a policy is done, its checkup items get more specific, and each "Not sure" adds a question under **Ask your agent**.
-- No uploads, photos, or document reading, now or as a later add-on to this prototype.
+No uploads, photos, or document reading, now or as a later add-on to this prototype.
 
 ## Content rules
 
@@ -73,13 +69,13 @@ That's 9 screens and about 12 taps to a result a person can act on.
 
 ## What happens to existing work
 
-- **State-driven findings** (wind, earthquake, last-resort plans, uninsured motorist, no-fault, state disability, boat mandates) all carry over. Most move into Tier 2 because they need a number from the user. Questions get rewritten as tap ranges people can answer from memory, for example storm deductible as "$1,000 / 1% / 2% / 5% / Not sure." The ones that don't, such as "your state requires boat liability and you said you have no boat policy," can fire in Tier 1.
+- **State-driven findings** (wind, earthquake, last-resort plans, uninsured motorist, no-fault, state disability, boat mandates) all carry over. They attach to the matching policy screen. Questions get rewritten as tap ranges people can answer from memory, for example storm deductible as "$1,000 / 1% / 2% / 5% / Not sure." Some need no number at all, such as "your state requires boat liability and you said you have no boat policy."
 - **The "first look" screen** goes away. Its content folds into the checkup.
 - **The sidebar** ("What we know" and telemetry) is removed from the public version. Telemetry can stay behind a `?debug` flag.
 - **Credit-scoring research** is done but parked. We can't personalize it without knowing someone's credit, so it would only add noise.
 
 ## Open decisions
 
-1. Approve the two-tier structure?
-2. Keep one question per screen for the "about you" step, or put all five on one screen?
+1. ~~Structure~~: agreed Nov 7, 2026. One flow with one short screen per policy (see above).
+2. Keep one question per screen for the household step, or put all five on one screen?
 3. Should the checkup offer a printable version, or is "copy my list" enough?
