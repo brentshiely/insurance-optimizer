@@ -49,7 +49,7 @@ One flow, no optional extras. The recommendations come from the user's answers. 
    - **Fix first** (gaps), **Could save money**, **Paying twice**, **Ask your agent** (from "Not sure" answers), and a collapsed **Good to know**.
    - Five items or fewer shown up front.
    - Every item has the same four parts: a plain headline, why it applies ("You said..."), what to do, and the source.
-   - Actions (agreed Nov 7, 2026): **Share my list**, **Copy my list**, and **Print my list** as three equally sized buttons. Share opens the phone's share menu. Plain text, and the page sends nothing anywhere.
+   - Actions (agreed Nov 7, 2026): **Share my list**, **Copy my list**, and **Print my list** as three equally sized buttons with an icon and one word each (Share, Copy, Print), floating at the bottom of the screen while the list is read (changed Nov 8, 2026). Share opens the phone's share menu. Plain text, and the page sends nothing anywhere.
 
 Length depends on what the user has. The Minnesota example (auto, home, boat, life and disability through work) is 11 screens, most of them single taps. The savings come from asking less on each screen, not from skipping screens.
 
@@ -78,4 +78,8 @@ No uploads, photos, or document reading, now or as a later add-on to this protot
 
 1. ~~Structure~~: agreed Nov 7, 2026. One flow with one short screen per policy (see above).
 2. ~~Household layout~~: agreed Nov 7, 2026. One question per screen, auto-advancing, no Continue button.
-3. ~~Keeping the results~~: agreed Nov 7, 2026. Share, copy, and print as three equally sized buttons.
+3. ~~Keeping the results~~: agreed Nov 7, 2026. Share, copy, and print as three equally sized buttons, floating icon buttons as of Nov 8, 2026.
+
+## Look (agreed Nov 8, 2026)
+
+Persona: the household organizer, the person who pays the bills and keeps track of the policies. Palette A, "paper and evergreen": warm off-white background, charcoal text, deep evergreen for buttons and links, muted brick for Fix first, amber for Could save. Chosen to feel calm and trustworthy without looking like an insurance company. All text passes WCAG AA in light and dark mode.

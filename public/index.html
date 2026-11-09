@@ -5,20 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="author" content="Brent Shiely">
 <meta name="description" content="Find the gaps and double-payments in your insurance. About two minutes. No name, no email, no sales call.">
+<meta name="theme-color" content="#FAF6EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171512" media="(prefers-color-scheme: dark)">
 <title>Coverage Check</title>
 <style>
+/* Palette A, "paper and evergreen": warm paper ground, charcoal ink, evergreen accent. */
 :root{
-  --ground:#F1F5F4; --surface:#FFFFFF; --ink:#14211E; --muted:#566864; --line:#D3DDDA;
-  --accent:#0B6B5D; --accent-ink:#FFFFFF; --accent-soft:#E0F0EC;
-  --fix:#A8322B; --fix-bg:#FBE4E1; --save:#9A6410; --save-bg:#FBF0DA;
-  --twice:#5546AE; --twice-bg:#EAE7FA; --ask:#0B6B5D; --know:#3E5C74; --know-bg:#E4ECF1;
+  --ground:#FAF6EF; --surface:#FFFDF8; --ink:#1F2A33; --muted:#5E6670; --line:#DDD4C6;
+  --accent:#1F5E45; --accent-ink:#FFFFFF; --accent-soft:#E4EFE7;
+  --fix:#9C3D2E; --fix-bg:#F6E3DC; --save:#8A5A12; --save-bg:#F5EAD3;
+  --twice:#5B4A9E; --twice-bg:#ECE8F5; --ask:#1F5E45; --know:#3F5566; --know-bg:#E8ECEE;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --ground:#0E1514; --surface:#172220; --ink:#E7EFEC; --muted:#9BAFAA; --line:#2B3A37;
-    --accent:#4DC2AE; --accent-ink:#06211C; --accent-soft:#16332E;
-    --fix:#F29088; --fix-bg:#3D1B18; --save:#F0BE62; --save-bg:#3A2C10;
-    --twice:#B3A8F5; --twice-bg:#272048; --ask:#4DC2AE; --know:#9CC3DE; --know-bg:#1B2E3B;
+    --ground:#171512; --surface:#201E1A; --ink:#EFEBE3; --muted:#A9A397; --line:#38342D;
+    --accent:#6FBF98; --accent-ink:#0D2419; --accent-soft:#1D3329;
+    --fix:#F0998A; --fix-bg:#3A1D17; --save:#E8B865; --save-bg:#36290F;
+    --twice:#B8ABF0; --twice-bg:#29233F; --ask:#6FBF98; --know:#A7C0D0; --know-bg:#1F2A31;
   }
 }
 *{box-sizing:border-box}
@@ -88,10 +91,14 @@ details>summary{cursor:pointer;font-weight:700;color:var(--know);list-style-posi
 details[open]>summary{margin-bottom:14px}
 details .stack{display:flex;flex-direction:column;gap:16px}
 .more>summary{color:var(--accent)}
-.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.actions button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px 8px;font-weight:700;font-size:15px}
-@media (max-width:440px){.actions{grid-template-columns:1fr}}
-.status{min-height:20px;font-size:14px;color:var(--accent);font-weight:600;text-align:center}
+/* Share/Copy/Print float at the bottom of the screen while the list is read, then settle under it. */
+.actions{position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 -26px;padding:10px 26px 12px;background:var(--surface);border-top:1px solid var(--line)}
+@media (max-width:480px){.actions{margin:0 -18px;padding:10px 18px 12px}}
+.actions button{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;background:var(--accent-soft);color:var(--accent);border:0;border-radius:10px;padding:7px 4px;font-weight:700;font-size:13px}
+.actions button:active{transform:scale(.97)}
+.actions svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.status{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);margin:0;width:max-content;max-width:calc(100% - 24px);text-align:center;font-size:14px;font-weight:600;color:var(--accent-ink);background:var(--accent);border-radius:999px}
+.status:not(:empty){padding:7px 14px}
 .results{display:flex;flex-direction:column;gap:18px}
 .debug{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:13px}
 .debug table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
@@ -577,8 +584,11 @@ function render(){
       (main.length?grouped(front):know.length?'<p>Nothing urgent to fix. Here\'s what\'s worth knowing.</p>':'<p>Nothing stood out from your answers. If things change, like buying a car or a home, run the checkup again.</p>')+
       (rest.length?'<details class="more"'+(openMore?' open':'')+' data-d="more"><summary>Show '+rest.length+' more</summary><div class="stack">'+grouped(rest)+'</div></details>':'')+
       (know.length?'<details'+(openKnow||!main.length?' open':'')+' data-d="know"><summary>Good to know ('+know.length+')</summary><div class="stack">'+know.map(findHTML).join("")+'</div></details>':'')+
-      '<div class="actions"><button data-act="share">Share my list</button><button data-act="copy">Copy my list</button><button data-act="print">Print my list</button></div>'+
-      '<p class="status" role="status">'+esc(statusMsg)+'</p>'+
+      '<div class="actions">'+
+        '<button data-act="share" aria-label="Share my list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>Share</button>'+
+        '<button data-act="copy" aria-label="Copy my list"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>Copy</button>'+
+        '<button data-act="print" aria-label="Print my list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 18H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/></svg>Print</button>'+
+        '<p class="status" role="status">'+esc(statusMsg)+'</p></div>'+
       '<div class="row spread noprint">'+back()+'<button class="link" data-act="restart">Start over</button></div>'+
       '<p class="small">General information, not insurance advice. We\'re not an agent or broker.</p></div>';
   }
@@ -607,7 +617,9 @@ function copyText(t){
     document.body.removeChild(ta);
   });
 }
-function setStatus(m){statusMsg=m;var el=stage.querySelector(".status");if(el)el.textContent=m}
+var statusTimer=0;
+function setStatus(m){statusMsg=m;var el=stage.querySelector(".status");if(el)el.textContent=m;clearTimeout(statusTimer);statusTimer=setTimeout(function(){setStatus.clear()},4000)}
+setStatus.clear=function(){statusMsg="";var el=stage.querySelector(".status");if(el)el.textContent=""};
 function doCopy(){copyText(shareText(findings())).then(function(){setStatus("Copied. Paste it anywhere.")},function(){setStatus("Couldn't copy on this device. Try Print instead.")})}
 
 stage.addEventListener("click",function(e){

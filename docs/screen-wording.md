@@ -199,7 +199,7 @@ Example used throughout: Minnesota homeowner, kids, a car, a boat, AAA, life ins
 - **What to do:** one action
 - **Source** link, when the item states a fact about insurance or a law
 
-**Buttons, three, equal size:** Share my list · Copy my list · Print my list
+**Buttons, three, equal size, icon plus one word:** Share · Copy · Print. They float at the bottom of the screen while the list is read and settle under it at the end. Screen readers hear "Share my list," "Copy my list," "Print my list." (Changed Nov 8, 2026.)
 **Under the buttons:** Start over
 **Small print:** General information, not insurance advice. We're not an agent or broker.
 
